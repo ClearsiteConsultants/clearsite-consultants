@@ -1,52 +1,58 @@
-import { CheckCircle, Clock, Award, Users, DollarSign } from "lucide-react";
+import { CheckCircle, Clock, Award, Users, DollarSign, Sparkles } from "lucide-react";
 
 const features = [
   {
-    icon: Clock,
-    title: "Fast Delivery",
-    description: "Most projects completed on schedule. We respect your timeline and keep you updated every step of the way."
-  },
-  {
     icon: DollarSign,
-    title: "Fair Pricing",
-    description: "Transparent costs with no surprise fees. We offer flexible packages to fit your business budget."
+    title: "Simple, Affordable Pricing",
+    description: "Low-cost flat-fee models with no surprise charges. Simple pricing for support and maintenance so you know exactly what you're paying."
   },
   {
     icon: Users,
-    title: "Industry Experts",
-    description: "Our team brings years of web development experience and stays current with latest technologies."
+    title: "Real People to Work With",
+    description: "Work directly with our team—no middlemen. We genuinely care about helping small businesses succeed, not just closing deals."
+  },
+  {
+    icon: Sparkles,
+    title: "Customization for Everyone",
+    description: "Whether you're tech-savvy or not, we help with the basics. Our quick and easy consulting makes complex technology simple."
+  },
+  {
+    icon: Award,
+    title: "Built for Small Business Growth",
+    description: "We understand your challenges. Our solutions are designed specifically to help small businesses establish, grow, and scale online affordably."
   }
 ];
 
 const benefits = [
-  "Transparent pricing with detailed proposals",
-  "Front-end design review before development",
-  "Mobile-optimized for all devices",
-  "SEO-friendly structure and markup",
-  "Ongoing support and maintenance included"
+  "Transparent, straightforward pricing—no hidden fees",
+  "Quick & easy consulting for non-technical people",
+  "Work directly with our team (real people, not bots!)",
+  "Flexible packages from websites to AI automation",
+  "Ongoing support and maintenance at affordable rates",
+  "Solutions that help your business grow"
 ];
 
 const WhyUs = () => {
   return (
     <section id="why-us" className="py-24 bg-secondary/30">
       <div className="container mx-auto px-6">
-        <div className="grid lg:grid-cols-2 gap-16 items-center">
+        <div className="grid lg:grid-cols-2 gap-16 items-start">
           {/* Left Column */}
           <div>
             <p className="text-primary font-medium mb-2 tracking-wider uppercase">Why Choose Us</p>
             <h2 className="font-display text-4xl md:text-6xl text-foreground mb-6">
-              PARTNERS IN YOUR{' '}
-              <span className="text-primary">GROWTH</span>
+              AFFORDABILITY MEETS{' '}
+              <span className="text-primary">EXPERTISE</span>
             </h2>
             <p className="text-muted-foreground text-lg mb-8">
-              We don't just build websites – we partner with small businesses to create digital solutions that drive real results. Our team understands the challenges facing growing companies and builds scalable, efficient websites that deliver measurable impact.
+              We're different. This isn't about fancy portfolios or high markups—it's about real people helping small businesses get affordable, custom technology solutions. We believe in simple pricing, genuine relationships, and technology that actually helps you grow.
             </p>
 
             {/* Benefits List */}
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="space-y-4">
               {benefits.map((benefit) => (
-                <div key={benefit} className="flex items-center gap-3">
-                  <CheckCircle className="w-5 h-5 text-primary flex-shrink-0" />
+                <div key={benefit} className="flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-primary flex-shrink-0 mt-1" />
                   <span className="text-foreground">{benefit}</span>
                 </div>
               ))}
@@ -56,7 +62,7 @@ const WhyUs = () => {
           {/* Right Column - Feature Cards */}
           <div className="space-y-6">
             {features.map((feature, index) => (
-              <div 
+              <div
                 key={feature.title}
                 className="flex gap-6 p-6 rounded-xl bg-card border border-border hover:border-primary/30 transition-all duration-300"
               >

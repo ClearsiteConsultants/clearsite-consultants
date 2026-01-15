@@ -1,35 +1,58 @@
-import { Code, ShoppingCart, Smartphone, Search, PenTool, LineChart } from "lucide-react";
+import { Code, ShoppingCart, Smartphone, Search, PenTool, LineChart, Zap, BarChart3, Lock, Briefcase, Bot, Calendar } from "lucide-react";
 
-const services = [
+const coreServices = [
   {
     icon: Code,
-    title: "Custom Website Development",
-    description: "Build fully custom websites tailored to your business needs, using modern technologies and best practices."
+    title: "Small Business Websites",
+    description: "Get your business on Google fast and easy. Professional, mobile-friendly websites optimized for search and built to help you grow."
   },
   {
     icon: ShoppingCart,
-    title: "E-Commerce Solutions",
-    description: "Set up and optimize online stores that convert visitors into customers with secure payment processing."
+    title: "E-Commerce & Payment",
+    description: "Sell online with secure payment systems. Premium add-on for websites with checkout, inventory management, and transaction security."
+  },
+  {
+    icon: Calendar,
+    title: "Online Scheduling",
+    description: "Let customers book appointments and services directly from your website. Perfect for service-based businesses."
   },
   {
     icon: Smartphone,
-    title: "Responsive Design",
-    description: "Beautiful, mobile-first designs that work seamlessly across all devices and screen sizes."
+    title: "Custom Mobile Apps",
+    description: "Stand out with custom iOS and Android apps built specifically for your business needs and budget."
   },
   {
-    icon: Search,
-    title: "SEO Optimization",
-    description: "Improve your online visibility with technical SEO, content optimization, and strategic keyword research."
+    icon: Briefcase,
+    title: "Windows & Mac Desktop Apps",
+    description: "Custom software applications for Windows or Mac to streamline your business operations and workflows."
   },
   {
-    icon: PenTool,
-    title: "UI/UX Design",
-    description: "Stunning user interfaces and intuitive experiences that keep visitors engaged and coming back."
+    icon: Zap,
+    title: "Quick & Easy Consulting",
+    description: "Need guidance on a technology challenge? Get expert consulting from real people who genuinely care about your success."
+  }
+];
+
+const aiAndAutomation = [
+  {
+    icon: Bot,
+    title: "Custom AI Agents & Bots",
+    description: "Intelligent assistants tailored to your business. Automate customer service, support, and internal processes."
+  },
+  {
+    icon: BarChart3,
+    title: "AI Automation & Lead Generation",
+    description: "Automate tedious business flows like email newsletters and marketing. Find and convert customers with smart lead generation tools."
+  },
+  {
+    icon: Lock,
+    title: "Self-Hosted Secure Services",
+    description: "Secure, self-hosted alternatives to popular tools (like Google Docs). Keep your data in your control."
   },
   {
     icon: LineChart,
-    title: "Performance & Maintenance",
-    description: "Keep your site fast, secure, and up-to-date with ongoing support and optimization."
+    title: "3rd Party Integrations & Marketing",
+    description: "Connect your website and tools with powerful integrations to enhance marketing, advertising, and customer reach."
   }
 ];
 
@@ -44,25 +67,54 @@ const Services = () => {
             OUR SERVICES
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Comprehensive web solutions designed to help small businesses establish and grow their online presence.
+            Custom technology solutions at affordable flat rates. From simple websites to AI automation, we help your business grow.
           </p>
         </div>
 
-        {/* Services Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {services.map((service, index) => (
-            <div 
-              key={service.title}
-              className="group p-8 rounded-xl gradient-card border border-border hover:border-primary/50 transition-all duration-300 hover:-translate-y-1"
-              style={{ animationDelay: `${index * 0.1}s` }}
-            >
-              <div className="w-14 h-14 rounded-lg bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary/20 group-hover:box-glow transition-all duration-300">
-                <service.icon className="w-7 h-7 text-primary" />
+        {/* Core Services */}
+        <div className="mb-20">
+          <div className="mb-12">
+            <h3 className="font-display text-3xl md:text-4xl text-foreground mb-2">Core Solutions</h3>
+            <p className="text-muted-foreground">Essential services for small businesses looking to establish and grow online</p>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {coreServices.map((service, index) => (
+              <div
+                key={service.title}
+                className="group p-8 rounded-xl gradient-card border border-border hover:border-primary/50 transition-all duration-300 hover:-translate-y-1"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className="w-14 h-14 rounded-lg bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary/20 group-hover:box-glow transition-all duration-300">
+                  <service.icon className="w-7 h-7 text-primary" />
+                </div>
+                <h3 className="font-display text-2xl text-foreground mb-3">{service.title}</h3>
+                <p className="text-muted-foreground leading-relaxed">{service.description}</p>
               </div>
-              <h3 className="font-display text-2xl text-foreground mb-3">{service.title}</h3>
-              <p className="text-muted-foreground leading-relaxed">{service.description}</p>
-            </div>
-          ))}
+            ))}
+          </div>
+        </div>
+
+        {/* AI & Advanced Services */}
+        <div>
+          <div className="mb-12">
+            <h3 className="font-display text-3xl md:text-4xl text-foreground mb-2">AI & Advanced Solutions</h3>
+            <p className="text-muted-foreground">Cutting-edge technology to automate processes and enhance your marketing reach</p>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {aiAndAutomation.map((service, index) => (
+              <div
+                key={service.title}
+                className="group p-8 rounded-xl gradient-card border border-border hover:border-primary/50 transition-all duration-300 hover:-translate-y-1"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className="w-14 h-14 rounded-lg bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary/20 group-hover:box-glow transition-all duration-300">
+                  <service.icon className="w-7 h-7 text-primary" />
+                </div>
+                <h3 className="font-display text-2xl text-foreground mb-3">{service.title}</h3>
+                <p className="text-muted-foreground leading-relaxed">{service.description}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>

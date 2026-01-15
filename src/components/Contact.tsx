@@ -9,7 +9,7 @@ const contactInfo = [
   {
     icon: MapPin,
     label: "Location",
-    value: "San Francisco, CA (Remote Available)"
+    value: "Eagle Mountain, UT (Remote Available)"
   },
   {
     icon: Phone,

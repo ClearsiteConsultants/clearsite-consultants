@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Globe, Menu, X } from "lucide-react";
+import { Rocket, Menu, X } from "lucide-react";
 import { useState } from "react";
 
 const Header = () => {
@@ -12,10 +12,10 @@ const Header = () => {
           {/* Logo */}
           <a href="#" className="flex items-center gap-2 group">
             <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center box-glow group-hover:box-glow-intense transition-all duration-300">
-              <Globe className="w-6 h-6 text-primary-foreground" />
+              <Rocket className="w-6 h-6 text-primary-foreground" />
             </div>
-            <span className="font-display text-2xl text-foreground tracking-wide">
-              CLEAR<span className="text-primary">SITE</span>
+            <span className="font-display text-lg text-foreground tracking-wide">
+              CLEAR SITE <span className="text-primary">CONSULTANTS</span>
             </span>
           </a>
 
@@ -29,11 +29,6 @@ const Header = () => {
             </a>
             <a href="#contact" className="text-muted-foreground hover:text-primary transition-colors font-medium">
               Contact
-            </a>
-            <a href="#contact">
-              <Button variant="outline" size="sm">
-                Book Now
-              </Button>
             </a>
           </nav>
 
@@ -57,11 +52,6 @@ const Header = () => {
             </a>
             <a href="#contact" className="text-muted-foreground hover:text-primary transition-colors font-medium py-2">
               Contact
-            </a>
-            <a href="#contact" className="w-full mt-2">
-              <Button variant="outline" className="w-full">
-                Book Now
-              </Button>
             </a>
           </nav>
         )}
