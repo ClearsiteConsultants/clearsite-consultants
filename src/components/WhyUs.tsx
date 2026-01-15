@@ -1,30 +1,29 @@
-import { CheckCircle, Clock, Award, Users } from "lucide-react";
+import { CheckCircle, Clock, Award, Users, DollarSign } from "lucide-react";
 
 const features = [
   {
-    icon: Award,
-    title: "EV Certified",
-    description: "Our technicians are specifically trained in electric vehicle systems and high-voltage safety."
+    icon: Clock,
+    title: "Fast Delivery",
+    description: "Most projects completed on schedule. We respect your timeline and keep you updated every step of the way."
   },
   {
-    icon: Clock,
-    title: "Fast Turnaround",
-    description: "Most repairs completed within 24-48 hours. We know you want to get back on the trail."
+    icon: DollarSign,
+    title: "Fair Pricing",
+    description: "Transparent costs with no surprise fees. We offer flexible packages to fit your business budget."
   },
   {
     icon: Users,
-    title: "Rider Owned",
-    description: "Founded by electric dirtbike enthusiasts who understand what riders need."
+    title: "Industry Experts",
+    description: "Our team brings years of web development experience and stays current with latest technologies."
   }
 ];
 
 const benefits = [
-  "Transparent pricing with no hidden fees",
-  "Free diagnostics on all repairs",
-  "90-day warranty on all work",
-  "Genuine OEM and quality aftermarket parts",
-  "Pickup and delivery available",
-  "Loaner bikes for extended repairs"
+  "Transparent pricing with detailed proposals",
+  "Front-end design review before development",
+  "Mobile-optimized for all devices",
+  "SEO-friendly structure and markup",
+  "Ongoing support and maintenance included"
 ];
 
 const WhyUs = () => {
@@ -36,11 +35,11 @@ const WhyUs = () => {
           <div>
             <p className="text-primary font-medium mb-2 tracking-wider uppercase">Why Choose Us</p>
             <h2 className="font-display text-4xl md:text-6xl text-foreground mb-6">
-              BUILT BY RIDERS,{' '}
-              <span className="text-primary">FOR RIDERS</span>
+              PARTNERS IN YOUR{' '}
+              <span className="text-primary">GROWTH</span>
             </h2>
             <p className="text-muted-foreground text-lg mb-8">
-              We're not just mechanics – we're passionate electric dirtbike riders who understand the unique needs of EV owners. Our shop is equipped with the latest diagnostic tools and our team stays current with evolving EV technology.
+              We don't just build websites – we partner with small businesses to create digital solutions that drive real results. Our team understands the challenges facing growing companies and builds scalable, efficient websites that deliver measurable impact.
             </p>
 
             {/* Benefits List */}

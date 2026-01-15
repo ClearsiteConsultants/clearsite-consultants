@@ -2,31 +2,79 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { MapPin, Phone, Mail, Clock } from "lucide-react";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 const contactInfo = [
   {
     icon: MapPin,
     label: "Location",
-    value: "7947 N Copperbend Rd, Eagle Mountain, UT"
+    value: "San Francisco, CA (Remote Available)"
   },
   {
     icon: Phone,
     label: "Phone",
-    value: "(555) 123-4567"
+    value: "Coming Soon"
   },
   {
     icon: Mail,
     label: "Email",
-    value: "hello@emotorepair.com"
+    value: "hello@clearsiteconsultants.com"
   },
   {
     icon: Clock,
-    label: "Hours",
-    value: "Mon-Fri 8am-6pm, Sat 9am-4pm"
+    label: "Response Time",
+    value: "24 hours or less"
   }
 ];
 
 const Contact = () => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      name: formData.get('name'),
+      email: formData.get('email'),
+      businessName: formData.get('business_name'),
+      message: formData.get('message'),
+    };
+
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+
+      toast({
+        title: "Message sent!",
+        description: "We'll get back to you within 24 hours.",
+      });
+
+      // Reset form
+      e.currentTarget.reset();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again or call us directly.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <section id="contact" className="py-24 bg-background">
       <div className="container mx-auto px-6">
@@ -34,10 +82,10 @@ const Contact = () => {
         <div className="text-center mb-16">
           <p className="text-primary font-medium mb-2 tracking-wider uppercase">Get In Touch</p>
           <h2 className="font-display text-4xl md:text-6xl text-foreground mb-4">
-            READY TO RIDE?
+            START YOUR PROJECT
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Drop us a line and we'll get back to you within 24 hours. Or just stop by – we love talking bikes.
+            Let's discuss your business goals and how we can build a website that drives real results. We'll get back to you within 24 hours.
           </p>
         </div>
 
@@ -45,31 +93,33 @@ const Contact = () => {
           {/* Contact Form */}
           <div className="p-8 rounded-2xl gradient-card border border-border">
             <h3 className="font-display text-2xl text-foreground mb-6">Send Us a Message</h3>
-            <form className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-2">Name</label>
-                  <Input placeholder="Your name" className="bg-background/50" />
+                  <Input name="name" placeholder="Your name" className="bg-background/50" required />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-2">Email</label>
-                  <Input type="email" placeholder="your@email.com" className="bg-background/50" />
+                  <Input name="email" type="email" placeholder="your@email.com" className="bg-background/50" required />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-2">Bike Model</label>
-                <Input placeholder="e.g., Sur-Ron Light Bee X" className="bg-background/50" />
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Business Name</label>
+                <Input name="business_name" placeholder="Your company name" className="bg-background/50" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-2">Message</label>
-                <Textarea 
-                  placeholder="Tell us about your repair needs..."
+                <Textarea
+                  name="message"
+                  placeholder="Tell us about your business and website goals..."
                   rows={4}
                   className="bg-background/50"
+                  required
                 />
               </div>
-              <Button variant="hero" className="w-full">
-                Send Message
+              <Button type="submit" variant="hero" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? 'Sending...' : 'Send Message'}
               </Button>
             </form>
           </div>
@@ -88,14 +138,6 @@ const Contact = () => {
                   </div>
                 </div>
               ))}
-            </div>
-
-            {/* Map Placeholder */}
-            <div className="mt-10 h-64 rounded-xl bg-secondary border border-border flex items-center justify-center">
-              <div className="text-center">
-                <MapPin className="w-10 h-10 text-primary mx-auto mb-2" />
-                <p className="text-muted-foreground">Interactive map coming soon</p>
-              </div>
             </div>
           </div>
         </div>

@@ -1,25 +1,35 @@
-import { Wrench, Sparkles, CircleDot, SprayCan } from "lucide-react";
+import { Code, ShoppingCart, Smartphone, Search, PenTool, LineChart } from "lucide-react";
 
 const services = [
   {
-    icon: Wrench,
-    title: "Parts Installation",
-    description: "Professional installation of all components and upgrades for your electric dirtbike."
+    icon: Code,
+    title: "Custom Website Development",
+    description: "Build fully custom websites tailored to your business needs, using modern technologies and best practices."
   },
   {
-    icon: Sparkles,
-    title: "Metal Polishing",
-    description: "Restore the shine to your bike's metal parts with our expert polishing services."
+    icon: ShoppingCart,
+    title: "E-Commerce Solutions",
+    description: "Set up and optimize online stores that convert visitors into customers with secure payment processing."
   },
   {
-    icon: CircleDot,
-    title: "Tires & Tubes",
-    description: "Tire mounting, tube replacement, and balancing to keep you rolling smoothly on any terrain."
+    icon: Smartphone,
+    title: "Responsive Design",
+    description: "Beautiful, mobile-first designs that work seamlessly across all devices and screen sizes."
   },
   {
-    icon: SprayCan,
-    title: "Bike Cleaning",
-    description: "Thorough cleaning and detailing to keep your electric dirtbike looking brand new."
+    icon: Search,
+    title: "SEO Optimization",
+    description: "Improve your online visibility with technical SEO, content optimization, and strategic keyword research."
+  },
+  {
+    icon: PenTool,
+    title: "UI/UX Design",
+    description: "Stunning user interfaces and intuitive experiences that keep visitors engaged and coming back."
+  },
+  {
+    icon: LineChart,
+    title: "Performance & Maintenance",
+    description: "Keep your site fast, secure, and up-to-date with ongoing support and optimization."
   }
 ];
 
@@ -34,7 +44,7 @@ const Services = () => {
             OUR SERVICES
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            From routine maintenance to complex repairs, we've got your electric dirtbike covered.
+            Comprehensive web solutions designed to help small businesses establish and grow their online presence.
           </p>
         </div>
 
