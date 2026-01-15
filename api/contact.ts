@@ -10,7 +10,7 @@ export default async function handler(
   }
 
   try {
-    const { name, email, bikeModel, message } = req.body;
+    const { name, email, businessName, message } = req.body;
 
     // Validate inputs
     if (!name || !email || !message) {
@@ -26,13 +26,13 @@ export default async function handler(
       },
       body: JSON.stringify({
         from: 'Contact Form <onboarding@resend.dev>', // Use your verified domain later
-        to: 'aidenmcintosh102011@gmail.com',
+        to: 'hello@clearsiteconsultants.com',
         subject: `New Contact Form Submission from ${name}`,
         html: `
           <h2>New Contact Form Submission</h2>
           <p><strong>Name:</strong> ${name}</p>
           <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Bike Model:</strong> ${bikeModel || 'Not specified'}</p>
+          <p><strong>Business Name:</strong> ${businessName || 'Not specified'}</p>
           <p><strong>Message:</strong></p>
           <p>${message.replace(/\n/g, '<br>')}</p>
         `,
