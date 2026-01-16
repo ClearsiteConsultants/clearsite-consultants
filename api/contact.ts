@@ -25,7 +25,7 @@ export default async function handler(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'Contact Form <onboarding@resend.dev>', // Use your verified domain later
+        from: 'Contact Form <onboarding@clearsiteconsultants.com>', // Use your verified domain later
         to: 'hello@clearsiteconsultants.com',
         subject: `New Contact Form Submission from ${name}`,
         html: `
