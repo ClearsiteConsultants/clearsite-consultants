@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Globe } from "lucide-react";
 
 interface HeroProps {
-  heroImage: string;
+  heroImage?: string;
 }
 
 const Hero = ({ heroImage }: HeroProps) => {
