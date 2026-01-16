@@ -30,13 +30,15 @@ const contactInfo = [
 
 const Contact = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const formData = new FormData(e.currentTarget);
+    const form = e.currentTarget; // Capture form element before async operations
+    const formData = new FormData(form);
     const data = {
       name: formData.get('name'),
       email: formData.get('email'),
@@ -45,7 +47,8 @@ const Contact = () => {
     };
 
     try {
-      const response = await fetch('/api/contact', {
+      const response = await fetch('http://localhost:3000/api/contact', {
+      // const response = await fetch('/api/contact', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -63,7 +66,8 @@ const Contact = () => {
       });
 
       // Reset form
-      e.currentTarget.reset();
+      form.reset();
+      setIsSubmitted(true);
     } catch (error) {
       toast({
         title: "Error",
@@ -118,8 +122,8 @@ const Contact = () => {
                   required
                 />
               </div>
-              <Button type="submit" variant="hero" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? 'Sending...' : 'Send Message'}
+              <Button type="submit" variant="hero" className="w-full" disabled={isSubmitting || isSubmitted}>
+                {isSubmitting ? 'Sending...' : isSubmitted ? 'Message Sent' : 'Send Message'}
               </Button>
             </form>
           </div>
