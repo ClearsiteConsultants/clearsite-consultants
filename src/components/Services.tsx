@@ -58,15 +58,15 @@ const aiAndAutomation = [
 
 const Services = () => {
   return (
-    <section id="services" className="py-24 bg-background">
+    <section id="services" className="py-24 gradient-hero">
       <div className="container mx-auto px-6">
         {/* Section Header */}
         <div className="text-center mb-16">
           <p className="text-primary font-medium mb-2 tracking-wider uppercase">What We Do</p>
-          <h2 className="font-display text-4xl md:text-6xl text-foreground mb-4">
+          <h2 className="font-display text-4xl md:text-6xl text-gray-900 mb-4">
             OUR SERVICES
           </h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-gray-600 max-w-2xl mx-auto">
             Custom technology solutions at affordable flat rates. From simple websites to AI automation, we help your business grow.
           </p>
         </div>
@@ -74,21 +74,21 @@ const Services = () => {
         {/* Core Services */}
         <div className="mb-20">
           <div className="mb-12">
-            <h3 className="font-display text-3xl md:text-4xl text-foreground mb-2">Core Solutions</h3>
-            <p className="text-muted-foreground">Essential services for small businesses looking to establish and grow online</p>
+            <h3 className="font-display text-3xl md:text-4xl text-gray-900 mb-2">Core Solutions</h3>
+            <p className="text-gray-600">Essential services for small businesses looking to establish and grow online</p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {coreServices.map((service, index) => (
               <div
                 key={service.title}
-                className="group p-8 rounded-xl gradient-card border border-border hover:border-primary/50 transition-all duration-300 hover:-translate-y-1"
+                className="group p-8 rounded-xl bg-white border border-gray-200 hover:border-primary/50 transition-all duration-300 hover:-translate-y-1 shadow-sm hover:shadow-md"
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
-                <div className="w-14 h-14 rounded-lg bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary/20 group-hover:box-glow transition-all duration-300">
+                <div className="w-14 h-14 rounded-lg bg-blue-50 flex items-center justify-center mb-6 group-hover:bg-blue-100 transition-all duration-300">
                   <service.icon className="w-7 h-7 text-primary" />
                 </div>
-                <h3 className="font-display text-2xl text-foreground mb-3">{service.title}</h3>
-                <p className="text-muted-foreground leading-relaxed">{service.description}</p>
+                <h3 className="font-display text-2xl text-gray-900 mb-3">{service.title}</h3>
+                <p className="text-gray-600 leading-relaxed">{service.description}</p>
               </div>
             ))}
           </div>
@@ -97,21 +97,21 @@ const Services = () => {
         {/* AI & Advanced Services */}
         <div>
           <div className="mb-12">
-            <h3 className="font-display text-3xl md:text-4xl text-foreground mb-2">AI & Advanced Solutions</h3>
-            <p className="text-muted-foreground">Cutting-edge technology to automate processes and enhance your marketing reach</p>
+            <h3 className="font-display text-3xl md:text-4xl text-gray-900 mb-2">AI & Advanced Solutions</h3>
+            <p className="text-gray-600">Cutting-edge technology to automate processes and enhance your marketing reach</p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {aiAndAutomation.map((service, index) => (
               <div
                 key={service.title}
-                className="group p-8 rounded-xl gradient-card border border-border hover:border-primary/50 transition-all duration-300 hover:-translate-y-1"
+                className="group p-8 rounded-xl bg-white border border-gray-200 hover:border-primary/50 transition-all duration-300 hover:-translate-y-1 shadow-sm hover:shadow-md"
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
-                <div className="w-14 h-14 rounded-lg bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary/20 group-hover:box-glow transition-all duration-300">
+                <div className="w-14 h-14 rounded-lg bg-blue-50 flex items-center justify-center mb-6 group-hover:bg-blue-100 transition-all duration-300">
                   <service.icon className="w-7 h-7 text-primary" />
                 </div>
-                <h3 className="font-display text-2xl text-foreground mb-3">{service.title}</h3>
-                <p className="text-muted-foreground leading-relaxed">{service.description}</p>
+                <h3 className="font-display text-2xl text-gray-900 mb-3">{service.title}</h3>
+                <p className="text-gray-600 leading-relaxed">{service.description}</p>
               </div>
             ))}
           </div>

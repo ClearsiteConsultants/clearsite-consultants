@@ -34,17 +34,17 @@ const benefits = [
 
 const WhyUs = () => {
   return (
-    <section id="why-us" className="py-24 bg-secondary/30">
+    <section id="why-us" className="py-24 bg-gray-50">
       <div className="container mx-auto px-6">
         <div className="grid lg:grid-cols-2 gap-16 items-start">
           {/* Left Column */}
           <div>
             <p className="text-primary font-medium mb-2 tracking-wider uppercase">Why Choose Us</p>
-            <h2 className="font-display text-4xl md:text-6xl text-foreground mb-6">
+            <h2 className="font-display text-4xl md:text-6xl text-gray-900 mb-6">
               AFFORDABILITY MEETS{' '}
               <span className="text-primary">EXPERTISE</span>
             </h2>
-            <p className="text-muted-foreground text-lg mb-8">
+            <p className="text-gray-600 text-lg mb-8">
               We're different. This isn't about fancy portfolios or high markups—it's about real people helping small businesses get affordable, custom technology solutions. We believe in simple pricing, genuine relationships, and technology that actually helps you grow.
             </p>
 
@@ -53,7 +53,7 @@ const WhyUs = () => {
               {benefits.map((benefit) => (
                 <div key={benefit} className="flex items-start gap-3">
                   <CheckCircle className="w-5 h-5 text-primary flex-shrink-0 mt-1" />
-                  <span className="text-foreground">{benefit}</span>
+                  <span className="text-gray-800">{benefit}</span>
                 </div>
               ))}
             </div>
@@ -64,14 +64,14 @@ const WhyUs = () => {
             {features.map((feature, index) => (
               <div
                 key={feature.title}
-                className="flex gap-6 p-6 rounded-xl bg-card border border-border hover:border-primary/30 transition-all duration-300"
+                className="flex gap-6 p-6 rounded-xl bg-white border border-gray-200 hover:border-primary/30 transition-all duration-300 shadow-sm"
               >
-                <div className="w-16 h-16 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <div className="w-16 h-16 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
                   <feature.icon className="w-8 h-8 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-display text-xl text-foreground mb-2">{feature.title}</h3>
-                  <p className="text-muted-foreground">{feature.description}</p>
+                  <h3 className="font-display text-xl text-gray-900 mb-2">{feature.title}</h3>
+                  <p className="text-gray-600">{feature.description}</p>
                 </div>
               </div>
             ))}

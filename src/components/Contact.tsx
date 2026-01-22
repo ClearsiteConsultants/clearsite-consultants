@@ -80,45 +80,45 @@ const Contact = () => {
   };
 
   return (
-    <section id="contact" className="py-24 bg-background">
+    <section id="contact" className="py-24 bg-white">
       <div className="container mx-auto px-6">
         {/* Section Header */}
         <div className="text-center mb-16">
           <p className="text-primary font-medium mb-2 tracking-wider uppercase">Get In Touch</p>
-          <h2 className="font-display text-4xl md:text-6xl text-foreground mb-4">
+          <h2 className="font-display text-4xl md:text-6xl text-gray-900 mb-4">
             START YOUR PROJECT
           </h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-gray-600 max-w-2xl mx-auto">
             Let's discuss your business goals and how we can build a website that drives real results. We'll get back to you within 24 hours.
           </p>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-12">
           {/* Contact Form */}
-          <div className="p-8 rounded-2xl gradient-card border border-border">
-            <h3 className="font-display text-2xl text-foreground mb-6">Send Us a Message</h3>
+          <div className="p-8 rounded-2xl bg-gray-50 border border-gray-200">
+            <h3 className="font-display text-2xl text-gray-900 mb-6">Send Us a Message</h3>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-2">Name</label>
-                  <Input name="name" placeholder="Your name" className="bg-background/50" required />
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                  <Input name="name" placeholder="Your name" className="bg-white border-gray-300" required />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-2">Email</label>
-                  <Input name="email" type="email" placeholder="your@email.com" className="bg-background/50" required />
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <Input name="email" type="email" placeholder="your@email.com" className="bg-white border-gray-300" required />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-2">Business Name</label>
-                <Input name="business_name" placeholder="Your company name" className="bg-background/50" />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Business Name</label>
+                <Input name="business_name" placeholder="Your company name" className="bg-white border-gray-300" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-2">Message</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
                 <Textarea
                   name="message"
                   placeholder="Tell us about your business and website goals..."
                   rows={4}
-                  className="bg-background/50"
+                  className="bg-white border-gray-300"
                   required
                 />
               </div>
@@ -133,12 +133,12 @@ const Contact = () => {
             <div className="space-y-6">
               {contactInfo.map((item) => (
                 <div key={item.label} className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
                     <item.icon className="w-6 h-6 text-primary" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">{item.label}</p>
-                    <p className="text-lg text-foreground font-medium">{item.value}</p>
+                    <p className="text-sm text-gray-600 mb-1">{item.label}</p>
+                    <p className="text-lg text-gray-900 font-medium">{item.value}</p>
                   </div>
                 </div>
               ))}
