@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Globe } from "lucide-react";
-import logo from "@/assets/logo.jpg";
+import logo from "@/assets/logo_transparent.png";
 
 interface HeroProps {
   heroImage?: string;
