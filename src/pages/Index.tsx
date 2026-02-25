@@ -5,10 +5,12 @@ import WhyUs from "@/components/WhyUs";
 import Pricing from "@/components/Pricing";
 import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
+import SEO from "@/components/SEO";
 
 const Index = () => {
   return (
     <div className="min-h-screen bg-background">
+      <SEO />
       <Header />
       <Hero />
       <Services />
