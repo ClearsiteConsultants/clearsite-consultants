@@ -8,9 +8,9 @@ interface HeroProps {
 
 const Hero = ({ heroImage }: HeroProps) => {
   return (
-    <section className="relative min-h-screen flex items-center bg-white overflow-hidden pt-20">
+    <section className="relative min-h-screen flex items-start md:items-center bg-white overflow-hidden pt-20">
       {/* Background Logo */}
-      <div className="hidden lg:absolute lg:block right-0 top-1/2 -translate-y-1/2 -translate-x-1/4 pointer-events-none z-0">
+      <div className="hidden xl:absolute xl:block right-0 top-1/2 -translate-y-1/2 -translate-x-1/4 pointer-events-none z-0">
         <img src={logo} alt="" className="w-96 h-auto object-contain" />
       </div>
 

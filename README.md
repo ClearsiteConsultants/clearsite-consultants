@@ -1,73 +1,116 @@
-# Welcome to your Lovable project
+# ClearSite Consultants
 
-## Project info
+Business website for ClearSite Consultants — a single-page React application showcasing services, pricing, and a contact form. The frontend is built with Vite + React + TypeScript + Tailwind CSS. The contact form backend runs as a Vercel serverless function.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Tech Stack
 
-## How can I edit this code?
+- **Vite** — build tool and dev server
+- **React 18** with **TypeScript**
+- **Tailwind CSS** — utility-first styling
+- **shadcn/ui** — accessible, composable UI components (Radix UI primitives)
+- **React Router v6** — client-side routing
+- **React Hook Form** + **Zod** — form handling and validation
+- **React Query** (@tanstack/react-query) — server state management
+- **Vercel** — hosting and serverless API functions
+- **Resend** — transactional email (contact form)
 
-There are several ways of editing your application.
+## Developer Setup
 
-**Use Lovable**
+### Prerequisites
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- **Node.js** ≥ 18 — install via [nvm](https://github.com/nvm-sh/nvm#installing-and-updating) or your preferred method
+- **npm** (comes with Node) or **bun** (a `bun.lockb` is committed if you prefer bun)
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+### 1. Clone the repo
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+git clone https://github.com/ClearsiteConsultants/clearsite-consultants.git
+cd clearsite-consultants
+```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### 2. Install dependencies
 
-# Step 3: Install the necessary dependencies.
-npm i
+```sh
+npm install
+```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+### 3. Configure environment variables
+
+Create a `.env.local` file in the project root:
+
+```sh
+cp .env.local.example .env.local   # if an example file exists, otherwise create manually
+```
+
+Add the following variable (required for the contact form to send emails):
+
+```
+RESEND_API_KEY=your_resend_api_key_here
+```
+
+You can obtain a free API key at [resend.com](https://resend.com).
+
+> The contact form will still render in development without this key; email sending will simply fail until a valid key is provided.
+
+### 4. Start the development server
+
+```sh
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The app runs at **http://localhost:8080**.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Available Scripts
 
-**Use GitHub Codespaces**
+| Command | Description |
+|---|---|
+| `npm run dev` | Start dev server with HMR on port 8080 |
+| `npm run build` | Production build (minified) |
+| `npm run build:dev` | Development build (unminified, easier debugging) |
+| `npm run lint` | Run ESLint |
+| `npm run preview` | Preview the production build locally |
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Project Structure
 
-## What technologies are used for this project?
+```
+src/
+  pages/            # Page-level components
+    Index.tsx       # Main landing page
+    NotFound.tsx    # 404 page
+  components/       # Feature and layout components
+    Header.tsx
+    Hero.tsx
+    Services.tsx
+    WhyUs.tsx
+    Pricing.tsx
+    Contact.tsx
+    Footer.tsx
+    ui/             # shadcn/ui component library (Radix UI based)
+  assets/           # Static assets (images, etc.)
+  hooks/            # Custom React hooks
+  lib/              # Utility functions (e.g. cn() helper)
+  App.tsx           # Router setup and React Query provider
+  main.tsx          # App entry point
+  index.css         # Global styles and Tailwind directives
 
-This project is built with:
+api/
+  contact.ts        # Vercel serverless function — handles contact form submissions
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Key Conventions
 
-## How can I deploy this project?
+- **Path alias**: `@/` resolves to `src/` (configured in `vite.config.ts` and `tsconfig.json`)
+- **Fonts**: Bebas Neue (display headings via `font-display`), Inter (body)
+- **Colors / theme**: Customized in `tailwind.config.ts`; primary color and dark mode via CSS variables
+- **New routes**: Add `<Route>` entries in `App.tsx` above the catch-all `*` route
+- **New pages**: Create in `src/pages/`, import in `App.tsx`
+- **UI components**: Use and compose from `src/components/ui/`; edit source directly to customize
+- **Pricing values**: All prices are defined as a single `PRICES` constant at the top of `src/components/Pricing.tsx` for easy updates
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Deployment
 
-## Can I connect a custom domain to my Lovable project?
+The project is configured for **Vercel**. The `/api` directory is automatically treated as serverless functions.
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+1. Push to the `main` branch (or connect the repo in the Vercel dashboard)
+2. Set the `RESEND_API_KEY` environment variable in your Vercel project settings
+3. Vercel will run `vite build` and deploy automatically

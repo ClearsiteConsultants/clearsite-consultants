@@ -27,6 +27,9 @@ const Header = () => {
             <a href="#why-us" className="text-gray-600 hover:text-primary transition-colors font-medium">
               Why Us
             </a>
+            <a href="#pricing" className="text-gray-600 hover:text-primary transition-colors font-medium">
+              Pricing
+            </a>
             <a href="#contact" className="text-gray-600 hover:text-primary transition-colors font-medium">
               Contact
             </a>
@@ -49,6 +52,9 @@ const Header = () => {
             </a>
             <a href="#why-us" className="text-gray-600 hover:text-primary transition-colors font-medium py-2">
               Why Us
+            </a>
+            <a href="#pricing" className="text-gray-600 hover:text-primary transition-colors font-medium py-2">
+              Pricing
             </a>
             <a href="#contact" className="text-gray-600 hover:text-primary transition-colors font-medium py-2">
               Contact

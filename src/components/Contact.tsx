@@ -14,12 +14,14 @@ const contactInfo = [
   {
     icon: Phone,
     label: "Phone",
-    value: "Coming Soon"
+    value: "801-709-1872",
+    href: "tel:+18017091872"
   },
   {
     icon: Mail,
     label: "Email",
-    value: "hello@clearsiteconsultants.com"
+    value: "hello@clearsiteconsultants.com",
+    href: "mailto:hello@clearsiteconsultants.com"
   },
   {
     icon: Clock,
@@ -138,7 +140,13 @@ const Contact = () => {
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 mb-1">{item.label}</p>
-                    <p className="text-lg text-gray-900 font-medium">{item.value}</p>
+                    {item.href ? (
+                      <a href={item.href} className="text-lg text-gray-900 font-medium hover:text-primary transition-colors">
+                        {item.value}
+                      </a>
+                    ) : (
+                      <p className="text-lg text-gray-900 font-medium">{item.value}</p>
+                    )}
                   </div>
                 </div>
               ))}
