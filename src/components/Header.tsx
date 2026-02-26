@@ -6,7 +6,7 @@ const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+    <header className="sticky top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur border-b border-gray-200/70">
       <div className="container mx-auto px-6 py-3">
         <div className="flex items-center justify-between">
           {/* Logo */}
@@ -20,20 +20,22 @@ const Header = () => {
           </a>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-8">
-            <a href="#services" className="text-gray-600 hover:text-primary transition-colors font-medium">
-              Services
+          <div className="hidden md:flex items-center gap-8">
+            <nav className="flex items-center gap-8">
+              <a href="#services" className="text-gray-600 hover:text-primary transition-colors font-medium">
+                Services
+              </a>
+              <a href="#why-us" className="text-gray-600 hover:text-primary transition-colors font-medium">
+                Why Us
+              </a>
+              <a href="#contact" className="text-gray-600 hover:text-primary transition-colors font-medium">
+                Contact
+              </a>
+            </nav>
+            <a href="/portal" className="font-bold text-primary hover:text-primary/80 transition-colors">
+              Client Portal
             </a>
-            <a href="#why-us" className="text-gray-600 hover:text-primary transition-colors font-medium">
-              Why Us
-            </a>
-            <a href="#pricing" className="text-gray-600 hover:text-primary transition-colors font-medium">
-              Pricing
-            </a>
-            <a href="#contact" className="text-gray-600 hover:text-primary transition-colors font-medium">
-              Contact
-            </a>
-          </nav>
+          </div>
 
           {/* Mobile Menu Button */}
           <button
@@ -53,11 +55,11 @@ const Header = () => {
             <a href="#why-us" className="text-gray-600 hover:text-primary transition-colors font-medium py-2">
               Why Us
             </a>
-            <a href="#pricing" className="text-gray-600 hover:text-primary transition-colors font-medium py-2">
-              Pricing
-            </a>
             <a href="#contact" className="text-gray-600 hover:text-primary transition-colors font-medium py-2">
               Contact
+            </a>
+            <a href="/portal" className="font-bold text-primary hover:text-primary/80 transition-colors py-2">
+              Client Portal
             </a>
           </nav>
         )}

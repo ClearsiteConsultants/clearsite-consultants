@@ -97,4 +97,15 @@
   .gradient-card {
     background: var(--gradient-card);
   }
+
+  .bg-tech {
+    background-color: hsl(0 0% 100%);
+    background-image:
+      radial-gradient(circle at 1px 1px, hsl(210 100% 45% / 0.08) 1px, transparent 0),
+      radial-gradient(900px circle at 10% 0%, hsl(210 100% 45% / 0.08), transparent 45%),
+      var(--gradient-hero);
+    background-size: 26px 26px, 100% 100%, 100% 100%;
+    background-repeat: repeat, no-repeat, no-repeat;
+    background-position: top left, top right, center;
+  }
 }
