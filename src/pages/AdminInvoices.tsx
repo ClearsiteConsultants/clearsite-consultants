@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ interface Client {
 }
 
 const AdminInvoices = () => {
+  const { status } = useSession();
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
@@ -27,14 +28,18 @@ const AdminInvoices = () => {
     loadClients();
   }, []);
 
-  const loadClients = async () => {
-    const { data } = await supabase
-      .from("clients")
-      .select("id, company_name")
-      .order("company_name");
+const loadClients = async () => {
+  try {
+    const response = await fetch("/api/admin/clients");
+    if (!response.ok) throw new Error("Failed to load clients");
 
-    if (data) setClients(data);
-  };
+    const result = await response.json();
+    setClients(result.clients || []);
+  } catch (error) {
+    console.error("Failed to load clients:", error);
+    setMessage({ type: "error", text: "Failed to load clients" });
+  }
+};
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -42,66 +47,56 @@ const AdminInvoices = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setMessage({ type: "", text: "" });
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setMessage({ type: "", text: "" });
 
-    if (!selectedClientId || !invoiceNumber || !amountDue || !dueDate) {
-      setMessage({ type: "error", text: "Please fill in all required fields" });
+  if (!selectedClientId || !invoiceNumber || !amountDue || !dueDate) {
+    setMessage({ type: "error", text: "Please fill in all required fields" });
+    return;
+  }
+
+  setUploading(true);
+
+  try {
+    const formData = new FormData();
+    formData.append("clientId", selectedClientId);
+    formData.append("invoiceNumber", invoiceNumber);
+    formData.append("amountDue", amountDue);
+    formData.append("dueDate", dueDate);
+    formData.append("qboPaymentUrl", qboPaymentUrl);
+
+    if (pdfFile) {
+      formData.append("pdfFile", pdfFile);
+    }
+
+    const response = await fetch("/api/admin/invoices", {
+      method: "POST",
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      setMessage({ type: "error", text: result.error || "Failed to create invoice" });
+      setUploading(false);
       return;
     }
 
-    setUploading(true);
-
-    try {
-      let fileUrl = null;
-
-      // Upload PDF to Supabase Storage if provided
-      if (pdfFile) {
-        const fileName = `${selectedClientId}/${invoiceNumber}-${Date.now()}.pdf`;
-        const { data, error: uploadError } = await supabase.storage
-          .from("invoices")
-          .upload(fileName, pdfFile);
-
-        if (uploadError) throw uploadError;
-
-        // Get public URL
-        const { data: urlData } = supabase.storage
-          .from("invoices")
-          .getPublicUrl(fileName);
-
-        fileUrl = urlData.publicUrl;
-      }
-
-      // Insert invoice record
-      const { error: insertError } = await supabase.from("invoices").insert({
-        client_id: selectedClientId,
-        invoice_number: invoiceNumber,
-        amount_due: parseFloat(amountDue),
-        due_date: dueDate,
-        status: "Unpaid",
-        file_url: fileUrl,
-        qbo_payment_url: qboPaymentUrl || null,
-      });
-
-      if (insertError) throw insertError;
-
-      setMessage({ type: "success", text: "Invoice uploaded successfully!" });
-      
-      // Reset form
-      setSelectedClientId("");
-      setInvoiceNumber("");
-      setAmountDue("");
-      setDueDate("");
-      setQboPaymentUrl("");
-      setPdfFile(null);
-      (document.getElementById("pdf-file") as HTMLInputElement).value = "";
-    } catch (error: any) {
-      setMessage({ type: "error", text: error.message || "Failed to upload invoice" });
-    } finally {
-      setUploading(false);
-    }
-  };
+    setMessage({ type: "success", text: "Invoice created successfully" });
+    setSelectedClientId("");
+    setInvoiceNumber("");
+    setAmountDue("");
+    setDueDate("");
+    setQboPaymentUrl("");
+    setPdfFile(null);
+  } catch (error) {
+    console.error("Failed to create invoice:", error);
+    setMessage({ type: "error", text: "Failed to create invoice" });
+  } finally {
+    setUploading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-tech">

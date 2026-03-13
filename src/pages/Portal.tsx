@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabaseClient";
+import { useSession, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -32,78 +32,89 @@ const Portal = () => {
   const [loading, setLoading] = useState(true);
   const [updatingPlan, setUpdatingPlan] = useState(false);
 
-  useEffect(() => {
-    loadClientData();
-  }, []);
+useEffect(() => {
+  if (status === "loading") return;
 
-  const loadClientData = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    // Load client data
-    const { data: clientData } = await supabase
-      .from("clients")
-      .select("*")
-      .eq("owner_user_id", user.id)
-      .single();
-
-    if (clientData) {
-      setClient(clientData);
-
-      // Load invoices
-      const { data: invoicesData } = await supabase
-        .from("invoices")
-        .select("*")
-        .eq("client_id", clientData.id)
-        .order("created_at", { ascending: false });
-
-      setInvoices(invoicesData || []);
-    }
-
-    setLoading(false);
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  if (!session) {
     navigate("/login", { replace: true });
-  };
+    return;
+  }
 
-  const handlePlanChange = async (newPlan: string) => {
-    if (!client) return;
-    setUpdatingPlan(true);
+  loadClientData();
+}, [session, status, navigate]);
 
-    const { error } = await supabase
-      .from("clients")
-      .update({ plan: newPlan })
-      .eq("id", client.id);
+ const loadClientData = async () => {
+  if (!session?.user?.email) {
+    setLoading(false);
+    return;
+  }
 
-    if (!error) {
-      // Log plan change in subscriptions table
-      await supabase.from("subscriptions").insert({
-        client_id: client.id,
-        old_plan: client.plan,
-        new_plan: newPlan,
-        change_type: "upgrade",
-      });
+  try {
+    const clientResponse = await fetch("/api/portal/client");
+    if (clientResponse.ok) {
+      const clientData = await clientResponse.json();
+      setClient(clientData.client || null);
+      setInvoices(clientData.invoices || []);
+    }
+  } catch (error) {
+    console.error("Failed to load portal data:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
+ const handleLogout = async () => {
+  await signOut({ callbackUrl: "/login" });
+};
+
+const handlePlanChange = async (newPlan: string) => {
+  if (!client) return;
+  setUpdatingPlan(true);
+
+  try {
+    const response = await fetch("/api/portal/plan", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        clientId: client.id,
+        newPlan,
+        oldPlan: client.plan,
+      }),
+    });
+
+    if (response.ok) {
       setClient({ ...client, plan: newPlan });
     }
-
+  } catch (error) {
+    console.error("Failed to update plan:", error);
+  } finally {
     setUpdatingPlan(false);
-  };
+  }
+};
 
-  const handleCancelService = async () => {
-    if (!client || !confirm("Are you sure you want to cancel your service?")) return;
+const handleCancelService = async () => {
+  if (!client || !confirm("Are you sure you want to cancel your service?")) return;
 
-    const { error } = await supabase
-      .from("clients")
-      .update({ service_status: "Canceled" })
-      .eq("id", client.id);
+  try {
+    const response = await fetch("/api/portal/cancel", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        clientId: client.id,
+      }),
+    });
 
-    if (!error) {
+    if (response.ok) {
       setClient({ ...client, service_status: "Canceled" });
     }
-  };
+  } catch (error) {
+    console.error("Failed to cancel service:", error);
+  }
+};
 
   if (loading) {
     return (

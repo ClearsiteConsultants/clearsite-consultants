@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabaseClient";
+import { signIn, usesession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Login = () => {
   const navigate = useNavigate();
+   const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -23,31 +24,31 @@ const Login = () => {
   const [phone, setPhone] = useState("");
   const [domainName, setDomainName] = useState("");
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        navigate("/portal", { replace: true });
-      }
-    });
-  }, [navigate]);
+useEffect(() => {
+   if (session) {
+      navigate("/portal", { replace: true });
+   }
+}, [session, navigate]);
 
   const handleSignIn = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoading(true);
     setMessage(null);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: signInEmail,
-      password: signInPassword,
-    });
+const result = await signIn("credentials", {
+  email: signInEmail,
+  password: signInPassword,
+  redirect: false,
+});
 
-    if (error) {
-      setMessage({ type: "error", text: error.message });
-      setLoading(false);
-      return;
-    }
+if (result?.error) {
+  setMessage({ type: "error", text: result.error });
+  setLoading(false);
+  return;
+}
 
-    navigate("/portal", { replace: true });
+navigate("/portal", { replace: true });
+
   };
 
   const handleSignUp = async (event: React.FormEvent) => {
@@ -55,39 +56,56 @@ const Login = () => {
     setLoading(true);
     setMessage(null);
 
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: signUpEmail,
-      password: signUpPassword,
-    });
+ const response = await fetch("/api/signup", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    email: signUpEmail,
+    password: signUpPassword,
+    companyName,
+    contactName,
+    phone,
+    domainName,
+  }),
+});
 
-    if (authError) {
-      setMessage({ type: "error", text: authError.message });
-      setLoading(false);
-      return;
-    }
+const result = await response.json();
 
-    if (!authData.user) {
-      setMessage({ type: "error", text: "Sign up failed. Please try again." });
-      setLoading(false);
-      return;
-    }
+if (!response.ok) {
+  setMessage({ type: "error", text: result.error || "Signup failed" });
+  setLoading(false);
+  return;
+}
+
+navigate("/portal", { replace: true });
 
     // Create client record
-    const { error: clientError } = await supabase.from("clients").insert({
-      owner_user_id: authData.user.id,
-      email: signUpEmail,
-      company_name: companyName,
-      contact_name: contactName,
-      phone,
-      domain_name: domainName,
-      plan: "Starter",
-      service_status: "Active",
-    });
+   const response = await fetch("/api/signup", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    email: signUpEmail,
+    password: signUpPassword,
+    companyName,
+    contactName,
+    phone,
+    domainName,
+  }),
+});
 
-    if (clientError) {
-      setMessage({ type: "error", text: `Account created but profile setup failed: ${clientError.message}` });
-      setLoading(false);
-      return;
+const result = await response.json();
+
+if (!response.ok) {
+  setMessage({ type: "error", text: result.error || "Signup failed" });
+  setLoading(false);
+  return;
+}
+
+navigate("/portal", { replace: true });
     }
 
     setMessage({

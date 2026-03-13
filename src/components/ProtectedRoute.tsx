@@ -1,40 +1,18 @@
-import { useEffect, useState } from "react";
+
 import { Navigate } from "react-router-dom";
-import { supabase } from "@/lib/supabaseClient";
-import type { Session } from "@supabase/supabase-js";
+import { useSession } from "next-auth/react";
+
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
+
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: session, status } = useSession();
+  
 
-  useEffect(() => {
-    let mounted = true;
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (mounted) {
-        setSession(data.session);
-        setLoading(false);
-      }
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, updatedSession) => {
-      setSession(updatedSession);
-      setLoading(false);
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  if (loading) {
+if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-tech">
         <div className="text-center">
