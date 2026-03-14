@@ -17,7 +17,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         const result = await sql`
-          SELECT id, email, password_hash, company_name FROM clients WHERE email = ${credentials.email}
+          SELECT id, email, password_hash, company_name
+          FROM clients
+          WHERE email = ${credentials.email}
         `;
 
         if (result.rows.length === 0) {
@@ -25,6 +27,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         const user = result.rows[0];
+
         const passwordValid = await bcrypt.compare(
           credentials.password,
           user.password_hash
@@ -35,7 +38,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         return {
-          id: user.id,
+          id: String(user.id),
           email: user.email,
           name: user.company_name,
         };
@@ -62,4 +65,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: {
     strategy: "jwt",
   },
+  secret: process.env.NEXTAUTH_SECRET,
 });
+
+export const { GET, POST } = handlers;
