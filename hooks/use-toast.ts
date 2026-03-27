@@ -10,8 +10,7 @@ export interface Toast {
   title?: React.ReactNode;
   description?: React.ReactNode;
   action?: ToastActionElement;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
+  variant?: "default" | "destructive";
 }
 
 const TOAST_LIMIT = 1;

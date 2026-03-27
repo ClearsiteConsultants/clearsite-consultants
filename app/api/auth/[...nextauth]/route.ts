@@ -16,10 +16,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           throw new Error("Invalid credentials");
         }
 
+        const email = credentials.email as string;
+        const password = credentials.password as string;
+
         const result = await sql`
           SELECT id, email, password_hash, company_name
           FROM clients
-          WHERE email = ${credentials.email}
+          WHERE email = ${email}
         `;
 
         if (result.rows.length === 0) {
@@ -29,7 +32,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const user = result.rows[0];
 
         const passwordValid = await bcrypt.compare(
-          credentials.password,
+          password,
           user.password_hash
         );
 
