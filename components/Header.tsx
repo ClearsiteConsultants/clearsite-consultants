@@ -1,4 +1,4 @@
-import { Rocket, Menu, X } from "lucide-react";
+import { Menu, Rocket, X } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
 
@@ -11,28 +11,31 @@ export default function Header() {
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center transition-all duration-300">
-              <Rocket className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center transition-all duration-300">
+              <Rocket className="w-6 h-6 text-primary-foreground" />
             </div>
-            <span className="font-bold text-lg text-gray-900 tracking-wide">
-              CLEAR SITE <span className="text-blue-600">CONSULTANTS</span>
+            <span className="font-display text-lg text-gray-900 tracking-wide">
+              CLEARSITE <span className="text-primary">CONSULTANTS</span>
             </span>
           </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">
             <nav className="flex items-center gap-8">
-              <a href="#services" className="text-gray-600 hover:text-blue-600 transition-colors font-medium">
+              <a href="#services" className="text-gray-600 hover:text-primary transition-colors font-medium">
                 Services
               </a>
-              <a href="#why-us" className="text-gray-600 hover:text-blue-600 transition-colors font-medium">
+              <a href="#why-us" className="text-gray-600 hover:text-primary transition-colors font-medium">
                 Why Us
               </a>
-              <a href="#contact" className="text-gray-600 hover:text-blue-600 transition-colors font-medium">
+              <a href="#pricing" className="text-gray-600 hover:text-primary transition-colors font-medium">
+                Pricing
+              </a>
+              <a href="#contact" className="text-gray-600 hover:text-primary transition-colors font-medium">
                 Contact
               </a>
             </nav>
-            <Link href="/login" className="font-bold text-blue-600 hover:text-blue-700 transition-colors">
+            <Link href="/login" className="font-bold text-primary hover:text-primary/80 transition-colors">
               Client Portal
             </Link>
           </div>
@@ -49,16 +52,19 @@ export default function Header() {
         {/* Mobile Navigation */}
         {isMenuOpen && (
           <nav className="md:hidden pt-6 pb-4 flex flex-col gap-4 animate-fade-in">
-            <a href="#services" className="text-gray-600 hover:text-blue-600 transition-colors font-medium py-2">
+            <a href="#services" className="text-gray-600 hover:text-primary transition-colors font-medium py-2">
               Services
             </a>
-            <a href="#why-us" className="text-gray-600 hover:text-blue-600 transition-colors font-medium py-2">
+            <a href="#why-us" className="text-gray-600 hover:text-primary transition-colors font-medium py-2">
               Why Us
             </a>
-            <a href="#contact" className="text-gray-600 hover:text-blue-600 transition-colors font-medium py-2">
+            <a href="#pricing" className="text-gray-600 hover:text-primary transition-colors font-medium py-2">
+              Pricing
+            </a>
+            <a href="#contact" className="text-gray-600 hover:text-primary transition-colors font-medium py-2">
               Contact
             </a>
-            <Link href="/login" className="font-bold text-blue-600 hover:text-blue-700 transition-colors py-2">
+            <Link href="/login" className="font-bold text-primary hover:text-primary/80 transition-colors py-2">
               Client Portal
             </Link>
           </nav>

@@ -3,7 +3,6 @@
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ExternalLink, FileText, CreditCard } from "lucide-react";
 
 interface Client {
   id: string;
@@ -14,21 +13,10 @@ interface Client {
   next_invoice_due: string | null;
 }
 
-interface Invoice {
-  id: string;
-  invoice_number: string;
-  amount_due: number;
-  due_date: string;
-  status: string;
-  file_url: string | null;
-  qbo_payment_url: string | null;
-}
-
 export default function Portal() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [client, setClient] = useState<Client | null>(null);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingPlan, setUpdatingPlan] = useState(false);
 
@@ -64,7 +52,7 @@ export default function Portal() {
       });
 
       if (res.ok) {
-        const updated = await res.json();
+        await res.json();
         setClient({ ...client, plan: newPlan });
       }
     } catch (error) {
@@ -88,7 +76,7 @@ export default function Portal() {
       });
 
       if (res.ok) {
-        const updated = await res.json();
+        await res.json();
         setClient({ ...client, service_status: "Canceled" });
       }
     } catch (error) {
@@ -98,7 +86,7 @@ export default function Portal() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-tech flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Loading portal...</p>
@@ -112,17 +100,17 @@ export default function Portal() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-tech">
       <div className="max-w-6xl mx-auto px-6 py-12">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Client Portal</h1>
+            <h1 className="font-display text-5xl text-gray-900 mb-2">Client Portal</h1>
             <p className="text-gray-600">Welcome back, {session.user?.name}</p>
           </div>
           <button
             onClick={handleLogout}
-            className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+            className="px-6 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition uppercase tracking-[0.18em] text-sm font-semibold"
           >
             Sign Out
           </button>
@@ -130,32 +118,32 @@ export default function Portal() {
 
         {/* Account Info */}
         <div className="grid md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Current Plan</h3>
             <p className="text-2xl font-bold text-gray-900">Starter</p>
           </div>
 
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Service Status</h3>
             <p className="text-2xl font-bold text-emerald-600">Active</p>
           </div>
 
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Next Invoice Due</h3>
             <p className="text-2xl font-bold text-gray-900">N/A</p>
           </div>
         </div>
 
         {/* Plan Management */}
-        <div className="bg-white p-6 rounded-lg border border-gray-200 mb-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Manage Plan</h2>
+        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mb-8">
+          <h2 className="font-display text-3xl text-gray-900 mb-4">Manage Plan</h2>
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
             <div className="flex-1">
               <label className="text-sm font-medium text-gray-700 mb-2 block">Change Plan</label>
               <select
                 onChange={(e) => handlePlanChange(e.target.value)}
                 disabled={updatingPlan}
-                className="w-full sm:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full sm:w-64 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
               >
                 <option value="Starter">Starter</option>
                 <option value="Pro">Pro</option>
@@ -164,7 +152,7 @@ export default function Portal() {
             </div>
             <button
               onClick={handleCancelService}
-              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition mt-6"
+              className="px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition mt-6 uppercase tracking-[0.18em] text-sm font-semibold"
             >
               Cancel Service
             </button>
@@ -172,8 +160,8 @@ export default function Portal() {
         </div>
 
         {/* Invoices */}
-        <div className="bg-white p-6 rounded-lg border border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Invoices</h2>
+        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+          <h2 className="font-display text-3xl text-gray-900 mb-4">Invoices</h2>
           <p className="text-gray-600">No invoices yet.</p>
         </div>
       </div>

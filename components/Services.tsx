@@ -1,55 +1,55 @@
 'use client';
 
-import { Code, Bot, Smartphone } from "lucide-react";
+import { ArrowRight, Bot, Code, Smartphone } from "lucide-react";
 
 const services = [
   {
     icon: Code,
     title: "Web Development",
-    description: "Modern, responsive websites built with the latest technologies",
+    description: "High-performance marketing sites and web apps with clean UX and solid SEO foundations.",
   },
   {
     icon: Bot,
     title: "AI Automation",
-    description: "Streamline your business with intelligent automation solutions",
+    description: "Automate operations, support, and lead workflows with smart AI tooling and integrations.",
   },
   {
     icon: Smartphone,
     title: "App Development",
-    description: "Native and cross-platform mobile applications",
+    description: "Custom mobile and desktop apps that streamline your workflows and scale with your business.",
   },
 ];
 
 export default function Services() {
   return (
-    <section id="services" className="py-20 bg-gray-50">
+    <section id="services" className="py-24 bg-tech">
       <div className="container mx-auto px-6">
+        {/* Section Header */}
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            Our Services
+          <p className="text-primary font-medium mb-2 tracking-wider uppercase">What We Do</p>
+          <h2 className="font-display text-4xl md:text-6xl text-gray-900 mb-4">
+            OUR SERVICES
           </h2>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Comprehensive solutions tailored to your business needs
+          <p className="text-gray-600 max-w-2xl mx-auto">
+            Custom technology solutions at affordable flat rates. From simple websites to AI automation, we help your business grow.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {services.map((service, index) => {
+        <div className="grid gap-6 md:grid-cols-3">
+          {services.map((service) => {
             const Icon = service.icon;
             return (
               <div
-                key={index}
-                className="bg-white p-8 rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-lg transition-all w-full max-w-sm mx-auto md:max-w-none"
+                key={service.title}
+                className="group h-full p-8 rounded-xl bg-white border border-gray-200 hover:border-primary/40 transition-all duration-300 shadow-sm hover:shadow-md"
               >
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                  <Icon className="w-6 h-6 text-blue-600" />
+                <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center mb-5 group-hover:bg-blue-100 transition-all duration-300">
+                  <Icon className="w-6 h-6 text-primary" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">
-                  {service.title}
-                </h3>
-                <p className="text-gray-600 mb-4">{service.description}</p>
-                <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">
-                  Learn More →
+                <h3 className="font-display text-2xl text-gray-900 mb-3">{service.title}</h3>
+                <p className="text-gray-600 leading-relaxed mb-6">{service.description}</p>
+                <a href="#contact" className="inline-flex items-center gap-2 text-primary font-semibold hover:text-primary/80 transition-colors">
+                  Learn More <ArrowRight className="w-4 h-4" />
                 </a>
               </div>
             );

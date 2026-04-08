@@ -2,11 +2,11 @@
 
 import { useSession, signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Rocket } from "lucide-react";
 
 export default function Login() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
@@ -69,8 +69,7 @@ export default function Login() {
       }
 
       setMessage({ type: "success", text: "Account created! Signing in..." });
-      
-      // Sign in the user
+
       const signInResult = await signIn("credentials", {
         email,
         password,
@@ -80,27 +79,30 @@ export default function Login() {
       if (signInResult?.ok) {
         router.push("/portal");
       }
-    } catch (error: any) {
-      setMessage({ type: "error", text: error.message });
+    } catch (error: unknown) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to create account",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 flex items-center justify-center px-6 py-12">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-8">
+    <div className="min-h-screen bg-tech flex items-center justify-center px-6 py-12">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
         {/* Logo */}
         <div className="flex items-center justify-center gap-2 mb-8">
           <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
             <Rocket className="w-6 h-6 text-white" />
           </div>
-          <span className="font-bold text-lg text-gray-900">
-            CLEAR SITE <span className="text-blue-600">CONSULTANTS</span>
+          <span className="font-display text-lg text-gray-900 tracking-wide">
+            CLEARSITE <span className="text-primary">CONSULTANTS</span>
           </span>
         </div>
 
-        <h1 className="text-2xl font-bold text-gray-900 mb-2 text-center">
+        <h1 className="font-display text-4xl text-gray-900 mb-2 text-center">
           {isSignUp ? "Create Account" : "Client Portal"}
         </h1>
         <p className="text-gray-600 text-center mb-8">
@@ -204,7 +206,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+            className="w-full py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition disabled:opacity-50 uppercase tracking-[0.18em] text-sm"
           >
             {loading ? "Loading..." : isSignUp ? "Create Account" : "Sign In"}
           </button>
@@ -215,7 +217,7 @@ export default function Login() {
             {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
             <button
               onClick={() => setIsSignUp(!isSignUp)}
-              className="text-blue-600 hover:text-blue-700 font-semibold"
+              className="text-primary hover:text-primary/80 font-semibold"
             >
               {isSignUp ? "Sign In" : "Sign Up"}
             </button>

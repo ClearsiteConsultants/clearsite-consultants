@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { MapPin, Phone, Mail, Clock } from "lucide-react";
+import { Clock, Mail, MapPin, Phone } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -70,7 +70,7 @@ export default function Contact() {
 
       form.reset();
       setIsSubmitted(true);
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to send message. Please try again or call us directly.",
@@ -86,19 +86,19 @@ export default function Contact() {
       <div className="container mx-auto px-6">
         {/* Section Header */}
         <div className="text-center mb-16">
-          <p className="text-blue-600 font-medium mb-2 tracking-wider uppercase">Get In Touch</p>
-          <h2 className="text-4xl md:text-6xl font-bold text-gray-900 mb-4">
+          <p className="text-primary font-medium mb-2 tracking-wider uppercase">Get In Touch</p>
+          <h2 className="font-display text-4xl md:text-6xl text-gray-900 mb-4">
             START YOUR PROJECT
           </h2>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Let's discuss your business goals and how we can build a website that drives real results. We'll get back to you within 24 hours.
+            Let&apos;s discuss your business goals and how we can build a website that drives real results. We&apos;ll get back to you within 24 hours.
           </p>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-12">
           {/* Contact Form */}
           <div className="p-8 rounded-2xl bg-gray-50 border border-gray-200">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">Send Us a Message</h3>
+            <h3 className="font-display text-2xl text-gray-900 mb-6">Send Us a Message</h3>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
@@ -124,7 +124,7 @@ export default function Contact() {
                   required
                 />
               </div>
-              <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isSubmitting || isSubmitted}>
+              <Button type="submit" variant="hero" className="w-full text-sm" disabled={isSubmitting || isSubmitted}>
                 {isSubmitting ? 'Sending...' : isSubmitted ? 'Message Sent' : 'Send Message'}
               </Button>
             </form>
@@ -136,12 +136,12 @@ export default function Contact() {
               {contactInfo.map((item) => (
                 <div key={item.label} className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                    <item.icon className="w-6 h-6 text-blue-600" />
+                    <item.icon className="w-6 h-6 text-primary" />
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 mb-1">{item.label}</p>
                     {item.href ? (
-                      <a href={item.href} className="text-lg text-gray-900 font-medium hover:text-blue-600 transition-colors">
+                      <a href={item.href} className="text-lg text-gray-900 font-medium hover:text-primary transition-colors">
                         {item.value}
                       </a>
                     ) : (

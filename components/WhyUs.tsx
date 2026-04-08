@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle, DollarSign, Users, Sparkles, Award } from "lucide-react";
+import { Award, CheckCircle, DollarSign, Sparkles, Users } from "lucide-react";
 
 const features = [
   {
@@ -41,20 +41,20 @@ export default function WhyUs() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
           {/* Left Column */}
           <div>
-            <p className="text-blue-600 font-medium mb-2 tracking-wider uppercase">Why Choose Us</p>
-            <h2 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+            <p className="text-primary font-medium mb-2 tracking-wider uppercase">Why Choose Us</p>
+            <h2 className="font-display text-4xl md:text-6xl text-gray-900 mb-6">
               AFFORDABILITY MEETS{' '}
-              <span className="text-blue-600">EXPERTISE</span>
+              <span className="text-primary">EXPERTISE</span>
             </h2>
             <p className="text-gray-600 text-lg mb-8">
-              We're different. This isn't about fancy portfolios or high markups—it's about real people helping small businesses get affordable, custom technology solutions. We believe in simple pricing, genuine relationships, and technology that actually helps you grow.
+              We&apos;re different. This isn&apos;t about fancy portfolios or high markups; it&apos;s about real people helping small businesses get affordable, custom technology solutions. We believe in simple pricing, genuine relationships, and technology that actually helps you grow.
             </p>
 
             {/* Benefits List */}
             <div className="space-y-4">
               {benefits.map((benefit) => (
                 <div key={benefit} className="flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-1" />
+                  <CheckCircle className="w-5 h-5 text-primary flex-shrink-0 mt-1" />
                   <span className="text-gray-800">{benefit}</span>
                 </div>
               ))}
@@ -66,13 +66,13 @@ export default function WhyUs() {
             {features.map((feature) => (
               <div
                 key={feature.title}
-                className="flex gap-6 p-6 rounded-xl bg-white border border-gray-200 hover:border-blue-300 transition-all duration-300 shadow-sm"
+                className="flex gap-6 p-6 rounded-xl bg-white border border-gray-200 hover:border-primary/30 transition-all duration-300 shadow-sm"
               >
                 <div className="w-16 h-16 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                  <feature.icon className="w-8 h-8 text-blue-600" />
+                  <feature.icon className="w-8 h-8 text-primary" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">{feature.title}</h3>
+                  <h3 className="font-display text-xl text-gray-900 mb-2">{feature.title}</h3>
                   <p className="text-gray-600">{feature.description}</p>
                 </div>
               </div>

@@ -63,7 +63,6 @@ export default function AdminInvoices() {
     try {
       let fileUrl = null;
 
-      // Upload PDF if provided
       if (pdfFile) {
         const formData = new FormData();
         formData.append("file", pdfFile);
@@ -79,7 +78,6 @@ export default function AdminInvoices() {
         fileUrl = uploadData.url;
       }
 
-      // Create invoice
       const res = await fetch("/api/invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -97,7 +95,6 @@ export default function AdminInvoices() {
 
       setMessage({ type: "success", text: "Invoice uploaded successfully!" });
 
-      // Reset form
       setSelectedClientId("");
       setInvoiceNumber("");
       setAmountDue("");
@@ -105,8 +102,11 @@ export default function AdminInvoices() {
       setQboPaymentUrl("");
       setPdfFile(null);
       (document.getElementById("pdf-file") as HTMLInputElement).value = "";
-    } catch (error: any) {
-      setMessage({ type: "error", text: error.message });
+    } catch (error: unknown) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to create invoice",
+      });
     } finally {
       setUploading(false);
     }
@@ -121,11 +121,11 @@ export default function AdminInvoices() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-tech">
       <div className="max-w-3xl mx-auto px-6 py-12">
-        <h1 className="text-4xl font-bold text-gray-900 mb-8">Upload Client Invoice</h1>
+        <h1 className="font-display text-5xl text-gray-900 mb-8">Upload Client Invoice</h1>
 
-        <div className="bg-white p-8 rounded-lg border border-gray-200">
+        <div className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -134,7 +134,7 @@ export default function AdminInvoices() {
               <select
                 value={selectedClientId}
                 onChange={(e) => setSelectedClientId(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
                 required
               >
                 <option value="">Select a client</option>
@@ -155,7 +155,7 @@ export default function AdminInvoices() {
                 value={invoiceNumber}
                 onChange={(e) => setInvoiceNumber(e.target.value)}
                 placeholder="INV-2024-001"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
                 required
               />
             </div>
@@ -171,7 +171,7 @@ export default function AdminInvoices() {
                 value={amountDue}
                 onChange={(e) => setAmountDue(e.target.value)}
                 placeholder="0.00"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
                 required
               />
             </div>
@@ -184,7 +184,7 @@ export default function AdminInvoices() {
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
                 required
               />
             </div>
@@ -198,7 +198,7 @@ export default function AdminInvoices() {
                 value={qboPaymentUrl}
                 onChange={(e) => setQboPaymentUrl(e.target.value)}
                 placeholder="https://quickbooks.intuit.com/..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
               />
             </div>
 
@@ -211,7 +211,7 @@ export default function AdminInvoices() {
                 type="file"
                 accept=".pdf"
                 onChange={handleFileChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
               />
               {pdfFile && (
                 <span className="text-sm text-gray-600 mt-2">{pdfFile.name}</span>
@@ -233,7 +233,7 @@ export default function AdminInvoices() {
             <button
               type="submit"
               disabled={uploading}
-              className="w-full py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition disabled:opacity-50 flex items-center justify-center gap-2 uppercase tracking-[0.18em] text-sm"
             >
               <Upload className="w-4 h-4" />
               {uploading ? "Uploading..." : "Upload Invoice"}
