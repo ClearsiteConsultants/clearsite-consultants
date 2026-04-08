@@ -2,8 +2,8 @@
 
 export default function Hero() {
   return (
-    <section className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-white pt-32 pb-20 px-6">
-      <div className="container mx-auto grid md:grid-cols-[1.15fr_0.85fr] gap-12 items-center">
+    <section className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-white pt-16 pb-20 px-6 overflow-hidden">
+      <div className="container mx-auto grid grid-cols-1 md:grid-cols-[1.15fr_0.85fr] gap-12 items-center">
         <div>
           <div className="inline-block px-4 py-2 bg-blue-100 rounded-full mb-6">
             <span className="text-sm font-semibold text-blue-700">

@@ -38,7 +38,7 @@ export default function WhyUs() {
   return (
     <section id="why-us" className="py-24 bg-gray-50">
       <div className="container mx-auto px-6">
-        <div className="grid lg:grid-cols-2 gap-16 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
           {/* Left Column */}
           <div>
             <p className="text-blue-600 font-medium mb-2 tracking-wider uppercase">Why Choose Us</p>
