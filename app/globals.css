@@ -44,7 +44,7 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --font-sans: var(--font-inter);
   --font-body: var(--font-inter);
-  --font-display: var(--font-bebas);
+  --font-display: var(--font-inter);
 }
 
 html,
@@ -65,8 +65,9 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: var(--font-bebas), Impact, sans-serif;
-  letter-spacing: 0.02em;
+  font-family: var(--font-inter), sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
 }
 
 @keyframes fade-in-up {
