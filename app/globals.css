@@ -113,3 +113,10 @@ h6 {
   background-repeat: repeat, no-repeat, no-repeat;
   background-position: top left, top right, center;
 }
+
+@media (max-width: 374px) {
+  .hero-main-title {
+    font-size: 2.35rem;
+    line-height: 0.98;
+  }
+}
