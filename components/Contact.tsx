@@ -95,26 +95,26 @@ export default function Contact() {
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-12">
+        <div className="grid min-w-0 lg:grid-cols-2 gap-12">
           {/* Contact Form */}
-          <div className="p-8 rounded-2xl bg-gray-50 border border-gray-200">
-            <h3 className="font-display text-2xl text-gray-900 mb-6">Send Us a Message</h3>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div>
+          <div className="contact-form-card min-w-0 max-w-full overflow-hidden p-8 rounded-2xl bg-gray-50 border border-gray-200">
+            <h3 className="contact-form-title font-display text-2xl text-gray-900 mb-6">Send Us a Message</h3>
+            <form onSubmit={handleSubmit} className="space-y-6 min-w-0">
+              <div className="grid min-w-0 sm:grid-cols-2 gap-4">
+                <div className="min-w-0">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
                   <Input name="name" placeholder="Your name" className="bg-white border-gray-300" required />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
                   <Input name="email" type="email" placeholder="your@email.com" className="bg-white border-gray-300" required />
                 </div>
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Business Name</label>
                 <Input name="business_name" placeholder="Your company name" className="bg-white border-gray-300" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
                 <Textarea
                   name="message"
@@ -124,28 +124,28 @@ export default function Contact() {
                   required
                 />
               </div>
-              <Button type="submit" variant="hero" className="w-full text-sm" disabled={isSubmitting || isSubmitted}>
+              <Button type="submit" variant="hero" className="contact-submit-button h-auto w-full whitespace-normal px-4 py-4 text-sm tracking-[0.08em]" disabled={isSubmitting || isSubmitted}>
                 {isSubmitting ? 'Sending...' : isSubmitted ? 'Message Sent' : 'Send Message'}
               </Button>
             </form>
           </div>
 
           {/* Contact Info */}
-          <div className="flex flex-col justify-center">
+          <div className="flex min-w-0 flex-col justify-center">
             <div className="space-y-6">
               {contactInfo.map((item) => (
-                <div key={item.label} className="flex items-start gap-4">
+                <div key={item.label} className="flex min-w-0 items-start gap-4">
                   <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
                     <item.icon className="w-6 h-6 text-primary" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm text-gray-600 mb-1">{item.label}</p>
                     {item.href ? (
-                      <a href={item.href} className="text-lg text-gray-900 font-medium hover:text-primary transition-colors">
+                      <a href={item.href} className="contact-info-value block break-words text-lg text-gray-900 font-medium hover:text-primary transition-colors">
                         {item.value}
                       </a>
                     ) : (
-                      <p className="text-lg text-gray-900 font-medium">{item.value}</p>
+                      <p className="contact-info-value break-words text-lg text-gray-900 font-medium">{item.value}</p>
                     )}
                   </div>
                 </div>
