@@ -4,6 +4,7 @@ import { useSession, signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Rocket } from "lucide-react";
+import Header from "@/components/Header";
 
 export default function Login() {
   const { status } = useSession();
@@ -90,8 +91,11 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-tech flex items-center justify-center px-6 py-12">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+    <div className="min-h-screen bg-tech">
+      <Header showNavigation={false} />
+
+      <div className="flex items-center justify-center px-6 py-12">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
         {/* Logo */}
         <div className="flex items-center justify-center gap-2 mb-8">
           <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
@@ -222,6 +226,7 @@ export default function Login() {
               {isSignUp ? "Sign In" : "Sign Up"}
             </button>
           </p>
+        </div>
         </div>
       </div>
     </div>
