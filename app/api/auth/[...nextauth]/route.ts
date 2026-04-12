@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { sql } from "@vercel/postgres";
+import { sql } from "@/lib/db";
 import bcrypt from "bcryptjs";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -13,7 +13,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Invalid credentials");
+          return null;
         }
 
         const email = credentials.email as string;
@@ -26,7 +26,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         `;
 
         if (result.rows.length === 0) {
-          throw new Error("User not found");
+          return null;
         }
 
         const user = result.rows[0];
@@ -37,7 +37,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         );
 
         if (!passwordValid) {
-          throw new Error("Invalid password");
+          return null;
         }
 
         return {

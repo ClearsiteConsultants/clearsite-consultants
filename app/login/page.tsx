@@ -6,6 +6,19 @@ import { useEffect, useState } from "react";
 import { Rocket } from "lucide-react";
 import Header from "@/components/Header";
 
+function normalizeAuthError(error?: string | null) {
+  // Keep credential failures intentionally generic to avoid leaking account details.
+  if (error === "CredentialsSignin" || error === "Configuration") {
+    return "Incorrect email or password. Please try again.";
+  }
+
+  if (!error) {
+    return "Authentication failed. Please try again.";
+  }
+
+  return error;
+}
+
 export default function Login() {
   const { status } = useSession();
   const router = useRouter();
@@ -37,7 +50,7 @@ export default function Login() {
     });
 
     if (result?.error) {
-      setMessage({ type: "error", text: result.error });
+      setMessage({ type: "error", text: normalizeAuthError(result.error) });
     } else if (result?.ok) {
       router.push("/portal");
     }
@@ -79,6 +92,11 @@ export default function Login() {
 
       if (signInResult?.ok) {
         router.push("/portal");
+      } else if (signInResult?.error) {
+        setMessage({
+          type: "error",
+          text: normalizeAuthError(signInResult.error),
+        });
       }
     } catch (error: unknown) {
       setMessage({

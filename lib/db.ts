@@ -1,4 +1,14 @@
-import { sql } from "@vercel/postgres";
+import postgres from "postgres";
+
+const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL || "";
+
+const db = postgres(connectionString, {
+  ssl: connectionString.includes("localhost") ? false : { rejectUnauthorized: false },
+});
+
+// Wraps the postgres tagged template literal to match the { rows } shape used throughout this file.
+export const sql = (strings: TemplateStringsArray, ...values: unknown[]) =>
+  db(strings, ...values as Parameters<typeof db>[1][]).then((rows) => ({ rows }));
 
 export async function getClientByEmail(email: string) {
   const result = await sql`
