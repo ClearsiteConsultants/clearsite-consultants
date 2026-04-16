@@ -1,116 +1,163 @@
 # ClearSite Consultants
 
-Business website for ClearSite Consultants — a single-page React application showcasing services, pricing, and a contact form. The frontend is built with Vite + React + TypeScript + Tailwind CSS. The contact form backend runs as a Vercel serverless function.
+Business website and client portal for ClearSite Consultants.
+
+This branch is a Next.js App Router implementation that includes:
+- a public marketing homepage
+- client authentication (sign up / sign in)
+- a client portal view
+- admin invoice upload and invoice-related API endpoints
 
 ## Tech Stack
 
-- **Vite** — build tool and dev server
-- **React 18** with **TypeScript**
-- **Tailwind CSS** — utility-first styling
-- **shadcn/ui** — accessible, composable UI components (Radix UI primitives)
-- **React Router v6** — client-side routing
-- **React Hook Form** + **Zod** — form handling and validation
-- **React Query** (@tanstack/react-query) — server state management
-- **Vercel** — hosting and serverless API functions
-- **Resend** — transactional email (contact form)
+- **Next.js 16 (App Router)**
+- **React 19 + TypeScript**
+- **Tailwind CSS 4**
+- **shadcn/ui + Radix UI primitives**
+- **NextAuth (credentials provider)**
+- **PostgreSQL** via `@vercel/postgres` + `postgres`
+- **Vercel Blob** for invoice file uploads
 
-## Developer Setup
+## Getting Started
 
-### Prerequisites
+### 1. Install dependencies
 
-- **Node.js** ≥ 18 — install via [nvm](https://github.com/nvm-sh/nvm#installing-and-updating) or your preferred method
-- **npm** (comes with Node) or **bun** (a `bun.lockb` is committed if you prefer bun)
-
-### 1. Clone the repo
-
-```sh
-git clone https://github.com/ClearsiteConsultants/clearsite-consultants.git
-cd clearsite-consultants
-```
-
-### 2. Install dependencies
-
-```sh
+```bash
 npm install
 ```
 
-### 3. Configure environment variables
+### 2. Run the development server
 
-Create a `.env.local` file in the project root:
-
-```sh
-cp .env.local.example .env.local   # if an example file exists, otherwise create manually
-```
-
-Add the following variable (required for the contact form to send emails):
-
-```
-RESEND_API_KEY=your_resend_api_key_here
-```
-
-You can obtain a free API key at [resend.com](https://resend.com).
-
-> The contact form will still render in development without this key; email sending will simply fail until a valid key is provided.
-
-### 4. Start the development server
-
-```sh
+```bash
 npm run dev
 ```
 
-The app runs at **http://localhost:8080**.
+Open [http://localhost:3000](http://localhost:3000) with your browser.
 
 ## Available Scripts
 
 | Command | Description |
 |---|---|
-| `npm run dev` | Start dev server with HMR on port 8080 |
-| `npm run build` | Production build (minified) |
-| `npm run build:dev` | Development build (unminified, easier debugging) |
+| `npm run dev` | Start local Next.js development server |
+| `npm run build` | Create production build |
+| `npm run start` | Start production server from the build output |
 | `npm run lint` | Run ESLint |
-| `npm run preview` | Preview the production build locally |
+
+## Local Database Setup (Windows + PostgreSQL)
+
+This project uses `@vercel/postgres` in app code, so local development should provide
+`POSTGRES_URL`/`DATABASE_URL` values pointing to your local PostgreSQL instance.
+
+### 1. Use a local-only `.env.local`
+
+Set DB values to localhost:
+
+```dotenv
+DATABASE_URL="postgresql://YOUR_DB_USER:YOUR_DB_PASSWORD@localhost:5432/YOUR_DB_NAME"
+DATABASE_URL_UNPOOLED="postgresql://YOUR_DB_USER:YOUR_DB_PASSWORD@localhost:5432/YOUR_DB_NAME"
+
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=YOUR_32_PLUS_CHAR_SECRET
+
+PGHOST=localhost
+PGHOST_UNPOOLED=localhost
+PGUSER=YOUR_DB_USER
+PGDATABASE=YOUR_DB_NAME
+PGPASSWORD=YOUR_DB_PASSWORD
+PGPORT=5432
+
+POSTGRES_URL="postgresql://YOUR_DB_USER:YOUR_DB_PASSWORD@localhost:5432/YOUR_DB_NAME"
+POSTGRES_URL_NON_POOLING="postgresql://YOUR_DB_USER:YOUR_DB_PASSWORD@localhost:5432/YOUR_DB_NAME"
+POSTGRES_USER=YOUR_DB_USER
+POSTGRES_HOST=localhost
+POSTGRES_PASSWORD=YOUR_DB_PASSWORD
+POSTGRES_DATABASE=YOUR_DB_NAME
+POSTGRES_URL_NO_SSL="postgresql://YOUR_DB_USER:YOUR_DB_PASSWORD@localhost:5432/YOUR_DB_NAME"
+POSTGRES_PRISMA_URL="postgresql://YOUR_DB_USER:YOUR_DB_PASSWORD@localhost:5432/YOUR_DB_NAME"
+
+# Required if using file uploads to Vercel Blob
+BLOB_READ_WRITE_TOKEN=YOUR_BLOB_TOKEN
+```
+
+### 2. Run one-time SQL bootstrap
+
+`.env.local` is loaded by Next.js, not automatically by PowerShell. Run SQL bootstrap explicitly:
+
+```powershell
+$env:PGPASSWORD = "YOUR_DB_PASSWORD"
+psql -h localhost -p 5432 -U YOUR_DB_USER -d YOUR_DB_NAME -f .\scripts\bootstrap-local.sql
+```
+
+If `psql` is not on your PATH, use full executable path:
+`& "C:\Program Files\PostgreSQL\18\bin\psql.exe"`
+
+This creates required tables:
+- `clients`
+- `subscriptions`
+- `invoices`
+
+### 3. Start app and verify auth flow
+
+```powershell
+npm run dev
+```
+
+Then open `/login`, sign up, sign out, and sign in again.
+If local login works, your account rows should appear in your local DB.
 
 ## Project Structure
 
-```
-src/
-  pages/            # Page-level components
-    Index.tsx       # Main landing page
-    NotFound.tsx    # 404 page
-  components/       # Feature and layout components
-    Header.tsx
-    Hero.tsx
-    Services.tsx
-    WhyUs.tsx
-    Pricing.tsx
-    Contact.tsx
-    Footer.tsx
-    ui/             # shadcn/ui component library (Radix UI based)
-  assets/           # Static assets (images, etc.)
-  hooks/            # Custom React hooks
-  lib/              # Utility functions (e.g. cn() helper)
-  App.tsx           # Router setup and React Query provider
-  main.tsx          # App entry point
-  index.css         # Global styles and Tailwind directives
+```text
+app/
+	page.tsx                       # Public homepage
+	layout.tsx                     # Root layout
+	login/page.tsx                 # Client sign in / sign up
+	portal/page.tsx                # Client portal
+	admin/invoices/page.tsx        # Admin invoice upload UI
+	api/
+		auth/[...nextauth]/route.ts  # NextAuth handlers
+		auth/register/route.ts       # Registration endpoint
+		contact/route.ts             # Contact form endpoint (currently logs payload)
+		invoices/route.ts            # Invoice + plan management endpoints
+		upload/route.ts              # Invoice file upload endpoint
 
-api/
-  contact.ts        # Vercel serverless function — handles contact form submissions
+components/
+	ui/                            # shadcn/ui components
+	Header.tsx, Hero.tsx, ...      # Section components used by homepage
+
+lib/
+	db.ts                          # Postgres connection + data access helpers
+
+scripts/
+	bootstrap-local.sql            # Local DB bootstrap script
 ```
 
 ## Key Conventions
 
-- **Path alias**: `@/` resolves to `src/` (configured in `vite.config.ts` and `tsconfig.json`)
-- **Fonts**: Bebas Neue (display headings via `font-display`), Inter (body)
-- **Colors / theme**: Customized in `tailwind.config.ts`; primary color and dark mode via CSS variables
-- **New routes**: Add `<Route>` entries in `App.tsx` above the catch-all `*` route
-- **New pages**: Create in `src/pages/`, import in `App.tsx`
-- **UI components**: Use and compose from `src/components/ui/`; edit source directly to customize
-- **Pricing values**: All prices are defined as a single `PRICES` constant at the top of `src/components/Pricing.tsx` for easy updates
+- **Path alias**: `@/*` resolves from project root.
+- **Routing**: App Router file-system routing under `app/`.
+- **Auth**: NextAuth credential flow lives in `app/api/auth/[...nextauth]/route.ts`.
+- **Database access**: SQL helpers are centralized in `lib/db.ts`.
+- **Pricing data**: Website pricing display values are maintained in `components/Pricing.tsx`.
+- **Contact endpoint**: Current `app/api/contact/route.ts` validates and logs payload; integrate an email provider if production email delivery is needed.
 
-## Deployment
+## Deployment (Vercel)
 
-The project is configured for **Vercel**. The `/api` directory is automatically treated as serverless functions.
+1. Push branch to GitHub and connect/import project in Vercel.
+2. Set required environment variables in Vercel:
+	 - `NEXTAUTH_URL`
+	 - `NEXTAUTH_SECRET`
+	 - Database variables (`POSTGRES_URL` and/or `DATABASE_URL`)
+	 - `BLOB_READ_WRITE_TOKEN` (if invoice upload is enabled)
+3. Run a production deploy.
+4. Validate core flows in deployed environment:
+	 - Sign up/sign in at `/login`
+	 - Portal access at `/portal`
+	 - Invoice upload flow under admin invoices
 
-1. Push to the `main` branch (or connect the repo in the Vercel dashboard)
-2. Set the `RESEND_API_KEY` environment variable in your Vercel project settings
-3. Vercel will run `vite build` and deploy automatically
+## Learn More
+
+- [Next.js Documentation](https://nextjs.org/docs)
+- [NextAuth Documentation](https://next-auth.js.org/)
+- [Vercel Postgres Documentation](https://vercel.com/docs/storage/vercel-postgres)
+- [Vercel Blob Documentation](https://vercel.com/docs/storage/vercel-blob)
