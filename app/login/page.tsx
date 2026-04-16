@@ -153,7 +153,7 @@ export default function Login() {
             <>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Company Name
+                  Company Name *
                 </label>
                 <input
                   type="text"
@@ -166,7 +166,7 @@ export default function Login() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Contact Name
+                  Contact Name *
                 </label>
                 <input
                   type="text"
@@ -206,7 +206,7 @@ export default function Login() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email
+              {isSignUp ? "Email *" : "Email"}
             </label>
             <input
               type="email"
@@ -219,7 +219,7 @@ export default function Login() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Password
+              {isSignUp ? "Password *" : "Password"}
             </label>
             <input
               type="password"
