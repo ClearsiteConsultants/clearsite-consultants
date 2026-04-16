@@ -57,6 +57,7 @@ DATABASE_URL="postgresql://YOUR_DB_USER:YOUR_DB_PASSWORD@localhost:5432/YOUR_DB_
 DATABASE_URL_UNPOOLED="postgresql://YOUR_DB_USER:YOUR_DB_PASSWORD@localhost:5432/YOUR_DB_NAME"
 
 NEXTAUTH_URL=http://localhost:3000
+AUTH_SECRET=YOUR_32_PLUS_CHAR_SECRET
 NEXTAUTH_SECRET=YOUR_32_PLUS_CHAR_SECRET
 
 PGHOST=localhost
@@ -146,6 +147,7 @@ scripts/
 1. Push branch to GitHub and connect/import project in Vercel.
 2. Set required environment variables in Vercel:
 	 - `NEXTAUTH_URL`
+	 - `AUTH_SECRET` (preferred for Auth.js v5)
 	 - `NEXTAUTH_SECRET`
 	 - Database variables (`POSTGRES_URL` and/or `DATABASE_URL`)
 	 - `BLOB_READ_WRITE_TOKEN` (if invoice upload is enabled)

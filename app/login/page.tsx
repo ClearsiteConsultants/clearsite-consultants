@@ -8,8 +8,13 @@ import Header from "@/components/Header";
 
 function normalizeAuthError(error?: string | null) {
   // Keep credential failures intentionally generic to avoid leaking account details.
-  if (error === "CredentialsSignin" || error === "Configuration") {
+  if (error === "CredentialsSignin") {
     return "Incorrect email or password. Please try again.";
+  }
+
+  // Keep this user-safe while signaling likely server-side setup issues.
+  if (error === "Configuration") {
+    return "Sign-in is temporarily unavailable. Please contact support if this continues.";
   }
 
   if (!error) {

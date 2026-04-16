@@ -12,39 +12,44 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
+        try {
+          if (!credentials?.email || !credentials?.password) {
+            return null;
+          }
+
+          const email = credentials.email as string;
+          const password = credentials.password as string;
+
+          const result = await sql`
+            SELECT id, email, password_hash, company_name
+            FROM clients
+            WHERE email = ${email}
+          `;
+
+          if (result.rows.length === 0) {
+            return null;
+          }
+
+          const user = result.rows[0];
+
+          const passwordValid = await bcrypt.compare(
+            password,
+            user.password_hash
+          );
+
+          if (!passwordValid) {
+            return null;
+          }
+
+          return {
+            id: String(user.id),
+            email: user.email,
+            name: user.company_name,
+          };
+        } catch (error) {
+          console.error("Credentials authorize failed", error);
           return null;
         }
-
-        const email = credentials.email as string;
-        const password = credentials.password as string;
-
-        const result = await sql`
-          SELECT id, email, password_hash, company_name
-          FROM clients
-          WHERE email = ${email}
-        `;
-
-        if (result.rows.length === 0) {
-          return null;
-        }
-
-        const user = result.rows[0];
-
-        const passwordValid = await bcrypt.compare(
-          password,
-          user.password_hash
-        );
-
-        if (!passwordValid) {
-          return null;
-        }
-
-        return {
-          id: String(user.id),
-          email: user.email,
-          name: user.company_name,
-        };
       },
     }),
   ],
@@ -65,10 +70,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: {
     signIn: "/login",
   },
+  logger: {
+    error(code, ...message) {
+      console.error("NextAuth error", code, ...message);
+    },
+    warn(code) {
+      console.warn("NextAuth warning", code);
+    },
+  },
   session: {
     strategy: "jwt",
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
 });
 
 export const { GET, POST } = handlers;
