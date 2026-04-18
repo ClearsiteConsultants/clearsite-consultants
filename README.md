@@ -79,6 +79,12 @@ POSTGRES_PRISMA_URL="postgresql://YOUR_DB_USER:YOUR_DB_PASSWORD@localhost:5432/Y
 
 # Required if using file uploads to Vercel Blob
 BLOB_READ_WRITE_TOKEN=YOUR_BLOB_TOKEN
+
+# Required for contact form email delivery via Resend
+RESEND_API_KEY=YOUR_RESEND_API_KEY
+CONTACT_TO_EMAIL=YOUR_INBOX_EMAIL
+# Use a verified sender in production. Resend test sender shown below.
+CONTACT_FROM_EMAIL="ClearSite Contact <onboarding@resend.dev>"
 ```
 
 ### 2. Create local tables
@@ -178,7 +184,7 @@ app/
 	api/
 		auth/[...nextauth]/route.ts  # NextAuth handlers
 		auth/register/route.ts       # Registration endpoint
-		contact/route.ts             # Contact form endpoint (currently logs payload)
+		contact/route.ts             # Contact form endpoint (sends email via Resend)
 		invoices/route.ts            # Invoice + plan management endpoints
 		upload/route.ts              # Invoice file upload endpoint
 
@@ -200,7 +206,7 @@ scripts/
 - **Auth**: NextAuth credential flow lives in `app/api/auth/[...nextauth]/route.ts`.
 - **Database access**: SQL helpers are centralized in `lib/db.ts`.
 - **Pricing data**: Website pricing display values are maintained in `components/Pricing.tsx`.
-- **Contact endpoint**: Current `app/api/contact/route.ts` validates and logs payload; integrate an email provider if production email delivery is needed.
+- **Contact endpoint**: `app/api/contact/route.ts` sends contact emails through Resend.
 
 ## Deployment (Vercel)
 
@@ -211,6 +217,9 @@ scripts/
 	 - `NEXTAUTH_SECRET`
 	 - Database variables (`POSTGRES_URL` and/or `DATABASE_URL`)
 	 - `BLOB_READ_WRITE_TOKEN` (if invoice upload is enabled)
+	 - `RESEND_API_KEY`
+	 - `CONTACT_TO_EMAIL`
+	 - `CONTACT_FROM_EMAIL`
 3. Run a production deploy.
 4. Validate core flows in deployed environment:
 	 - Sign up/sign in at `/login`
