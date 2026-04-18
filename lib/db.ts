@@ -40,6 +40,26 @@ export async function createClient(data: {
   return result.rows[0];
 }
 
+export async function updateClientPasswordById(clientId: string, passwordHash: string) {
+  const result = await sql`
+    UPDATE clients
+    SET password_hash = ${passwordHash}, updated_at = NOW()
+    WHERE id = ${clientId}
+    RETURNING id, email, updated_at
+  `;
+  return result.rows[0];
+}
+
+export async function updateClientPasswordByEmail(email: string, passwordHash: string) {
+  const result = await sql`
+    UPDATE clients
+    SET password_hash = ${passwordHash}, updated_at = NOW()
+    WHERE email = ${email}
+    RETURNING id, email, updated_at
+  `;
+  return result.rows[0];
+}
+
 export async function updateClientPlan(clientId: string, newPlan: string) {
   const client = await getClientById(clientId);
   

@@ -1,5 +1,5 @@
 import { Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 type HeaderProps = {
@@ -8,6 +8,27 @@ type HeaderProps = {
 
 export default function Header({ showNavigation = true }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!isMenuOpen) {
+      return;
+    }
+
+    const handleOutsidePointerDown = (event: MouseEvent | TouchEvent) => {
+      if (headerRef.current && !headerRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsidePointerDown);
+    document.addEventListener("touchstart", handleOutsidePointerDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsidePointerDown);
+      document.removeEventListener("touchstart", handleOutsidePointerDown);
+    };
+  }, [isMenuOpen]);
 
   const handleNavLinkClick = () => {
     setIsMenuOpen(false);
@@ -27,7 +48,7 @@ export default function Header({ showNavigation = true }: HeaderProps) {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur border-b border-gray-200/70">
+    <header ref={headerRef} className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur border-b border-gray-200/70">
       <div className="mx-auto w-full max-w-[1800px] px-3 py-3 sm:px-5 lg:px-6">
         <div className="flex items-center justify-between">
           {/* Logo */}
