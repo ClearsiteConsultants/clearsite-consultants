@@ -4,6 +4,7 @@ const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL ||
 
 const db = postgres(connectionString, {
   ssl: connectionString.includes("localhost") ? false : { rejectUnauthorized: false },
+  prepare: false,
 });
 
 // Wraps the postgres tagged template literal to match the { rows } shape used throughout this file.
@@ -43,9 +44,9 @@ export async function createClient(data: {
 export async function updateClientPasswordById(clientId: string, passwordHash: string) {
   const result = await sql`
     UPDATE clients
-    SET password_hash = ${passwordHash}, updated_at = NOW()
+    SET password_hash = ${passwordHash}
     WHERE id = ${clientId}
-    RETURNING id, email, updated_at
+    RETURNING id, email
   `;
   return result.rows[0];
 }
@@ -53,9 +54,9 @@ export async function updateClientPasswordById(clientId: string, passwordHash: s
 export async function updateClientPasswordByEmail(email: string, passwordHash: string) {
   const result = await sql`
     UPDATE clients
-    SET password_hash = ${passwordHash}, updated_at = NOW()
+    SET password_hash = ${passwordHash}
     WHERE email = ${email}
-    RETURNING id, email, updated_at
+    RETURNING id, email
   `;
   return result.rows[0];
 }

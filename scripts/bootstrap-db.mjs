@@ -36,6 +36,11 @@ async function run() {
     `;
 
     await tx`
+      ALTER TABLE clients
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()
+    `;
+
+    await tx`
       CREATE TABLE IF NOT EXISTS subscriptions (
         id SERIAL PRIMARY KEY,
         client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
