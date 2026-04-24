@@ -63,8 +63,7 @@ export async function updateClientPasswordByEmail(email: string, passwordHash: s
 
 export async function updateClientPlan(clientId: string, newPlan: string) {
   const client = await getClientById(clientId);
-  
-  // Log subscription change
+
   await sql`
     INSERT INTO subscriptions (client_id, old_plan, new_plan, change_type)
     VALUES (${clientId}, ${client.plan}, ${newPlan}, 'upgrade')
@@ -80,6 +79,22 @@ export async function updateClientPlan(clientId: string, newPlan: string) {
 export async function cancelClientService(clientId: string) {
   const result = await sql`
     UPDATE clients SET service_status = 'Canceled', updated_at = NOW() WHERE id = ${clientId}
+    RETURNING *
+  `;
+  return result.rows[0];
+}
+
+export async function updateClientStatus(clientId: string, newStatus: string) {
+  const result = await sql`
+    UPDATE clients SET service_status = ${newStatus}, updated_at = NOW() WHERE id = ${clientId}
+    RETURNING *
+  `;
+  return result.rows[0];
+}
+
+export async function updateNextInvoiceDue(clientId: string, dueDate: string) {
+  const result = await sql`
+    UPDATE clients SET next_invoice_due = ${dueDate}, updated_at = NOW() WHERE id = ${clientId}
     RETURNING *
   `;
   return result.rows[0];

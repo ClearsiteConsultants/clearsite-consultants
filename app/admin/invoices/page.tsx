@@ -26,8 +26,10 @@ export default function AdminInvoices() {
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login");
+    } else if (status === "authenticated" && (session?.user as any)?.user_type !== "admin") {
+      router.push("/portal");
     }
-  }, [status, router]);
+  }, [status, router, session]);
 
   useEffect(() => {
     loadClients();
@@ -35,9 +37,11 @@ export default function AdminInvoices() {
 
   const loadClients = async () => {
     try {
-      const res = await fetch("/api/invoices?action=admin-list");
-      const data = await res.json();
-      setClients(data);
+      const res = await fetch("/api/admin/clients");
+      if (res.ok) {
+        const data = await res.json();
+        setClients(data);
+      }
     } catch (error) {
       console.error("Failed to load clients", error);
     }
@@ -82,7 +86,7 @@ export default function AdminInvoices() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          client_id: selectedClientId,
+          user_id: selectedClientId,
           invoice_number: invoiceNumber,
           amount_due: parseFloat(amountDue),
           due_date: dueDate,

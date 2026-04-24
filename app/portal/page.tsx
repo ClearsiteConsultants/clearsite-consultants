@@ -34,8 +34,10 @@ export default function Portal() {
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login");
+    } else if (status === "authenticated" && (session?.user as any)?.user_type === "admin") {
+      router.push("/admin/clients");
     }
-  }, [status, router]);
+  }, [status, router, session]);
 
   useEffect(() => {
     // In a real app, fetch from API

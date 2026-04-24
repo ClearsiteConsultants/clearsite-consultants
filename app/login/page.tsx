@@ -57,7 +57,10 @@ export default function Login() {
     if (result?.error) {
       setMessage({ type: "error", text: normalizeAuthError(result.error) });
     } else if (result?.ok) {
-      router.push("/portal");
+      // Redirect based on user type after brief delay to allow session update
+      setTimeout(() => {
+        router.push("/portal");
+      }, 100);
     }
     setLoading(false);
   };

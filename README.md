@@ -15,7 +15,7 @@ This branch is a Next.js App Router implementation that includes:
 - **Tailwind CSS 4**
 - **shadcn/ui + Radix UI primitives**
 - **NextAuth (credentials provider)**
-- **PostgreSQL** via `@vercel/postgres` + `postgres`
+- **PostgreSQL** via `postgres` npm package (Neon in production, local PostgreSQL in dev)
 - **Vercel Blob** for invoice file uploads
 
 ## Getting Started
@@ -55,16 +55,11 @@ Set DB values to localhost:
 
 ```dotenv
 DATABASE_URL="postgresql://YOUR_DB_USER:YOUR_DB_PASSWORD@localhost:5432/YOUR_DB_NAME"
+POSTGRES_URL="postgresql://YOUR_DB_USER:YOUR_DB_PASSWORD@localhost:5432/YOUR_DB_NAME"
 
 NEXTAUTH_URL=http://localhost:3000
 AUTH_SECRET=GENERATE_A_32_PLUS_CHAR_SECRET
 NEXTAUTH_SECRET=GENERATE_A_32_PLUS_CHAR_SECRET
-
-POSTGRES_URL="postgresql://YOUR_DB_USER:YOUR_DB_PASSWORD@localhost:5432/YOUR_DB_NAME"
-
-RESEND_API_KEY="your-resend-api-key"
-CONTACT_TO_EMAIL="recipient-email"
-CONTACT_FROM_EMAIL="sender-email"
 
 # Required for admin invoice uploads via /api/upload (Vercel Blob storage token)
 BLOB_READ_WRITE_TOKEN=YOUR_BLOB_TOKEN
@@ -75,6 +70,9 @@ CONTACT_TO_EMAIL=YOUR_INBOX_EMAIL
 # Use a verified sender in production. Resend test sender shown below.
 CONTACT_FROM_EMAIL="ClearSite Contact <onboarding@resend.dev>"
 ```
+
+> **Password with special characters**: Next.js expands `$` in `.env` files as a variable reference.
+> Escape any literal `$` in your DB password with a backslash: `admin\$123`
 
 ### 2. Create local tables
 
@@ -168,11 +166,14 @@ app/
 	page.tsx                       # Public homepage
 	layout.tsx                     # Root layout
 	login/page.tsx                 # Client sign in / sign up
-	portal/page.tsx                # Client portal
-	admin/invoices/page.tsx        # Admin invoice upload UI
+	portal/page.tsx                # Client portal (redirects admins to /admin/clients)
+	admin/
+		clients/page.tsx             # Admin dashboard — manage all client accounts
+		invoices/page.tsx            # Admin invoice upload UI
 	api/
-		auth/[...nextauth]/route.ts  # NextAuth handlers
-		auth/register/route.ts       # Registration endpoint
+		auth/[...nextauth]/route.ts  # NextAuth handlers (dual-table auth)
+		auth/register/route.ts       # Client registration endpoint
+		admin/clients/route.ts       # Admin API — list and update clients
 		contact/route.ts             # Contact form endpoint (sends email via Resend)
 		invoices/route.ts            # Invoice + plan management endpoints
 		upload/route.ts              # Invoice file upload endpoint
@@ -186,7 +187,21 @@ lib/
 
 scripts/
 	bootstrap-local.sql            # Local DB bootstrap script
+	bootstrap-db.mjs               # Production DB bootstrap script
 ```
+
+## Auth Model
+
+This app uses two separate database tables for authentication:
+
+| Table | Source | Portal |
+|---|---|---|
+| `clients` | Sign Up in this app | `/portal` (client portal) |
+| `users` | Accounts from client-finder-portal | `/admin/clients` (admin dashboard) |
+
+Login checks `clients` first. If no match, it falls back to `users`. The resolved `user_type` (`client` or `admin`) is stored in the JWT and used throughout the app to gate access.
+
+The `users` table is never written to by this app — it is read-only for admin authentication.
 
 ## Key Conventions
 

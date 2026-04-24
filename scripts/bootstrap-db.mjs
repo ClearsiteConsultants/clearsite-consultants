@@ -30,6 +30,7 @@ async function run() {
         domain_name VARCHAR(255),
         plan VARCHAR(100) DEFAULT 'Starter',
         service_status VARCHAR(50) DEFAULT 'Active',
+        next_invoice_due DATE,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )
@@ -37,7 +38,7 @@ async function run() {
 
     await tx`
       ALTER TABLE clients
-      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()
+      ADD COLUMN IF NOT EXISTS next_invoice_due DATE
     `;
 
     await tx`

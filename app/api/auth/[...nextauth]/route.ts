@@ -20,31 +20,43 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const email = credentials.email as string;
           const password = credentials.password as string;
 
-          const result = await sql`
+          // Check clients table first (sign-up accounts → client portal)
+          const clientResult = await sql`
             SELECT id, email, password_hash, company_name
             FROM clients
             WHERE email = ${email}
           `;
 
-          if (result.rows.length === 0) {
-            return null;
+          if (clientResult.rows.length > 0) {
+            const client = clientResult.rows[0];
+            const passwordValid = await bcrypt.compare(password, client.password_hash);
+            if (!passwordValid) return null;
+            return {
+              id: `client:${client.id}`,
+              email: client.email,
+              name: client.company_name,
+              user_type: "client",
+            };
           }
 
-          const user = result.rows[0];
+          // Fall back to users table (client-finder-portal accounts → admin portal)
+          const userResult = await sql`
+            SELECT id, email, name, password_hash
+            FROM users
+            WHERE email = ${email}
+          `;
 
-          const passwordValid = await bcrypt.compare(
-            password,
-            user.password_hash
-          );
+          if (userResult.rows.length === 0) return null;
 
-          if (!passwordValid) {
-            return null;
-          }
+          const user = userResult.rows[0];
+          const passwordValid = await bcrypt.compare(password, user.password_hash);
+          if (!passwordValid) return null;
 
           return {
-            id: String(user.id),
+            id: `user:${user.id}`,
             email: user.email,
-            name: user.company_name,
+            name: user.name ?? user.email,
+            user_type: "admin",
           };
         } catch (error) {
           console.error("Credentials authorize failed", error);
@@ -57,12 +69,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.user_type = (user as any).user_type || 'client';
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        (session.user as any).user_type = token.user_type || 'client';
       }
       return session;
     },
