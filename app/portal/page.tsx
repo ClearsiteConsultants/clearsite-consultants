@@ -14,6 +14,13 @@ interface Client {
   next_invoice_due: string | null;
 }
 
+function formatDate(value: string | null | undefined) {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleDateString();
+}
+
 export default function Portal() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -40,10 +47,31 @@ export default function Portal() {
   }, [status, router, session]);
 
   useEffect(() => {
-    // In a real app, fetch from API
-    // For now, mock data
-    setLoading(false);
-  }, []);
+    const loadClient = async () => {
+      if (status !== "authenticated" || (session?.user as any)?.user_type !== "client") {
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/clients/me");
+
+        if (response.ok) {
+          const data = await response.json();
+          setClient(data);
+        }
+      } catch (error) {
+        console.error("Failed to load client profile", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (status === "loading") {
+      return;
+    }
+
+    loadClient();
+  }, [status, session]);
 
   const handleLogout = async () => {
     await signOut({ redirect: true, callbackUrl: "/" });
@@ -178,6 +206,14 @@ export default function Portal() {
     return null;
   }
 
+  if (!client && (session?.user as any)?.user_type === "client") {
+    return (
+      <div className="min-h-screen bg-tech flex items-center justify-center px-6">
+        <p className="text-gray-600 text-center">Unable to load your portal data right now. Please refresh and try again.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-tech">
       <div className="max-w-6xl mx-auto px-6 py-12">
@@ -199,17 +235,19 @@ export default function Portal() {
         <div className="grid md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Current Plan</h3>
-            <p className="text-2xl font-bold text-gray-900">Starter</p>
+            <p className="text-2xl font-bold text-gray-900">{client?.plan || "N/A"}</p>
           </div>
 
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Service Status</h3>
-            <p className="text-2xl font-bold text-emerald-600">Active</p>
+            <p className={`text-2xl font-bold ${client?.service_status === "Active" ? "text-emerald-600" : "text-red-600"}`}>
+              {client?.service_status || "N/A"}
+            </p>
           </div>
 
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Next Invoice Due</h3>
-            <p className="text-2xl font-bold text-gray-900">N/A</p>
+            <p className="text-2xl font-bold text-gray-900">{formatDate(client?.next_invoice_due)}</p>
           </div>
         </div>
 
@@ -220,12 +258,13 @@ export default function Portal() {
             <div className="flex-1">
               <label className="text-sm font-medium text-gray-700 mb-2 block">Change Plan</label>
               <select
+                value={client?.plan || "Starter"}
                 onChange={(e) => handlePlanChange(e.target.value)}
-                disabled={updatingPlan}
+                disabled={updatingPlan || !client}
                 className="w-full sm:w-64 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
               >
                 <option value="Starter">Starter</option>
-                <option value="Pro">Pro</option>
+                <option value="Professional">Professional</option>
                 <option value="Enterprise">Enterprise</option>
               </select>
             </div>
