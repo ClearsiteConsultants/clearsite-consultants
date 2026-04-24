@@ -43,6 +43,10 @@ export async function PUT(req: NextRequest) {
     }
 
     const { id, plan, service_status, next_invoice_due } = await req.json();
+    const normalizedNextInvoiceDue =
+      typeof next_invoice_due === "string" && next_invoice_due.trim() === ""
+        ? null
+        : next_invoice_due;
 
     if (!id) {
       return NextResponse.json(
@@ -53,10 +57,10 @@ export async function PUT(req: NextRequest) {
 
     // Update client
     const result = await sql`
-      UPDATE users
+      UPDATE clients
       SET plan = COALESCE(${plan}, plan),
           service_status = COALESCE(${service_status}, service_status),
-          next_invoice_due = COALESCE(${next_invoice_due}, next_invoice_due),
+          next_invoice_due = COALESCE(${normalizedNextInvoiceDue}, next_invoice_due),
           updated_at = NOW()
       WHERE id = ${id}
       RETURNING id, email, company_name, plan, service_status, contact_name, phone, next_invoice_due
