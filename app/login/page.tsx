@@ -25,7 +25,7 @@ function normalizeAuthError(error?: string | null) {
 }
 
 export default function Login() {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
@@ -39,9 +39,13 @@ export default function Login() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      router.push("/portal");
+      if ((session?.user as any)?.user_type === "admin") {
+        router.push("/admin/clients");
+      } else {
+        router.push("/portal");
+      }
     }
-  }, [status, router]);
+  }, [status, router, session]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,11 +60,6 @@ export default function Login() {
 
     if (result?.error) {
       setMessage({ type: "error", text: normalizeAuthError(result.error) });
-    } else if (result?.ok) {
-      // Redirect based on user type after brief delay to allow session update
-      setTimeout(() => {
-        router.push("/portal");
-      }, 100);
     }
     setLoading(false);
   };

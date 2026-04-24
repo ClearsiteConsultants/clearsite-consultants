@@ -20,43 +20,43 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const email = credentials.email as string;
           const password = credentials.password as string;
 
-          // Check clients table first (sign-up accounts → client portal)
-          const clientResult = await sql`
-            SELECT id, email, password_hash, company_name
-            FROM clients
-            WHERE email = ${email}
-          `;
-
-          if (clientResult.rows.length > 0) {
-            const client = clientResult.rows[0];
-            const passwordValid = await bcrypt.compare(password, client.password_hash);
-            if (!passwordValid) return null;
-            return {
-              id: `client:${client.id}`,
-              email: client.email,
-              name: client.company_name,
-              user_type: "client",
-            };
-          }
-
-          // Fall back to users table (client-finder-portal accounts → admin portal)
+          // Check users table first so existing portal users always resolve as admins.
           const userResult = await sql`
             SELECT id, email, name, password_hash
             FROM users
             WHERE email = ${email}
           `;
 
-          if (userResult.rows.length === 0) return null;
+          if (userResult.rows.length > 0) {
+            const user = userResult.rows[0];
+            const passwordValid = await bcrypt.compare(password, user.password_hash);
+            if (passwordValid) {
+              return {
+                id: `user:${user.id}`,
+                email: user.email,
+                name: user.name ?? user.email,
+                user_type: "admin",
+              };
+            }
+          }
 
-          const user = userResult.rows[0];
-          const passwordValid = await bcrypt.compare(password, user.password_hash);
+          // Fall back to clients table (sign-up accounts → client portal)
+          const clientResult = await sql`
+            SELECT id, email, password_hash, company_name
+            FROM clients
+            WHERE email = ${email}
+          `;
+
+          if (clientResult.rows.length === 0) return null;
+
+          const client = clientResult.rows[0];
+          const passwordValid = await bcrypt.compare(password, client.password_hash);
           if (!passwordValid) return null;
-
           return {
-            id: `user:${user.id}`,
-            email: user.email,
-            name: user.name ?? user.email,
-            user_type: "admin",
+            id: `client:${client.id}`,
+            email: client.email,
+            name: client.company_name,
+            user_type: "client",
           };
         } catch (error) {
           console.error("Credentials authorize failed", error);
