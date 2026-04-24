@@ -16,7 +16,13 @@ interface Client {
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "N/A";
-  const date = new Date(value);
+
+  // Handle both YYYY-MM-DD and ISO timestamps by using only the calendar date.
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  const date = dateOnlyMatch
+    ? new Date(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3]))
+    : new Date(value);
+
   if (Number.isNaN(date.getTime())) return "N/A";
   return date.toLocaleDateString();
 }
