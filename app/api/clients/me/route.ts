@@ -2,11 +2,14 @@ import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { sql } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 function parseClientId(sessionUserId: string) {
   if (sessionUserId.startsWith("client:")) {
     return sessionUserId.slice("client:".length);
   }
-  return null;
+  return sessionUserId;
 }
 
 export async function GET() {
@@ -33,7 +36,11 @@ export async function GET() {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
-    return NextResponse.json(result.rows[0]);
+    return NextResponse.json(result.rows[0], {
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+      },
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });

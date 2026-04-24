@@ -53,7 +53,7 @@ export default function Portal() {
       }
 
       try {
-        const response = await fetch("/api/clients/me");
+        const response = await fetch("/api/clients/me", { cache: "no-store" });
 
         if (response.ok) {
           const data = await response.json();
