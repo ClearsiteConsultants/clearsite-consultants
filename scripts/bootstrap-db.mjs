@@ -4,7 +4,8 @@ import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 dotenv.config();
 
-const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+const rawConnectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+const connectionString = rawConnectionString?.replace(/\\\$/g, "$");
 
 if (!connectionString) {
   console.error(
@@ -42,6 +43,11 @@ async function run() {
     `;
 
     await tx`
+      ALTER TABLE clients
+      ADD COLUMN IF NOT EXISTS qbo_customer_id VARCHAR(64)
+    `;
+
+    await tx`
       CREATE TABLE IF NOT EXISTS subscriptions (
         id SERIAL PRIMARY KEY,
         client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
@@ -65,8 +71,48 @@ async function run() {
       )
     `;
 
+    await tx`
+      ALTER TABLE invoices
+      ADD COLUMN IF NOT EXISTS qbo_invoice_id VARCHAR(64)
+    `;
+
+    await tx`
+      ALTER TABLE invoices
+      ADD COLUMN IF NOT EXISTS qbo_sync_status VARCHAR(32) DEFAULT 'pending'
+    `;
+
+    await tx`
+      ALTER TABLE invoices
+      ADD COLUMN IF NOT EXISTS amount_paid NUMERIC(10,2) DEFAULT 0
+    `;
+
+    await tx`
+      ALTER TABLE invoices
+      ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP
+    `;
+
+    await tx`
+      ALTER TABLE invoices
+      ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMP
+    `;
+
+    await tx`
+      CREATE TABLE IF NOT EXISTS quickbooks_connections (
+        id SERIAL PRIMARY KEY,
+        realm_id VARCHAR(64) UNIQUE NOT NULL,
+        access_token TEXT NOT NULL,
+        refresh_token TEXT NOT NULL,
+        token_expires_at TIMESTAMP NOT NULL,
+        connected_by_user_id VARCHAR(255),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+
     await tx`CREATE INDEX IF NOT EXISTS idx_invoices_client_id ON invoices(client_id)`;
     await tx`CREATE INDEX IF NOT EXISTS idx_subscriptions_client_id ON subscriptions(client_id)`;
+    await tx`CREATE INDEX IF NOT EXISTS idx_invoices_qbo_invoice_id ON invoices(qbo_invoice_id)`;
+    await tx`CREATE INDEX IF NOT EXISTS idx_clients_qbo_customer_id ON clients(qbo_customer_id)`;
   });
 
   console.log("Database bootstrap complete. Required tables are present.");

@@ -21,6 +21,9 @@ CREATE TABLE IF NOT EXISTS clients (
 ALTER TABLE clients
 ADD COLUMN IF NOT EXISTS next_invoice_due DATE;
 
+ALTER TABLE clients
+ADD COLUMN IF NOT EXISTS qbo_customer_id VARCHAR(64);
+
 CREATE TABLE IF NOT EXISTS subscriptions (
   id SERIAL PRIMARY KEY,
   client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
@@ -41,7 +44,35 @@ CREATE TABLE IF NOT EXISTS invoices (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+ALTER TABLE invoices
+ADD COLUMN IF NOT EXISTS qbo_invoice_id VARCHAR(64);
+
+ALTER TABLE invoices
+ADD COLUMN IF NOT EXISTS qbo_sync_status VARCHAR(32) DEFAULT 'pending';
+
+ALTER TABLE invoices
+ADD COLUMN IF NOT EXISTS amount_paid NUMERIC(10,2) DEFAULT 0;
+
+ALTER TABLE invoices
+ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP;
+
+ALTER TABLE invoices
+ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMP;
+
+CREATE TABLE IF NOT EXISTS quickbooks_connections (
+  id SERIAL PRIMARY KEY,
+  realm_id VARCHAR(64) UNIQUE NOT NULL,
+  access_token TEXT NOT NULL,
+  refresh_token TEXT NOT NULL,
+  token_expires_at TIMESTAMP NOT NULL,
+  connected_by_user_id VARCHAR(255),
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_invoices_client_id ON invoices(client_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_client_id ON subscriptions(client_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_qbo_invoice_id ON invoices(qbo_invoice_id);
+CREATE INDEX IF NOT EXISTS idx_clients_qbo_customer_id ON clients(qbo_customer_id);
 
 COMMIT;

@@ -14,6 +14,19 @@ interface Client {
   next_invoice_due: string | null;
 }
 
+interface Invoice {
+  id: string;
+  invoice_number: string;
+  amount_due: number;
+  amount_paid: number;
+  due_date: string;
+  qbo_payment_url: string | null;
+  file_url: string | null;
+  qbo_sync_status: string | null;
+  paid_at: string | null;
+  created_at: string;
+}
+
 function formatDate(value: string | null | undefined) {
   if (!value) return "N/A";
 
@@ -31,6 +44,7 @@ export default function Portal() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [client, setClient] = useState<Client | null>(null);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingPlan, setUpdatingPlan] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
@@ -45,16 +59,18 @@ export default function Portal() {
   });
 
   useEffect(() => {
+    const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
     if (status === "unauthenticated") {
       router.push("/login");
-    } else if (status === "authenticated" && (session?.user as any)?.user_type === "admin") {
+    } else if (status === "authenticated" && userType === "admin") {
       router.push("/admin/clients");
     }
   }, [status, router, session]);
 
   useEffect(() => {
     const loadClient = async () => {
-      if (status !== "authenticated" || (session?.user as any)?.user_type !== "client") {
+      const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
+      if (status !== "authenticated" || userType !== "client") {
         return;
       }
 
@@ -64,6 +80,12 @@ export default function Portal() {
         if (response.ok) {
           const data = await response.json();
           setClient(data);
+        }
+
+        const invoicesResponse = await fetch("/api/invoices", { cache: "no-store" });
+        if (invoicesResponse.ok) {
+          const invoiceRows = await invoicesResponse.json();
+          setInvoices(Array.isArray(invoiceRows) ? invoiceRows : []);
         }
       } catch (error) {
         console.error("Failed to load client profile", error);
@@ -212,7 +234,7 @@ export default function Portal() {
     return null;
   }
 
-  if (!client && (session?.user as any)?.user_type === "client") {
+  if (!client && (session?.user as { user_type?: string } | undefined)?.user_type === "client") {
     return (
       <div className="min-h-screen bg-tech flex items-center justify-center px-6">
         <p className="text-gray-600 text-center">Unable to load your portal data right now. Please refresh and try again.</p>
@@ -286,7 +308,73 @@ export default function Portal() {
         {/* Invoices */}
         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
           <h2 className="font-display text-3xl text-gray-900 mb-4">Invoices</h2>
-          <p className="text-gray-600">No invoices yet.</p>
+          {invoices.length === 0 ? (
+            <p className="text-gray-600">No invoices yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px]">
+                <thead>
+                  <tr className="border-b border-gray-200 text-left text-sm text-gray-500 uppercase">
+                    <th className="py-3 pr-4">Invoice</th>
+                    <th className="py-3 pr-4">Due Date</th>
+                    <th className="py-3 pr-4">Amount</th>
+                    <th className="py-3 pr-4">Status</th>
+                    <th className="py-3 pr-4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoices.map((invoice) => {
+                    const status = (invoice.qbo_sync_status || "pending").toLowerCase();
+                    const statusClass =
+                      status === "paid"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : status === "sent"
+                          ? "bg-blue-100 text-blue-700"
+                          : status === "sync_error"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-amber-100 text-amber-700";
+
+                    return (
+                      <tr key={invoice.id} className="border-b border-gray-100">
+                        <td className="py-4 pr-4 font-medium text-gray-900">{invoice.invoice_number}</td>
+                        <td className="py-4 pr-4 text-gray-700">{formatDate(invoice.due_date)}</td>
+                        <td className="py-4 pr-4 text-gray-900">${Number(invoice.amount_due || 0).toFixed(2)}</td>
+                        <td className="py-4 pr-4">
+                          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${statusClass}`}>
+                            {status}
+                          </span>
+                        </td>
+                        <td className="py-4 pr-4">
+                          <div className="flex flex-wrap gap-3 text-sm">
+                            {invoice.qbo_payment_url && status !== "paid" && (
+                              <a
+                                href={invoice.qbo_payment_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-blue-700 font-semibold hover:text-blue-800"
+                              >
+                                Pay Now
+                              </a>
+                            )}
+                            {invoice.file_url && (
+                              <a
+                                href={invoice.file_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-gray-700 font-semibold hover:text-gray-900"
+                              >
+                                View PDF
+                              </a>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Password */}

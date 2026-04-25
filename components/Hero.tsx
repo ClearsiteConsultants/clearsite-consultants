@@ -1,6 +1,7 @@
 'use client';
 
 import { Globe } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 
 export default function Hero() {
@@ -23,17 +24,14 @@ export default function Hero() {
           </div>
 
           <div className="min-w-0 hidden md:flex justify-end self-center">
-            <picture>
-              <source
-                media="(max-width: 1049px)"
-                srcSet="/clearsite-logo-only-cropped-transparent.png"
-              />
-              <img
-                src="/clearsite-logo-cropped-transparent.png"
-                alt="Clearsite Consultants Logo"
-                className="w-[480px] max-w-full"
-              />
-            </picture>
+            <Image
+              src="/clearsite-logo-cropped-transparent.png"
+              alt="Clearsite Consultants Logo"
+              width={480}
+              height={360}
+              priority
+              className="w-[480px] h-auto max-w-full"
+            />
           </div>
 
           <div className="max-w-2xl min-w-0 md:col-start-1">
@@ -55,9 +53,11 @@ export default function Hero() {
             </p>
 
             <div className="mt-6 flex w-full min-w-0 justify-center md:hidden">
-              <img
+              <Image
                 src="/clearsite-logo-only-cropped-transparent.png"
                 alt="Clearsite Consultants Logo"
+                width={420}
+                height={420}
                 className="block h-auto w-auto max-w-full"
               />
             </div>

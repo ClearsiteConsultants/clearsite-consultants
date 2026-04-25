@@ -35,9 +35,10 @@ export default function AdminClients() {
   const [message, setMessage] = useState({ type: "", text: "" });
 
   useEffect(() => {
+    const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
     if (status === "unauthenticated") {
       router.push("/login");
-    } else if (status === "authenticated" && (session?.user as any)?.user_type !== "admin") {
+    } else if (status === "authenticated" && userType !== "admin") {
       router.push("/portal");
     }
   }, [status, router, session]);

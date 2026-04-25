@@ -39,7 +39,8 @@ export default function Login() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      if ((session?.user as any)?.user_type === "admin") {
+      const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
+      if (userType === "admin") {
         router.push("/admin/clients");
       } else {
         router.push("/portal");

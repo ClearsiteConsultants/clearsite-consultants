@@ -41,6 +41,26 @@ export async function createClient(data: {
   return result.rows[0];
 }
 
+export async function getClientQuickBooksProfile(clientId: string) {
+  const result = await sql`
+    SELECT id, email, company_name, contact_name, phone, domain_name, qbo_customer_id
+    FROM clients
+    WHERE id = ${clientId}
+    LIMIT 1
+  `;
+  return result.rows[0];
+}
+
+export async function setClientQuickBooksCustomerId(clientId: string, qboCustomerId: string) {
+  const result = await sql`
+    UPDATE clients
+    SET qbo_customer_id = ${qboCustomerId}, updated_at = NOW()
+    WHERE id = ${clientId}
+    RETURNING id, qbo_customer_id
+  `;
+  return result.rows[0];
+}
+
 export async function updateClientPasswordById(clientId: string, passwordHash: string) {
   const result = await sql`
     UPDATE clients
@@ -107,6 +127,126 @@ export async function getClientInvoices(clientId: string) {
   return result.rows;
 }
 
+export async function getClientInvoicesForPortal(clientId: string) {
+  const result = await sql`
+    SELECT
+      id,
+      invoice_number,
+      amount_due,
+      amount_paid,
+      due_date,
+      qbo_payment_url,
+      file_url,
+      qbo_sync_status,
+      paid_at,
+      created_at
+    FROM invoices
+    WHERE client_id = ${clientId}
+    ORDER BY created_at DESC
+  `;
+  return result.rows;
+}
+
+export async function getInvoiceById(invoiceId: string) {
+  const result = await sql`
+    SELECT *
+    FROM invoices
+    WHERE id = ${invoiceId}
+    LIMIT 1
+  `;
+  return result.rows[0];
+}
+
+export async function updateInvoiceQuickBooksData(data: {
+  invoiceId: string;
+  qboInvoiceId: string;
+  qboPaymentUrl?: string | null;
+  qboSyncStatus: string;
+  amountPaid?: number;
+  paidAt?: string | Date | null;
+}) {
+  const result = await sql`
+    UPDATE invoices
+    SET
+      qbo_invoice_id = ${data.qboInvoiceId},
+      qbo_payment_url = COALESCE(${data.qboPaymentUrl || null}, qbo_payment_url),
+      qbo_sync_status = ${data.qboSyncStatus},
+      amount_paid = COALESCE(${data.amountPaid ?? null}, amount_paid),
+      paid_at = COALESCE(${data.paidAt || null}, paid_at),
+      last_synced_at = NOW()
+    WHERE id = ${data.invoiceId}
+    RETURNING *
+  `;
+  return result.rows[0];
+}
+
+export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
+  qboInvoiceId: string;
+  qboSyncStatus: string;
+  amountPaid?: number;
+  paidAt?: string | Date | null;
+  qboPaymentUrl?: string | null;
+}) {
+  const result = await sql`
+    UPDATE invoices
+    SET
+      qbo_sync_status = ${data.qboSyncStatus},
+      amount_paid = COALESCE(${data.amountPaid ?? null}, amount_paid),
+      paid_at = COALESCE(${data.paidAt || null}, paid_at),
+      qbo_payment_url = COALESCE(${data.qboPaymentUrl || null}, qbo_payment_url),
+      last_synced_at = NOW()
+    WHERE qbo_invoice_id = ${data.qboInvoiceId}
+    RETURNING *
+  `;
+  return result.rows[0];
+}
+
+export async function getQuickBooksConnection() {
+  const result = await sql`
+    SELECT *
+    FROM quickbooks_connections
+    ORDER BY id DESC
+    LIMIT 1
+  `;
+  return result.rows[0];
+}
+
+export async function upsertQuickBooksConnection(data: {
+  realmId: string;
+  accessToken: string;
+  refreshToken: string;
+  tokenExpiresAt: Date;
+  connectedByUserId?: string | null;
+}) {
+  const result = await sql`
+    INSERT INTO quickbooks_connections (
+      realm_id,
+      access_token,
+      refresh_token,
+      token_expires_at,
+      connected_by_user_id,
+      updated_at
+    )
+    VALUES (
+      ${data.realmId},
+      ${data.accessToken},
+      ${data.refreshToken},
+      ${data.tokenExpiresAt.toISOString()},
+      ${data.connectedByUserId || null},
+      NOW()
+    )
+    ON CONFLICT (realm_id)
+    DO UPDATE SET
+      access_token = EXCLUDED.access_token,
+      refresh_token = EXCLUDED.refresh_token,
+      token_expires_at = EXCLUDED.token_expires_at,
+      connected_by_user_id = EXCLUDED.connected_by_user_id,
+      updated_at = NOW()
+    RETURNING *
+  `;
+  return result.rows[0];
+}
+
 export async function createInvoice(data: {
   client_id: string;
   invoice_number: string;
@@ -114,10 +254,38 @@ export async function createInvoice(data: {
   due_date: string;
   file_url?: string;
   qbo_payment_url?: string;
+  qbo_invoice_id?: string;
+  qbo_sync_status?: string;
+  amount_paid?: number;
+  paid_at?: string | Date | null;
 }) {
   const result = await sql`
-    INSERT INTO invoices (client_id, invoice_number, amount_due, due_date, file_url, qbo_payment_url)
-    VALUES (${data.client_id}, ${data.invoice_number}, ${data.amount_due}, ${data.due_date}, ${data.file_url || null}, ${data.qbo_payment_url || null})
+    INSERT INTO invoices (
+      client_id,
+      invoice_number,
+      amount_due,
+      due_date,
+      file_url,
+      qbo_payment_url,
+      qbo_invoice_id,
+      qbo_sync_status,
+      amount_paid,
+      paid_at,
+      last_synced_at
+    )
+    VALUES (
+      ${data.client_id},
+      ${data.invoice_number},
+      ${data.amount_due},
+      ${data.due_date},
+      ${data.file_url || null},
+      ${data.qbo_payment_url || null},
+      ${data.qbo_invoice_id || null},
+      ${data.qbo_sync_status || "pending"},
+      ${data.amount_paid ?? 0},
+      ${data.paid_at || null},
+      NOW()
+    )
     RETURNING *
   `;
   return result.rows[0];
