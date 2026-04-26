@@ -1,6 +1,6 @@
-# ClearSite Consultants
+# Clearsite Consultants
 
-Business website and client portal for ClearSite Consultants.
+Business website and client portal for Clearsite Consultants.
 
 This branch is a Next.js App Router implementation that includes:
 - a public marketing homepage
@@ -69,7 +69,7 @@ BLOB_READ_WRITE_TOKEN=YOUR_BLOB_TOKEN
 RESEND_API_KEY=YOUR_RESEND_API_KEY
 CONTACT_TO_EMAIL=YOUR_INBOX_EMAIL
 # Use a verified sender in production. Resend test sender shown below.
-CONTACT_FROM_EMAIL="ClearSite Contact <onboarding@resend.dev>"
+CONTACT_FROM_EMAIL="Clearsite Contact <onboarding@resend.dev>"
 
 # Required for QuickBooks integration
 QUICKBOOKS_ENVIRONMENT="sandbox"
