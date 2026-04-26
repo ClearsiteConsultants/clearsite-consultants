@@ -15,8 +15,9 @@ function parseClientId(sessionUserId: string) {
 export async function GET() {
   try {
     const session = await auth();
+    const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
 
-    if (!session?.user?.id || (session.user as any)?.user_type !== "client") {
+    if (!session?.user?.id || userType !== "client") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

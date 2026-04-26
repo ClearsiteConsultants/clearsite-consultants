@@ -1,6 +1,6 @@
-# ClearSite Consultants
+# Clearsite Consultants
 
-Business website and client portal for ClearSite Consultants.
+Business website and client portal for Clearsite Consultants.
 
 This branch is a Next.js App Router implementation that includes:
 - a public marketing homepage
@@ -17,6 +17,7 @@ This branch is a Next.js App Router implementation that includes:
 - **NextAuth (credentials provider)**
 - **PostgreSQL** via `postgres` npm package (Neon in production, local PostgreSQL in dev)
 - **Vercel Blob** for invoice file uploads
+- **QuickBooks Online API** for invoice sync + hosted payment links
 
 ## Getting Started
 
@@ -68,7 +69,15 @@ BLOB_READ_WRITE_TOKEN=YOUR_BLOB_TOKEN
 RESEND_API_KEY=YOUR_RESEND_API_KEY
 CONTACT_TO_EMAIL=YOUR_INBOX_EMAIL
 # Use a verified sender in production. Resend test sender shown below.
-CONTACT_FROM_EMAIL="ClearSite Contact <onboarding@resend.dev>"
+CONTACT_FROM_EMAIL="Clearsite Contact <onboarding@resend.dev>"
+
+# Required for QuickBooks integration
+QUICKBOOKS_ENVIRONMENT="sandbox"
+QUICKBOOKS_CLIENT_ID=YOUR_INTUIT_APP_CLIENT_ID
+QUICKBOOKS_CLIENT_SECRET=YOUR_INTUIT_APP_CLIENT_SECRET
+QUICKBOOKS_REDIRECT_URI="http://localhost:3000/api/integrations/quickbooks/callback"
+QUICKBOOKS_DEFAULT_ITEM_ID=YOUR_QUICKBOOKS_SERVICE_ITEM_ID
+QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN=YOUR_INTUIT_WEBHOOK_TOKEN
 ```
 
 > **Password with special characters**: Next.js expands `$` in `.env` files as a variable reference.
@@ -97,6 +106,7 @@ This creates required tables:
 - `clients`
 - `subscriptions`
 - `invoices`
+- `quickbooks_connections`
 
 ### 3. Start app and verify auth flow
 
@@ -175,7 +185,9 @@ app/
 		auth/register/route.ts       # Client registration endpoint
 		admin/clients/route.ts       # Admin API — list and update clients
 		contact/route.ts             # Contact form endpoint (sends email via Resend)
+		integrations/quickbooks/     # QuickBooks OAuth connect/callback/status
 		invoices/route.ts            # Invoice + plan management endpoints
+		webhooks/quickbooks/route.ts # QuickBooks webhook receiver
 		upload/route.ts              # Invoice file upload endpoint
 
 components/
@@ -211,6 +223,24 @@ The `users` table is never written to by this app — it is read-only for admin 
 - **Database access**: SQL helpers are centralized in `lib/db.ts`.
 - **Pricing data**: Website pricing display values are maintained in `components/Pricing.tsx`.
 - **Contact endpoint**: `app/api/contact/route.ts` sends contact emails through Resend.
+
+## QuickBooks Setup
+
+1. Create an Intuit app and enable QuickBooks Online Accounting scope.
+2. Add this callback URL in Intuit developer settings:
+	- `http://localhost:3000/api/integrations/quickbooks/callback`
+3. Set QuickBooks env vars (`QUICKBOOKS_*`) in `.env.local` and Vercel.
+4. In QuickBooks, create a service item (e.g. "Consulting") and set its ID as `QUICKBOOKS_DEFAULT_ITEM_ID`.
+   - To find the item ID, run: `node scripts/list-qbo-items.mjs` — this prints all active items with their IDs.
+5. Connect from the admin invoice page (`/admin/invoices`) using **Connect QuickBooks**.
+6. Configure QuickBooks webhook destination:
+	- `https://YOUR_DOMAIN/api/webhooks/quickbooks`
+
+### Behavior after setup
+
+- Invoice uploads from `/admin/invoices` are stored locally and auto-synced to QuickBooks.
+- Client portal invoices (`/portal`) show QuickBooks payment links when available.
+- QuickBooks webhook events update local invoice payment status (`sent` / `paid`).
 
 ## Deployment (Vercel)
 

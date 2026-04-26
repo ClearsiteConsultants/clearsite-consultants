@@ -69,14 +69,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.user_type = (user as any).user_type || 'client';
+        token.user_type = (user as { user_type?: string }).user_type || "client";
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        (session.user as any).user_type = token.user_type || 'client';
+        (session.user as { user_type?: string }).user_type =
+          typeof token.user_type === "string" ? token.user_type : "client";
       }
       return session;
     },

@@ -1,6 +1,7 @@
 import { Menu, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 type HeaderProps = {
   showNavigation?: boolean;
@@ -54,7 +55,13 @@ export default function Header({ showNavigation = true }: HeaderProps) {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group" onClick={handleHomeClick}>
             <div className="w-10 h-10 border border-gray-200 flex items-center justify-center">
-              <img src="/favicon-nav.png" alt="Clearsite logo" className="w-7 h-7" />
+              <Image
+                src="/favicon-nav.png"
+                alt="Clearsite logo"
+                width={28}
+                height={28}
+                className="w-7 h-7"
+              />
             </div>
             <span className="font-display text-lg text-gray-900 tracking-wide">
               CLEARSITE <span className="text-primary">CONSULTANTS</span>

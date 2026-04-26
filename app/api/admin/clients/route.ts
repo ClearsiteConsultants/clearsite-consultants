@@ -4,11 +4,12 @@ import { sql } from "@/lib/db";
 
 // GET all client users (for admin)
 // PUT update client details (plan, service_status, next_invoice_due)
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const session = await auth();
+    const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
 
-    if (!session || (session.user as any)?.user_type !== "admin") {
+    if (!session || userType !== "admin") {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -34,8 +35,9 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const session = await auth();
+    const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
 
-    if (!session || (session.user as any)?.user_type !== "admin") {
+    if (!session || userType !== "admin") {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
