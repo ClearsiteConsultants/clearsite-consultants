@@ -42,9 +42,9 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
-  --font-sans: var(--font-inter);
-  --font-body: var(--font-inter);
-  --font-display: var(--font-inter);
+  --font-sans: Inter, Arial, Helvetica, sans-serif;
+  --font-body: Inter, Arial, Helvetica, sans-serif;
+  --font-display: Inter, Arial, Helvetica, sans-serif;
 }
 
 html,
@@ -55,7 +55,7 @@ body {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-inter), Inter, Arial, Helvetica, sans-serif;
+  font-family: Inter, Arial, Helvetica, sans-serif;
   font-size: 16px;
 }
 
@@ -65,7 +65,7 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: var(--font-inter), sans-serif;
+  font-family: Inter, sans-serif;
   font-weight: 400;
   letter-spacing: -0.01em;
 }

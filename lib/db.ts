@@ -132,6 +132,7 @@ export async function getClientInvoicesForPortal(clientId: string) {
     SELECT
       id,
       invoice_number,
+      qbo_doc_number,
       amount_due,
       amount_paid,
       due_date,
@@ -139,7 +140,9 @@ export async function getClientInvoicesForPortal(clientId: string) {
       file_url,
       qbo_sync_status,
       paid_at,
-      created_at
+      created_at,
+      is_manual_link,
+      CASE WHEN pdf_data IS NOT NULL THEN TRUE ELSE FALSE END AS has_pdf
     FROM invoices
     WHERE client_id = ${clientId}
     ORDER BY created_at DESC
@@ -160,19 +163,31 @@ export async function getInvoiceById(invoiceId: string) {
 export async function updateInvoiceQuickBooksData(data: {
   invoiceId: string;
   qboInvoiceId: string;
+  qboDocNumber?: string | null;
   qboPaymentUrl?: string | null;
   qboSyncStatus: string;
   amountPaid?: number;
   paidAt?: string | Date | null;
+  pdfData?: Buffer | null;
+  pdfMimeType?: string | null;
+  pdfFilename?: string | null;
+  pdfSize?: number | null;
 }) {
   const result = await sql`
     UPDATE invoices
     SET
       qbo_invoice_id = ${data.qboInvoiceId},
+      -- COALESCE pattern: these fields can be set once from NULL but are never
+      -- overwritten once populated, preserving immutability of QBO metadata.
+      qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
       qbo_payment_url = COALESCE(${data.qboPaymentUrl || null}, qbo_payment_url),
       qbo_sync_status = ${data.qboSyncStatus},
       amount_paid = COALESCE(${data.amountPaid ?? null}, amount_paid),
       paid_at = COALESCE(${data.paidAt || null}, paid_at),
+      pdf_data = COALESCE(${data.pdfData ?? null}, pdf_data),
+      pdf_mime_type = COALESCE(${data.pdfMimeType ?? null}, pdf_mime_type),
+      pdf_filename = COALESCE(${data.pdfFilename ?? null}, pdf_filename),
+      pdf_size = COALESCE(${data.pdfSize ?? null}, pdf_size),
       last_synced_at = NOW()
     WHERE id = ${data.invoiceId}
     RETURNING *
@@ -186,6 +201,7 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
   amountPaid?: number;
   paidAt?: string | Date | null;
   qboPaymentUrl?: string | null;
+  qboDocNumber?: string | null;
 }) {
   const result = await sql`
     UPDATE invoices
@@ -194,6 +210,7 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
       amount_paid = COALESCE(${data.amountPaid ?? null}, amount_paid),
       paid_at = COALESCE(${data.paidAt || null}, paid_at),
       qbo_payment_url = COALESCE(${data.qboPaymentUrl || null}, qbo_payment_url),
+      qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
       last_synced_at = NOW()
     WHERE qbo_invoice_id = ${data.qboInvoiceId}
     RETURNING *
@@ -249,15 +266,18 @@ export async function upsertQuickBooksConnection(data: {
 
 export async function createInvoice(data: {
   client_id: string;
-  invoice_number: string;
+  invoice_number?: string | null;
   amount_due: number;
   due_date: string;
-  file_url?: string;
-  qbo_payment_url?: string;
-  qbo_invoice_id?: string;
+  file_url?: string | null;
+  qbo_payment_url?: string | null;
+  qbo_invoice_id?: string | null;
+  qbo_doc_number?: string | null;
   qbo_sync_status?: string;
   amount_paid?: number;
   paid_at?: string | Date | null;
+  is_manual_link?: boolean;
+  notes?: string | null;
 }) {
   const result = await sql`
     INSERT INTO invoices (
@@ -268,22 +288,28 @@ export async function createInvoice(data: {
       file_url,
       qbo_payment_url,
       qbo_invoice_id,
+      qbo_doc_number,
       qbo_sync_status,
       amount_paid,
       paid_at,
+      is_manual_link,
+      notes,
       last_synced_at
     )
     VALUES (
       ${data.client_id},
-      ${data.invoice_number},
+      ${data.invoice_number || null},
       ${data.amount_due},
       ${data.due_date},
       ${data.file_url || null},
       ${data.qbo_payment_url || null},
       ${data.qbo_invoice_id || null},
+      ${data.qbo_doc_number || null},
       ${data.qbo_sync_status || "pending"},
       ${data.amount_paid ?? 0},
       ${data.paid_at || null},
+      ${data.is_manual_link ?? false},
+      ${data.notes || null},
       NOW()
     )
     RETURNING *
@@ -294,4 +320,25 @@ export async function createInvoice(data: {
 export async function getAllClients() {
   const result = await sql`SELECT id, company_name FROM clients ORDER BY company_name`;
   return result.rows;
+}
+
+export async function getInvoicePdfById(invoiceId: string) {
+  const result = await sql`
+    SELECT id, client_id, pdf_data, pdf_mime_type, pdf_filename, pdf_size
+    FROM invoices
+    WHERE id = ${invoiceId}
+    LIMIT 1
+  `;
+  return result.rows[0];
+}
+
+export async function checkDuplicateManualLink(clientId: string, qboPaymentUrl: string) {
+  const result = await sql`
+    SELECT id FROM invoices
+    WHERE client_id = ${clientId}
+      AND qbo_payment_url = ${qboPaymentUrl}
+      AND is_manual_link = TRUE
+    LIMIT 1
+  `;
+  return result.rows.length > 0;
 }
