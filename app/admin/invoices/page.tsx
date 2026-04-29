@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CheckCircle2, Link2, PlusCircle } from "lucide-react";
+import { isValidQboPaymentUrl } from "@/lib/utils";
 
 interface Client {
   id: string;
@@ -166,7 +167,7 @@ export default function AdminInvoices() {
     if (!mlClientId) errors.client = "Client is required.";
     if (!mlPaymentUrl) {
       errors.paymentUrl = "QuickBooks Payment Link is required.";
-    } else if (!/^https:\/\/((?:[a-z0-9-]+\.)*intuit\.com|app\.qbo\.intuit\.com|quickbooks\.intuit\.com)(\/.*)?$/i.test(mlPaymentUrl)) {
+    } else if (!isValidQboPaymentUrl(mlPaymentUrl)) {
       errors.paymentUrl = "Enter a valid https:// QuickBooks payment link.";
     }
     if (!mlAmountDue || Number(mlAmountDue) <= 0) errors.amountDue = "Amount Due must be greater than 0.";

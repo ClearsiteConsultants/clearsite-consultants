@@ -9,22 +9,13 @@ import {
   checkDuplicateManualLink,
 } from "@/lib/db";
 import { syncInvoiceToQuickBooks } from "@/lib/quickbooks-sync";
+import { isValidQboPaymentUrl } from "@/lib/utils";
 
 function parseClientId(sessionUserId: string) {
   if (sessionUserId.startsWith("client:")) {
     return sessionUserId.slice("client:".length);
   }
   return sessionUserId;
-}
-
-const QBO_PAYMENT_URL_PATTERN = /^https:\/\/((?:[a-z0-9-]+\.)*intuit\.com|app\.qbo\.intuit\.com|quickbooks\.intuit\.com)(\/.*)?$/i;
-
-function isValidQboPaymentUrl(url: string) {
-  try {
-    return QBO_PAYMENT_URL_PATTERN.test(url);
-  } catch {
-    return false;
-  }
 }
 
 // GET /api/invoices - Get client's invoices

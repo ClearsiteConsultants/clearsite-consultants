@@ -307,7 +307,9 @@ export async function getQuickBooksInvoicePdf(realmId: string, qboInvoiceId: str
   const mimeType = response.headers.get("content-type") || "application/pdf";
   const disposition = response.headers.get("content-disposition") || "";
   const filenameMatch = /filename="?([^";\s]+)"?/i.exec(disposition);
-  const filename = filenameMatch?.[1] || `invoice-${qboInvoiceId}.pdf`;
+  const rawFilename = filenameMatch?.[1] || `invoice-${qboInvoiceId}.pdf`;
+  // Sanitize the filename to prevent path traversal or special-character injection.
+  const filename = rawFilename.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/^\.+/, "_");
 
   return { data, mimeType, filename, size: data.length };
 }

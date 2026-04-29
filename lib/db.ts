@@ -177,6 +177,8 @@ export async function updateInvoiceQuickBooksData(data: {
     UPDATE invoices
     SET
       qbo_invoice_id = ${data.qboInvoiceId},
+      -- COALESCE preserves existing values; qbo_doc_number and PDF fields are
+      -- treated as immutable once set so they are never overwritten with NULL.
       qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
       qbo_payment_url = COALESCE(${data.qboPaymentUrl || null}, qbo_payment_url),
       qbo_sync_status = ${data.qboSyncStatus},
