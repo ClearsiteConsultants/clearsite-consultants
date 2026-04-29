@@ -6,6 +6,7 @@ import {
   createInvoice,
   getAllClients,
   getClientInvoicesForPortal,
+  checkDuplicateManualLink,
 } from "@/lib/db";
 import { syncInvoiceToQuickBooks } from "@/lib/quickbooks-sync";
 
@@ -14,6 +15,16 @@ function parseClientId(sessionUserId: string) {
     return sessionUserId.slice("client:".length);
   }
   return sessionUserId;
+}
+
+const QBO_PAYMENT_URL_PATTERN = /^https:\/\/((?:[a-z0-9-]+\.)*intuit\.com|app\.qbo\.intuit\.com|quickbooks\.intuit\.com)(\/.*)?$/i;
+
+function isValidQboPaymentUrl(url: string) {
+  try {
+    return QBO_PAYMENT_URL_PATTERN.test(url);
+  } catch {
+    return false;
+  }
 }
 
 // GET /api/invoices - Get client's invoices
@@ -63,18 +74,71 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const body = await req.json();
     const {
       client_id,
-      invoice_number,
       amount_due,
       due_date,
-      file_url,
-      qbo_payment_url,
       sync_to_qbo,
-    } =
-      await req.json();
+      // Manual-link mode fields
+      mode,
+      qbo_payment_url,
+      invoice_number,
+      qbo_invoice_id,
+      notes,
+    } = body;
 
-    if (!client_id || !invoice_number || !amount_due || !due_date) {
+    // ── Manual-link mode ──────────────────────────────────────────────
+    if (mode === "manual-link") {
+      if (!client_id) {
+        return NextResponse.json({ error: "Client is required." }, { status: 400 });
+      }
+      if (!qbo_payment_url) {
+        return NextResponse.json({ error: "QuickBooks Payment Link is required." }, { status: 400 });
+      }
+      if (!isValidQboPaymentUrl(String(qbo_payment_url))) {
+        return NextResponse.json({ error: "Enter a valid https:// QuickBooks payment link." }, { status: 400 });
+      }
+      if (!amount_due || Number(amount_due) <= 0) {
+        return NextResponse.json({ error: "Amount Due must be greater than 0." }, { status: 400 });
+      }
+      if (!due_date) {
+        return NextResponse.json({ error: "Due Date is required." }, { status: 400 });
+      }
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (new Date(due_date) < today) {
+        return NextResponse.json({ error: "Due Date must be today or later." }, { status: 400 });
+      }
+
+      const isDuplicate = await checkDuplicateManualLink(client_id, qbo_payment_url);
+      if (isDuplicate) {
+        return NextResponse.json(
+          { error: "This client already has an invoice with this QuickBooks payment link." },
+          { status: 409 }
+        );
+      }
+
+      try {
+        const invoice = await createInvoice({
+          client_id,
+          invoice_number: invoice_number || null,
+          amount_due: Number(amount_due),
+          due_date,
+          qbo_payment_url,
+          qbo_invoice_id: qbo_invoice_id || null,
+          qbo_sync_status: "sent",
+          is_manual_link: true,
+          notes: notes || null,
+        });
+        return NextResponse.json(invoice, { status: 201 });
+      } catch {
+        return NextResponse.json({ error: "Could not save linked invoice. Please try again." }, { status: 500 });
+      }
+    }
+
+    // ── QuickBooks-first mode (default) ───────────────────────────────
+    if (!client_id || !amount_due || !due_date) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -83,12 +147,10 @@ export async function POST(req: NextRequest) {
 
     const invoice = await createInvoice({
       client_id,
-      invoice_number,
-      amount_due,
+      invoice_number: null,
+      amount_due: Number(amount_due),
       due_date,
-      file_url,
-      qbo_payment_url,
-      qbo_sync_status: qbo_payment_url ? "sent" : "pending",
+      qbo_sync_status: "pending",
     });
 
     if (sync_to_qbo !== false) {

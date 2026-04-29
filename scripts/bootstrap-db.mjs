@@ -97,6 +97,41 @@ async function run() {
     `;
 
     await tx`
+      ALTER TABLE invoices
+      ADD COLUMN IF NOT EXISTS qbo_doc_number VARCHAR(100)
+    `;
+
+    await tx`
+      ALTER TABLE invoices
+      ADD COLUMN IF NOT EXISTS pdf_data BYTEA
+    `;
+
+    await tx`
+      ALTER TABLE invoices
+      ADD COLUMN IF NOT EXISTS pdf_mime_type VARCHAR(64)
+    `;
+
+    await tx`
+      ALTER TABLE invoices
+      ADD COLUMN IF NOT EXISTS pdf_filename VARCHAR(255)
+    `;
+
+    await tx`
+      ALTER TABLE invoices
+      ADD COLUMN IF NOT EXISTS pdf_size INTEGER
+    `;
+
+    await tx`
+      ALTER TABLE invoices
+      ADD COLUMN IF NOT EXISTS is_manual_link BOOLEAN DEFAULT FALSE
+    `;
+
+    await tx`
+      ALTER TABLE invoices
+      ADD COLUMN IF NOT EXISTS notes TEXT
+    `;
+
+    await tx`
       CREATE TABLE IF NOT EXISTS quickbooks_connections (
         id SERIAL PRIMARY KEY,
         realm_id VARCHAR(64) UNIQUE NOT NULL,

@@ -236,7 +236,7 @@ export async function createQuickBooksCustomer(realmId: string, data: {
 
 export async function createQuickBooksInvoice(realmId: string, data: {
   customerId: string;
-  invoiceNumber: string;
+  invoiceNumber?: string;
   amountDue: number;
   dueDate: string;
   description: string;
@@ -248,7 +248,7 @@ export async function createQuickBooksInvoice(realmId: string, data: {
 
   const payload = {
     CustomerRef: { value: data.customerId },
-    DocNumber: data.invoiceNumber,
+    ...(data.invoiceNumber ? { DocNumber: data.invoiceNumber } : {}),
     DueDate: data.dueDate,
     PrivateNote: data.description,
     Line: [
@@ -281,6 +281,37 @@ export async function getQuickBooksInvoice(realmId: string, qboInvoiceId: string
   return result.Invoice;
 }
 
+export async function getQuickBooksInvoicePdf(realmId: string, qboInvoiceId: string): Promise<{
+  data: Buffer;
+  mimeType: string;
+  filename: string;
+  size: number;
+}> {
+  const connection = await getFreshQuickBooksConnection();
+  const url = `${getApiBaseUrl()}/v3/company/${realmId}/invoice/${qboInvoiceId}/pdf?minorversion=75`;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${connection.access_token}`,
+      Accept: "application/pdf",
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`QuickBooks PDF download failed (${response.status}): ${text}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  const data = Buffer.from(arrayBuffer);
+  const mimeType = response.headers.get("content-type") || "application/pdf";
+  const disposition = response.headers.get("content-disposition") || "";
+  const filenameMatch = /filename="?([^";\s]+)"?/i.exec(disposition);
+  const filename = filenameMatch?.[1] || `invoice-${qboInvoiceId}.pdf`;
+
+  return { data, mimeType, filename, size: data.length };
+}
+
 export function extractQuickBooksInvoiceState(invoice: Record<string, unknown>) {
   const total = Number(invoice.TotalAmt ?? 0);
   const balance = Number(invoice.Balance ?? total);
@@ -295,6 +326,7 @@ export function extractQuickBooksInvoiceState(invoice: Record<string, unknown>) 
 
   return {
     qboInvoiceId: String(invoice.Id || ""),
+    qboDocNumber: invoice.DocNumber ? String(invoice.DocNumber) : null,
     qboSyncStatus: isPaid ? "paid" : "sent",
     amountPaid,
     paidAt: isPaid

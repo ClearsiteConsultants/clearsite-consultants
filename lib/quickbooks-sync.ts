@@ -12,6 +12,7 @@ import {
   extractQuickBooksInvoiceState,
   findQuickBooksCustomerByDisplayName,
   getQuickBooksInvoice,
+  getQuickBooksInvoicePdf,
 } from "@/lib/quickbooks";
 
 function toNumber(value: unknown) {
@@ -71,23 +72,37 @@ export async function syncInvoiceToQuickBooks(localInvoiceId: string) {
 
   if (!invoice.qbo_invoice_id) {
     const customerId = await ensureQuickBooksCustomer(String(invoice.client_id));
+    // invoice_number may be null — let QuickBooks auto-generate the DocNumber
     const qboInvoice = await createQuickBooksInvoice(connection.realm_id, {
       customerId,
-      invoiceNumber: String(invoice.invoice_number),
+      invoiceNumber: invoice.invoice_number ? String(invoice.invoice_number) : undefined,
       amountDue: toNumber(invoice.amount_due),
       dueDate: String(invoice.due_date).slice(0, 10),
-      description: `Portal invoice ${invoice.invoice_number}`,
+      description: `Portal invoice${invoice.invoice_number ? ` ${invoice.invoice_number}` : ""}`,
     });
 
     const qboState = extractQuickBooksInvoiceState(qboInvoice);
 
+    // Attempt to download the invoice PDF; failures are non-fatal.
+    let pdfPayload: { data: Buffer; mimeType: string; filename: string; size: number } | null = null;
+    try {
+      pdfPayload = await getQuickBooksInvoicePdf(connection.realm_id, qboState.qboInvoiceId);
+    } catch {
+      // PDF download failure should not block invoice creation.
+    }
+
     return updateInvoiceQuickBooksData({
       invoiceId: String(invoice.id),
       qboInvoiceId: qboState.qboInvoiceId,
+      qboDocNumber: qboState.qboDocNumber,
       qboPaymentUrl: qboState.paymentUrl,
       qboSyncStatus: qboState.qboSyncStatus,
       amountPaid: qboState.amountPaid,
       paidAt: qboState.paidAt,
+      pdfData: pdfPayload?.data ?? null,
+      pdfMimeType: pdfPayload?.mimeType ?? null,
+      pdfFilename: pdfPayload?.filename ?? null,
+      pdfSize: pdfPayload?.size ?? null,
     });
   }
 
@@ -96,6 +111,7 @@ export async function syncInvoiceToQuickBooks(localInvoiceId: string) {
 
   await updateInvoiceStatusByQuickBooksInvoiceId({
     qboInvoiceId: qboState.qboInvoiceId,
+    qboDocNumber: qboState.qboDocNumber,
     qboSyncStatus: qboState.qboSyncStatus,
     amountPaid: qboState.amountPaid,
     paidAt: qboState.paidAt,
@@ -116,6 +132,7 @@ export async function syncInvoiceByQuickBooksInvoiceId(qboInvoiceId: string) {
 
   return updateInvoiceStatusByQuickBooksInvoiceId({
     qboInvoiceId: qboState.qboInvoiceId,
+    qboDocNumber: qboState.qboDocNumber,
     qboSyncStatus: qboState.qboSyncStatus,
     amountPaid: qboState.amountPaid,
     paidAt: qboState.paidAt,
