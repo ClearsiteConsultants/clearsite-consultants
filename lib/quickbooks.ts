@@ -197,18 +197,25 @@ export async function quickBooksApiRequest<T>(options: {
 }
 
 function escapeQuickBooksQueryValue(value: string) {
-  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  // QBO IDS query language uses doubled single-quotes for escaping, not backslash
+  return String(value).replace(/'/g, "''");
 }
 
 export async function findQuickBooksCustomerByDisplayName(realmId: string, displayName: string) {
   const query = `select * from Customer where DisplayName = '${escapeQuickBooksQueryValue(displayName)}' maxresults 1`;
-  const result = await quickBooksApiRequest<{ QueryResponse?: { Customer?: Array<{ Id: string }> } }>({
-    method: "POST",
-    path: `/v3/company/${realmId}/query?minorversion=75`,
-    body: query,
-    contentType: "text/plain",
+  const connection = await getFreshQuickBooksConnection();
+  const url = `${getApiBaseUrl()}/v3/company/${realmId}/query?query=${encodeURIComponent(query)}&minorversion=75`;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${connection.access_token}`,
+      Accept: "application/json",
+    },
   });
-
+  const result = await response.json() as { QueryResponse?: { Customer?: Array<{ Id: string }> } };
+  if (!response.ok) {
+    throw new Error(`QuickBooks API error: ${JSON.stringify(result)}`);
+  }
   return result.QueryResponse?.Customer?.[0] || null;
 }
 

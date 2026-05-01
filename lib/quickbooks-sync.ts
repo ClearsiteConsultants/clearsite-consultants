@@ -36,6 +36,10 @@ async function ensureQuickBooksCustomer(clientId: string) {
     return String(client.qbo_customer_id);
   }
 
+  if (!client.company_name) {
+    throw new Error("Client is missing a company name required for QuickBooks sync");
+  }
+
   const connection = await getQuickBooksConnection();
   if (!connection) {
     throw new Error("QuickBooks is not connected yet");
