@@ -26,7 +26,8 @@ async function run() {
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
         company_name VARCHAR(255) NOT NULL,
-        contact_name VARCHAR(255) NOT NULL,
+        first_name VARCHAR(255) NOT NULL DEFAULT '',
+        last_name VARCHAR(255) NOT NULL DEFAULT '',
         phone VARCHAR(50),
         domain_name VARCHAR(255),
         plan VARCHAR(100) DEFAULT 'Starter',
@@ -45,6 +46,23 @@ async function run() {
     await tx`
       ALTER TABLE clients
       ADD COLUMN IF NOT EXISTS qbo_customer_id VARCHAR(64)
+    `;
+
+    // Migration: add first_name / last_name for existing databases that still have contact_name.
+    await tx`
+      ALTER TABLE clients
+      ADD COLUMN IF NOT EXISTS first_name VARCHAR(255) NOT NULL DEFAULT ''
+    `;
+
+    await tx`
+      ALTER TABLE clients
+      ADD COLUMN IF NOT EXISTS last_name VARCHAR(255) NOT NULL DEFAULT ''
+    `;
+
+    // Drop legacy contact_name column if it still exists.
+    await tx`
+      ALTER TABLE clients
+      DROP COLUMN IF EXISTS contact_name
     `;
 
     await tx`

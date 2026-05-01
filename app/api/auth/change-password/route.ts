@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
-import { getClientById, updateClientPasswordById } from "@/lib/db";
+import { getClientById, updateClientPasswordById, getUserById, updateAdminPasswordById } from "@/lib/db";
 import { validatePasswordPolicy } from "@/lib/password-policy";
 
 type AttemptState = {
@@ -45,20 +45,35 @@ function clearAttempts(userId: string) {
   attempts.delete(userId);
 }
 
+function parseSessionUserId(sessionUserId: string): { type: "client" | "admin"; id: string } | null {
+  if (sessionUserId.startsWith("client:")) {
+    return { type: "client", id: sessionUserId.slice("client:".length) };
+  }
+  if (sessionUserId.startsWith("user:")) {
+    return { type: "admin", id: sessionUserId.slice("user:".length) };
+  }
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
-    const userId = session?.user?.id;
+    const rawUserId = session?.user?.id;
 
-    if (!userId) {
+    if (!rawUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (isRateLimited(userId)) {
+    if (isRateLimited(rawUserId)) {
       return NextResponse.json(
         { error: "Too many failed attempts. Try again later." },
         { status: 429 }
       );
+    }
+
+    const parsed = parseSessionUserId(rawUserId as string);
+    if (!parsed) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { currentPassword, newPassword, confirmPassword } = await req.json();
@@ -76,18 +91,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: policyCheck.message }, { status: 400 });
     }
 
-    const client = await getClientById(userId);
-    if (!client?.password_hash) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Fetch user record and verify current password against the correct table.
+    let passwordHash: string;
+    if (parsed.type === "client") {
+      const client = await getClientById(parsed.id);
+      if (!client?.password_hash) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      passwordHash = client.password_hash as string;
+    } else {
+      const adminUser = await getUserById(parsed.id);
+      if (!adminUser?.password_hash) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      passwordHash = adminUser.password_hash as string;
     }
 
-    const currentPasswordValid = await bcrypt.compare(currentPassword, client.password_hash);
+    const currentPasswordValid = await bcrypt.compare(currentPassword, passwordHash);
     if (!currentPasswordValid) {
-      recordFailedAttempt(userId);
+      recordFailedAttempt(rawUserId as string);
       return NextResponse.json({ error: "Invalid current password" }, { status: 401 });
     }
 
-    const isSamePassword = await bcrypt.compare(newPassword, client.password_hash);
+    const isSamePassword = await bcrypt.compare(newPassword, passwordHash);
     if (isSamePassword) {
       return NextResponse.json(
         { error: "New password must be different from current password" },
@@ -95,17 +121,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const passwordHash = await bcrypt.hash(newPassword, 10);
-    const updated = await updateClientPasswordById(userId, passwordHash);
+    const newPasswordHash = await bcrypt.hash(newPassword, 10);
+
+    let updated;
+    if (parsed.type === "client") {
+      updated = await updateClientPasswordById(parsed.id, newPasswordHash);
+    } else {
+      updated = await updateAdminPasswordById(parsed.id, newPasswordHash);
+    }
 
     if (!updated) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    clearAttempts(userId);
+    clearAttempts(rawUserId as string);
     console.info("Password changed", {
-      actorId: userId,
-      targetId: userId,
+      actorId: rawUserId,
+      targetId: rawUserId,
       flow: "self-service",
       timestamp: new Date().toISOString(),
     });

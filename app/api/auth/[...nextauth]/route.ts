@@ -42,7 +42,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           // Fall back to clients table (sign-up accounts → client portal)
           const clientResult = await sql`
-            SELECT id, email, password_hash, company_name
+            SELECT id, email, password_hash, company_name, first_name, last_name
             FROM clients
             WHERE email = ${email}
           `;
@@ -56,6 +56,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             id: `client:${client.id}`,
             email: client.email,
             name: client.company_name,
+            first_name: client.first_name ?? "",
+            last_name: client.last_name ?? "",
             user_type: "client",
           };
         } catch (error) {
@@ -70,6 +72,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.id = user.id;
         token.user_type = (user as { user_type?: string }).user_type || "client";
+        token.first_name = (user as { first_name?: string }).first_name ?? "";
+        token.last_name = (user as { last_name?: string }).last_name ?? "";
       }
       return token;
     },
@@ -78,6 +82,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.id as string;
         (session.user as { user_type?: string }).user_type =
           typeof token.user_type === "string" ? token.user_type : "client";
+        (session.user as { first_name?: string }).first_name =
+          typeof token.first_name === "string" ? token.first_name : "";
+        (session.user as { last_name?: string }).last_name =
+          typeof token.last_name === "string" ? token.last_name : "";
       }
       return session;
     },

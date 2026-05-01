@@ -13,7 +13,8 @@ interface ClientUser {
   company_name: string;
   plan: string;
   service_status: string;
-  contact_name: string;
+  first_name: string;
+  last_name: string;
   phone?: string;
 }
 
@@ -170,7 +171,7 @@ export default function AdminClients() {
                       <tr key={client.id} className="border-b hover:bg-gray-50">
                         <td className="px-6 py-4 font-medium">{client.company_name}</td>
                         <td className="px-6 py-4 text-sm">{client.email}</td>
-                        <td className="px-6 py-4 text-sm">{client.contact_name}</td>
+                        <td className="px-6 py-4 text-sm">{[client.first_name, client.last_name].filter(Boolean).join(" ") || "—"}</td>
                         <td className="px-6 py-4 text-sm">{client.plan}</td>
                         <td className="px-6 py-4">
                           <span
