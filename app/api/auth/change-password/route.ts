@@ -47,10 +47,14 @@ function clearAttempts(userId: string) {
 
 function parseSessionUserId(sessionUserId: string): { type: "client" | "admin"; id: string } | null {
   if (sessionUserId.startsWith("client:")) {
-    return { type: "client", id: sessionUserId.slice("client:".length) };
+    const id = sessionUserId.slice("client:".length);
+    if (!id) return null;
+    return { type: "client", id };
   }
   if (sessionUserId.startsWith("user:")) {
-    return { type: "admin", id: sessionUserId.slice("user:".length) };
+    const id = sessionUserId.slice("user:".length);
+    if (!id) return null;
+    return { type: "admin", id };
   }
   return null;
 }

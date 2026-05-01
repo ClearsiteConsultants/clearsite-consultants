@@ -19,10 +19,12 @@ function getInitials(firstName?: string, lastName?: string, name?: string | null
   }
   if (name && name.trim()) {
     const parts = name.trim().split(/\s+/);
-    if (parts.length >= 2) {
+    if (parts.length >= 2 && parts[0] && parts[parts.length - 1]) {
       return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
     }
-    return parts[0][0].toUpperCase();
+    if (parts[0]) {
+      return parts[0][0].toUpperCase();
+    }
   }
   if (email) {
     return email[0].toUpperCase();
