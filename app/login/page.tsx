@@ -24,6 +24,15 @@ function normalizeAuthError(error?: string | null) {
   return error;
 }
 
+function formatPhoneNumber(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
 export default function Login() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -120,7 +129,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-tech">
-      <Header showNavigation={false} />
+      <Header />
 
       <div className="flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
@@ -202,7 +211,9 @@ export default function Login() {
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
+                  inputMode="numeric"
+                  placeholder="(555) 123-4567"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
               </div>

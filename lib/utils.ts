@@ -15,3 +15,23 @@ export const QBO_PAYMENT_URL_PATTERN =
 export function isValidQboPaymentUrl(url: string): boolean {
   return QBO_PAYMENT_URL_PATTERN.test(url);
 }
+
+export function sanitizeCurrencyDigits(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+export function formatCurrencyFromDigits(digits: string): string {
+  if (!digits) return "";
+
+  const normalizedDigits = digits.replace(/^0+(?=\d)/, "");
+  const padded = normalizedDigits.padStart(3, "0");
+  const dollars = padded.slice(0, -2);
+  const cents = padded.slice(-2);
+
+  return `${Number(dollars).toLocaleString("en-US")}.${cents}`;
+}
+
+export function currencyDigitsToNumber(digits: string): number {
+  if (!digits) return 0;
+  return parseInt(digits, 10) / 100;
+}

@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import Header from "@/components/Header";
 import { PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 
 export default function AccountSettings() {
@@ -119,6 +120,7 @@ export default function AccountSettings() {
 
   return (
     <div className="min-h-screen bg-tech">
+      <Header />
       <div className="max-w-2xl mx-auto px-6 py-12">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">

@@ -3,6 +3,7 @@
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import Header from "@/components/Header";
 
 interface Client {
   id: string;
@@ -170,6 +171,7 @@ export default function Portal() {
 
   return (
     <div className="min-h-screen bg-tech">
+      <Header />
       <div className="max-w-6xl mx-auto px-6 py-12">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">

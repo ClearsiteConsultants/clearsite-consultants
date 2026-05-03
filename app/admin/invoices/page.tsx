@@ -4,7 +4,13 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CheckCircle2, Link2, PlusCircle } from "lucide-react";
-import { isValidQboPaymentUrl } from "@/lib/utils";
+import Header from "@/components/Header";
+import {
+  currencyDigitsToNumber,
+  formatCurrencyFromDigits,
+  isValidQboPaymentUrl,
+  sanitizeCurrencyDigits,
+} from "@/lib/utils";
 
 interface Client {
   id: string;
@@ -12,6 +18,9 @@ interface Client {
 }
 
 type FormMode = "qbo-create" | "manual-link";
+const MAX_AMOUNT_DUE = 10_000;
+const MAX_AMOUNT_DUE_DIGITS = MAX_AMOUNT_DUE * 100;
+const MAX_AMOUNT_DUE_MESSAGE = "Max Limit is $10,000.00";
 
 export default function AdminInvoices() {
   const { data: session, status } = useSession();
@@ -21,13 +30,13 @@ export default function AdminInvoices() {
 
   // QuickBooks-first mode fields
   const [selectedClientId, setSelectedClientId] = useState("");
-  const [amountDue, setAmountDue] = useState("");
+  const [amountDueDigits, setAmountDueDigits] = useState("");
   const [dueDate, setDueDate] = useState("");
 
   // Manual-link mode fields
   const [mlClientId, setMlClientId] = useState("");
   const [mlPaymentUrl, setMlPaymentUrl] = useState("");
-  const [mlAmountDue, setMlAmountDue] = useState("");
+  const [mlAmountDueDigits, setMlAmountDueDigits] = useState("");
   const [mlDueDate, setMlDueDate] = useState("");
   const [mlInvoiceNumber, setMlInvoiceNumber] = useState("");
   const [mlQboInvoiceId, setMlQboInvoiceId] = useState("");
@@ -42,6 +51,13 @@ export default function AdminInvoices() {
     tokenExpiresAt?: string;
   }>({ connected: false });
   const [message, setMessage] = useState({ type: "", text: "" });
+
+  const amountDueDisplay = amountDueDigits ? `$${formatCurrencyFromDigits(amountDueDigits)}` : "";
+  const mlAmountDueDisplay = mlAmountDueDigits ? `$${formatCurrencyFromDigits(mlAmountDueDigits)}` : "";
+  const qboAmountDue = currencyDigitsToNumber(amountDueDigits);
+  const manualAmountDue = currencyDigitsToNumber(mlAmountDueDigits);
+  const qboAmountDueExceedsMax = parseInt(amountDueDigits || "0", 10) > MAX_AMOUNT_DUE_DIGITS;
+  const manualAmountDueExceedsMax = parseInt(mlAmountDueDigits || "0", 10) > MAX_AMOUNT_DUE_DIGITS;
 
   useEffect(() => {
     const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
@@ -102,14 +118,14 @@ export default function AdminInvoices() {
 
   const resetQboForm = () => {
     setSelectedClientId("");
-    setAmountDue("");
+    setAmountDueDigits("");
     setDueDate("");
   };
 
   const resetManualLinkForm = () => {
     setMlClientId("");
     setMlPaymentUrl("");
-    setMlAmountDue("");
+    setMlAmountDueDigits("");
     setMlDueDate("");
     setMlInvoiceNumber("");
     setMlQboInvoiceId("");
@@ -117,11 +133,31 @@ export default function AdminInvoices() {
     setMlErrors({});
   };
 
+  const handleQboAmountDueChange = (value: string) => {
+    setAmountDueDigits(sanitizeCurrencyDigits(value));
+  };
+
+  const handleManualAmountDueChange = (value: string) => {
+    setMlAmountDueDigits(sanitizeCurrencyDigits(value));
+    if (mlErrors.amountDue) {
+      setMlErrors((prev) => {
+        const rest = { ...prev };
+        delete rest.amountDue;
+        return rest;
+      });
+    }
+  };
+
   const handleQboSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage({ type: "", text: "" });
 
-    if (!selectedClientId || !amountDue || !dueDate) {
+    if (qboAmountDueExceedsMax) {
+      setMessage({ type: "error", text: MAX_AMOUNT_DUE_MESSAGE });
+      return;
+    }
+
+    if (!selectedClientId || qboAmountDue <= 0 || !dueDate) {
       setMessage({ type: "error", text: "Please fill in all required fields." });
       return;
     }
@@ -133,7 +169,7 @@ export default function AdminInvoices() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           client_id: selectedClientId,
-          amount_due: parseFloat(amountDue),
+          amount_due: qboAmountDue,
           due_date: dueDate,
           sync_to_qbo: true,
         }),
@@ -164,13 +200,18 @@ export default function AdminInvoices() {
 
   const validateManualLink = () => {
     const errors: Record<string, string> = {};
+
     if (!mlClientId) errors.client = "Client is required.";
     if (!mlPaymentUrl) {
       errors.paymentUrl = "QuickBooks Payment Link is required.";
     } else if (!isValidQboPaymentUrl(mlPaymentUrl)) {
       errors.paymentUrl = "Enter a valid https:// QuickBooks payment link.";
     }
-    if (!mlAmountDue || Number(mlAmountDue) <= 0) errors.amountDue = "Amount Due must be greater than 0.";
+    if (manualAmountDue > MAX_AMOUNT_DUE) {
+      errors.amountDue = MAX_AMOUNT_DUE_MESSAGE;
+    } else if (manualAmountDue <= 0) {
+      errors.amountDue = "Amount Due must be greater than 0.";
+    }
     if (!mlDueDate) {
       errors.dueDate = "Due Date is required.";
     } else {
@@ -201,7 +242,7 @@ export default function AdminInvoices() {
           mode: "manual-link",
           client_id: mlClientId,
           qbo_payment_url: mlPaymentUrl,
-          amount_due: parseFloat(mlAmountDue),
+          amount_due: manualAmountDue,
           due_date: mlDueDate,
           invoice_number: mlInvoiceNumber || undefined,
           qbo_invoice_id: mlQboInvoiceId || undefined,
@@ -240,6 +281,7 @@ export default function AdminInvoices() {
 
   return (
     <div className="min-h-screen bg-tech">
+      <Header />
       <div className="max-w-3xl mx-auto px-6 py-12">
         <h1 className="font-display text-5xl text-gray-900 mb-8">Create Client Invoice</h1>
 
@@ -334,15 +376,15 @@ export default function AdminInvoices() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Amount Due</label>
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={amountDue}
-                  onChange={(e) => setAmountDue(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  type="text"
+                  inputMode="numeric"
+                  value={amountDueDisplay}
+                  onChange={(e) => handleQboAmountDueChange(e.target.value)}
+                  placeholder="$0.00"
+                  className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 ${qboAmountDueExceedsMax ? "border-red-400" : "border-gray-300"}`}
                   required
                 />
+                {qboAmountDueExceedsMax && <p className="mt-1 text-sm text-red-600">{MAX_AMOUNT_DUE_MESSAGE}</p>}
               </div>
 
               <div>
@@ -405,15 +447,16 @@ export default function AdminInvoices() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Amount Due</label>
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={mlAmountDue}
-                  onChange={(e) => setMlAmountDue(e.target.value)}
-                  placeholder="0.00"
-                  className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 ${mlErrors.amountDue ? "border-red-400" : "border-gray-300"}`}
+                  type="text"
+                  inputMode="numeric"
+                  value={mlAmountDueDisplay}
+                  onChange={(e) => handleManualAmountDueChange(e.target.value)}
+                  placeholder="$0.00"
+                  className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 ${(manualAmountDueExceedsMax || mlErrors.amountDue) ? "border-red-400" : "border-gray-300"}`}
                 />
-                {mlErrors.amountDue && <p className="mt-1 text-sm text-red-600">{mlErrors.amountDue}</p>}
+                {manualAmountDueExceedsMax
+                  ? <p className="mt-1 text-sm text-red-600">{MAX_AMOUNT_DUE_MESSAGE}</p>
+                  : mlErrors.amountDue && <p className="mt-1 text-sm text-red-600">{mlErrors.amountDue}</p>}
               </div>
 
               <div>
@@ -474,7 +517,7 @@ export default function AdminInvoices() {
                   onClick={resetManualLinkForm}
                   className="px-6 py-3 border border-gray-300 rounded-xl text-sm font-semibold uppercase tracking-[0.18em] text-gray-700 hover:bg-gray-50 transition"
                 >
-                  Cancel
+                  Clear
                 </button>
               </div>
             </form>
