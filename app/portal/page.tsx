@@ -1,6 +1,6 @@
 'use client';
 
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
@@ -56,7 +56,7 @@ export default function Portal() {
     if (status === "unauthenticated") {
       router.push("/login");
     } else if (status === "authenticated" && userType === "admin") {
-      router.push("/admin/clients");
+      router.push("/admin");
     }
   }, [status, router, session]);
 
@@ -93,10 +93,6 @@ export default function Portal() {
 
     loadClient();
   }, [status, session]);
-
-  const handleLogout = async () => {
-    await signOut({ redirect: true, callbackUrl: "/" });
-  };
 
   const handlePlanChange = async (newPlan: string) => {
     if (!client) return;
@@ -179,12 +175,6 @@ export default function Portal() {
             <h1 className="font-display text-5xl text-gray-900 mb-2">Client Portal</h1>
             <p className="text-gray-600">Welcome back, {session.user?.name}</p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="px-6 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition uppercase tracking-[0.18em] text-sm font-semibold"
-          >
-            Sign Out
-          </button>
         </div>
 
         {/* Account Info */}

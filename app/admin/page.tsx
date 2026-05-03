@@ -1,9 +1,9 @@
 'use client';
 
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Edit2, LogOut, Upload } from "lucide-react";
+import { Edit2, Upload } from "lucide-react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ interface ClientUser {
   company_name: string;
   plan: string;
   service_status: string;
+  next_invoice_due: string | null;
   first_name: string;
   last_name: string;
   phone?: string;
@@ -23,10 +24,21 @@ interface EditingClient {
   id: string;
   plan: string;
   service_status: string;
-  next_invoice_due: string;
 }
 
-export default function AdminClients() {
+function formatDate(value: string | null | undefined) {
+  if (!value) return "N/A";
+
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  const date = dateOnlyMatch
+    ? new Date(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3]))
+    : new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleDateString();
+}
+
+export default function AdminDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [clients, setClients] = useState<ClientUser[]>([]);
@@ -70,7 +82,6 @@ export default function AdminClients() {
       id: client.id,
       plan: client.plan,
       service_status: client.service_status,
-      next_invoice_due: "",
     });
     setShowEditModal(true);
   };
@@ -102,10 +113,6 @@ export default function AdminClients() {
     }
   };
 
-  const handleLogout = async () => {
-    await signOut({ redirect: true, callbackUrl: "/" });
-  };
-
   if (status === "loading" || loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
@@ -117,17 +124,7 @@ export default function AdminClients() {
       <div className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center">
           <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-gray-600">{session?.user?.email}</span>
-            <Button
-              variant="outline"
-              onClick={handleLogout}
-              className="flex items-center gap-2"
-            >
-              <LogOut className="h-4 w-4" />
-              Logout
-            </Button>
-          </div>
+          <span className="text-gray-600">{session?.user?.email}</span>
         </div>
       </div>
 
@@ -157,6 +154,7 @@ export default function AdminClients() {
                     <th className="px-6 py-3 text-left text-sm font-semibold">Email</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Contact</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Plan</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold">Next Invoice Due</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Status</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Actions</th>
                   </tr>
@@ -164,7 +162,7 @@ export default function AdminClients() {
                 <tbody>
                   {clients.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                      <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                         No clients found
                       </td>
                     </tr>
@@ -175,6 +173,7 @@ export default function AdminClients() {
                         <td className="px-6 py-4 text-sm">{client.email}</td>
                         <td className="px-6 py-4 text-sm">{[client.first_name, client.last_name].filter(Boolean).join(" ") || "—"}</td>
                         <td className="px-6 py-4 text-sm">{client.plan}</td>
+                        <td className="px-6 py-4 text-sm">{formatDate(client.next_invoice_due)}</td>
                         <td className="px-6 py-4">
                           <span
                             className={`px-3 py-1 text-sm rounded-full ${
@@ -231,8 +230,11 @@ export default function AdminClients() {
 
       {/* Edit Modal */}
       {showEditModal && editingClient && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full">
+        <div
+          className="fixed inset-0 bg-gray-500/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={() => setShowEditModal(false)}
+        >
+          <div className="bg-white rounded-lg max-w-md w-full" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b">
               <h3 className="text-lg font-semibold">Edit Client</h3>
             </div>
@@ -267,17 +269,6 @@ export default function AdminClients() {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">Next Invoice Due Date</label>
-                <input
-                  type="date"
-                  value={editingClient.next_invoice_due}
-                  onChange={(e) =>
-                    setEditingClient({ ...editingClient, next_invoice_due: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border rounded-md"
-                />
-              </div>
             </div>
 
             <div className="px-6 py-4 border-t flex justify-end gap-3">

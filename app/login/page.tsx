@@ -51,7 +51,7 @@ export default function Login() {
     if (status === "authenticated") {
       const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
       if (userType === "admin") {
-        router.push("/admin/clients");
+        router.push("/admin");
       } else {
         router.push("/portal");
       }

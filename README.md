@@ -171,7 +171,7 @@ app/
   page.tsx                       # Public homepage
   layout.tsx                     # Root layout
   login/page.tsx                 # Client sign in / sign up
-  portal/page.tsx                # Client portal (redirects admins to /admin/clients)
+  portal/page.tsx                # Client portal (redirects admins to /admin)
   admin/
     clients/page.tsx             # Admin dashboard — manage all client accounts
     invoices/page.tsx            # Admin invoice UI (QBO-create + manual-link modes)
@@ -207,7 +207,7 @@ This app uses two separate database tables for authentication:
 | Table | Source | Portal |
 |---|---|---|
 | `clients` | Sign Up in this app | `/portal` (client portal) |
-| `users` | Accounts from client-finder-portal | `/admin/clients` (admin dashboard) |
+| `users` | Accounts from client-finder-portal | `/admin` (admin dashboard) |
 
 Login checks `clients` first. If no match, it falls back to `users`. The resolved `user_type` (`client` or `admin`) is stored in the JWT and used throughout the app to gate access.
 

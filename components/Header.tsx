@@ -94,7 +94,7 @@ export default function Header({ showNavigation = true }: HeaderProps) {
     ? getInitials(firstName, lastName, session?.user?.name, session?.user?.email)
     : "";
 
-  const portalHref = userType === "admin" ? "/admin/clients" : "/portal";
+  const portalHref = userType === "admin" ? "/admin" : "/portal";
   const portalLabel = userType === "admin" ? "Admin Dashboard" : "Client Portal";
   const isHomepage = pathname === "/";
   const showFullNavigation = showNavigation && isHomepage;

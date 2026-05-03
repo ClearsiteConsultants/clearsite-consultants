@@ -111,7 +111,7 @@ export default function AccountSettings() {
     return null;
   }
 
-  const backHref = userType === "admin" ? "/admin/clients" : "/portal";
+  const backHref = userType === "admin" ? "/admin" : "/portal";
   const backLabel = userType === "admin" ? "Admin Dashboard" : "Client Portal";
   const displayName =
     firstName && lastName
