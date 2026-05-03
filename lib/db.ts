@@ -29,13 +29,14 @@ export async function createClient(data: {
   email: string;
   password_hash: string;
   company_name: string;
-  contact_name: string;
+  first_name: string;
+  last_name: string;
   phone?: string;
   domain_name?: string;
 }) {
   const result = await sql`
-    INSERT INTO clients (email, password_hash, company_name, contact_name, phone, domain_name)
-    VALUES (${data.email}, ${data.password_hash}, ${data.company_name}, ${data.contact_name}, ${data.phone || null}, ${data.domain_name || null})
+    INSERT INTO clients (email, password_hash, company_name, first_name, last_name, phone, domain_name)
+    VALUES (${data.email}, ${data.password_hash}, ${data.company_name}, ${data.first_name}, ${data.last_name}, ${data.phone || null}, ${data.domain_name || null})
     RETURNING *
   `;
   return result.rows[0];
@@ -43,7 +44,7 @@ export async function createClient(data: {
 
 export async function getClientQuickBooksProfile(clientId: string) {
   const result = await sql`
-    SELECT id, email, company_name, contact_name, phone, domain_name, qbo_customer_id
+    SELECT id, email, company_name, first_name, last_name, phone, domain_name, qbo_customer_id
     FROM clients
     WHERE id = ${clientId}
     LIMIT 1
@@ -76,6 +77,23 @@ export async function updateClientPasswordByEmail(email: string, passwordHash: s
     UPDATE clients
     SET password_hash = ${passwordHash}
     WHERE email = ${email}
+    RETURNING id, email
+  `;
+  return result.rows[0];
+}
+
+export async function getUserById(id: string) {
+  const result = await sql`
+    SELECT id, email, name, password_hash FROM users WHERE id = ${id}
+  `;
+  return result.rows[0];
+}
+
+export async function updateAdminPasswordById(userId: string, passwordHash: string) {
+  const result = await sql`
+    UPDATE users
+    SET password_hash = ${passwordHash}
+    WHERE id = ${userId}
     RETURNING id, email
   `;
   return result.rows[0];

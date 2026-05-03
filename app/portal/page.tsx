@@ -3,7 +3,6 @@
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 
 interface Client {
   id: string;
@@ -50,16 +49,6 @@ export default function Portal() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingPlan, setUpdatingPlan] = useState(false);
-  const [changingPassword, setChangingPassword] = useState(false);
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [isPasswordPromptComplete, setIsPasswordPromptComplete] = useState(false);
-  const [passwordPromptValue, setPasswordPromptValue] = useState("");
-  const [passwordMessage, setPasswordMessage] = useState({ type: "", text: "" });
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
 
   useEffect(() => {
     const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
@@ -153,72 +142,6 @@ export default function Portal() {
       }
     } catch (error) {
       console.error("Failed to cancel service", error);
-    }
-  };
-
-  const handlePasswordFieldChange = (field: "currentPassword" | "newPassword" | "confirmPassword", value: string) => {
-    setPasswordForm((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handlePasswordPromptContinue = (event?: React.FormEvent) => {
-    event?.preventDefault();
-
-    if (!passwordPromptValue) {
-      setPasswordMessage({ type: "error", text: "Please enter your current password to continue." });
-      return;
-    }
-
-    setPasswordMessage({ type: "", text: "" });
-    setPasswordForm((prev) => ({ ...prev, currentPassword: passwordPromptValue }));
-    setIsPasswordPromptComplete(true);
-  };
-
-  const handlePasswordChange = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setPasswordMessage({ type: "", text: "" });
-
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setPasswordMessage({ type: "error", text: "New password and confirmation do not match." });
-      return;
-    }
-
-    setChangingPassword(true);
-
-    try {
-      const response = await fetch("/api/auth/change-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(passwordForm),
-      });
-
-      const payload = await response.json();
-
-      if (!response.ok) {
-        if (payload?.error === "Invalid current password") {
-          setPasswordPromptValue("");
-          setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-          setIsPasswordPromptComplete(false);
-        }
-
-        setPasswordMessage({
-          type: "error",
-          text: payload?.error || "Unable to change password.",
-        });
-        return;
-      }
-
-      setPasswordMessage({ type: "success", text: "Password updated successfully." });
-      setPasswordPromptValue("");
-      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-      setIsPasswordPromptComplete(false);
-      setShowPasswordForm(false);
-    } catch (error) {
-      setPasswordMessage({
-        type: "error",
-        text: error instanceof Error ? error.message : "Unable to change password.",
-      });
-    } finally {
-      setChangingPassword(false);
     }
   };
 
@@ -401,129 +324,16 @@ export default function Portal() {
           )}
         </div>
 
-        {/* Password */}
+        {/* Account Settings */}
         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mt-8">
-          <h2 className="font-display text-3xl text-gray-900 mb-2">Change Password</h2>
-
-          {passwordMessage.text && (
-            <div
-              className={`mb-4 rounded-lg p-3 text-sm ${
-                passwordMessage.type === "success"
-                  ? "bg-emerald-50 text-emerald-700"
-                  : "bg-red-50 text-red-700"
-              }`}
-            >
-              {passwordMessage.text}
-            </div>
-          )}
-
-          {!showPasswordForm ? (
-            <button
-              type="button"
-              onClick={() => {
-                setPasswordMessage({ type: "", text: "" });
-                setPasswordPromptValue("");
-                setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-                setIsPasswordPromptComplete(false);
-                setShowPasswordForm(true);
-              }}
-              className="rounded-xl bg-red-600 px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-red-700"
-            >
-              Change Password
-            </button>
-          ) : (
-            <>
-              {!isPasswordPromptComplete ? (
-                <form onSubmit={handlePasswordPromptContinue} className="grid gap-4 md:grid-cols-2" autoComplete="off">
-                  <div className="md:col-span-2">
-                    <label className="mb-2 block text-sm font-medium text-gray-700">Confirm Your Current Password</label>
-                    <input
-                      type="password"
-                      value={passwordPromptValue}
-                      onChange={(event) => setPasswordPromptValue(event.target.value)}
-                      className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                      autoComplete="off"
-                      required
-                    />
-                  </div>
-                  <div className="md:col-span-2 flex gap-3">
-                    <button
-                      type="submit"
-                      className="rounded-xl bg-primary px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-primary/90"
-                    >
-                      Continue
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPasswordPromptValue("");
-                        setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-                        setPasswordMessage({ type: "", text: "" });
-                        setIsPasswordPromptComplete(false);
-                        setShowPasswordForm(false);
-                      }}
-                      className="rounded-xl border border-gray-300 px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-gray-700 transition hover:bg-gray-50"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <>
-                  <p className="text-sm text-gray-600 mb-4">{PASSWORD_POLICY_MESSAGE}</p>
-
-                  <form onSubmit={handlePasswordChange} className="grid gap-4 md:grid-cols-2" autoComplete="off">
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">New Password</label>
-                      <input
-                        type="password"
-                        value={passwordForm.newPassword}
-                        onChange={(event) => handlePasswordFieldChange("newPassword", event.target.value)}
-                        className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                        autoComplete="new-password"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">Confirm New Password</label>
-                      <input
-                        type="password"
-                        value={passwordForm.confirmPassword}
-                        onChange={(event) => handlePasswordFieldChange("confirmPassword", event.target.value)}
-                        className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                        autoComplete="new-password"
-                        required
-                      />
-                    </div>
-
-                    <div className="md:col-span-2 flex gap-3">
-                      <button
-                        type="submit"
-                        disabled={changingPassword}
-                        className="rounded-xl bg-primary px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-primary/90 disabled:opacity-50"
-                      >
-                        {changingPassword ? "Updating..." : "Update Password"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPasswordPromptValue("");
-                          setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-                          setPasswordMessage({ type: "", text: "" });
-                          setIsPasswordPromptComplete(false);
-                          setShowPasswordForm(false);
-                        }}
-                        className="rounded-xl border border-gray-300 px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-gray-700 transition hover:bg-gray-50"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                </>
-              )}
-            </>
-          )}
+          <h2 className="font-display text-3xl text-gray-900 mb-2">Account Settings</h2>
+          <p className="text-gray-600 mb-4">Manage your password and account preferences.</p>
+          <a
+            href="/account-settings"
+            className="inline-block rounded-xl bg-primary px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-primary/90"
+          >
+            Go to Account Settings
+          </a>
         </div>
       </div>
     </div>

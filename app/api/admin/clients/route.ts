@@ -17,7 +17,7 @@ export async function GET() {
     }
 
     const result = await sql`
-      SELECT id, email, company_name, plan, service_status, contact_name, phone, next_invoice_due
+      SELECT id, email, company_name, plan, service_status, first_name, last_name, phone, next_invoice_due
       FROM clients
       ORDER BY company_name
     `;
@@ -65,7 +65,7 @@ export async function PUT(req: NextRequest) {
           next_invoice_due = COALESCE(${normalizedNextInvoiceDue}, next_invoice_due),
           updated_at = NOW()
       WHERE id = ${id}
-      RETURNING id, email, company_name, plan, service_status, contact_name, phone, next_invoice_due
+      RETURNING id, email, company_name, plan, service_status, first_name, last_name, phone, next_invoice_due
     `;
 
     if (result.rows.length === 0) {

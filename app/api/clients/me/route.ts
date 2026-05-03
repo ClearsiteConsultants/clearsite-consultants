@@ -27,7 +27,7 @@ export async function GET() {
     }
 
     const result = await sql`
-      SELECT id, email, company_name, domain_name, plan, service_status, next_invoice_due
+      SELECT id, email, company_name, first_name, last_name, domain_name, plan, service_status, next_invoice_due
       FROM clients
       WHERE id = ${clientId}
       LIMIT 1
