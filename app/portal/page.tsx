@@ -46,23 +46,22 @@ function formatDate(value: string | null | undefined) {
 export default function Portal() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
   const [client, setClient] = useState<Client | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingPlan, setUpdatingPlan] = useState(false);
 
   useEffect(() => {
-    const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
     if (status === "unauthenticated") {
       router.push("/login");
     } else if (status === "authenticated" && userType === "admin") {
       router.push("/admin");
     }
-  }, [status, router, session]);
+  }, [status, router, userType]);
 
   useEffect(() => {
     const loadClient = async () => {
-      const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
       if (status !== "authenticated" || userType !== "client") {
         return;
       }
@@ -92,7 +91,7 @@ export default function Portal() {
     }
 
     loadClient();
-  }, [status, session]);
+  }, [status, userType]);
 
   const handlePlanChange = async (newPlan: string) => {
     if (!client) return;
@@ -210,16 +209,10 @@ export default function Portal() {
                 className="w-full sm:w-64 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
               >
                 <option value="Starter">Starter</option>
-                <option value="Professional">Professional</option>
-                <option value="Enterprise">Enterprise</option>
+                <option value="Feature-Rich">Feature-Rich</option>
               </select>
             </div>
-            <button
-              onClick={handleCancelService}
-              className="px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition mt-6 uppercase tracking-[0.18em] text-sm font-semibold"
-            >
-              Cancel Service
-            </button>
+
           </div>
         </div>
 

@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Edit2, Upload } from "lucide-react";
+import { Edit2, Settings, Upload } from "lucide-react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -122,9 +122,8 @@ export default function AdminDashboard() {
       <Header />
       {/* Header */}
       <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center">
+        <div className="max-w-7xl mx-auto px-4 py-6">
           <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-          <span className="text-gray-600">{session?.user?.email}</span>
         </div>
       </div>
 
@@ -205,24 +204,34 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Invoices Section */}
-        <div>
-          <h2 className="text-2xl font-semibold mb-4">Invoice Management</h2>
-          <Card>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="transition-shadow hover:shadow-md">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Upload className="h-5 w-5" />
-                Upload Invoices
+                Invoice Management
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600 mb-4">
-                Go to the{" "}
-                <a href="/admin/invoices" className="text-blue-600 hover:underline">
-                  Invoice Upload page
-                </a>{" "}
-                to upload invoices for clients.
-              </p>
+              <p className="text-gray-600 mb-4">Upload and manage client invoices.</p>
+              <a href="/admin/invoices" className="text-blue-600 hover:underline font-medium">
+                Open Invoice Management
+              </a>
+            </CardContent>
+          </Card>
+
+          <Card className="transition-shadow hover:shadow-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Account Setting
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600 mb-4">Review and update your account settings.</p>
+              <a href="/account-settings" className="text-blue-600 hover:underline font-medium">
+                Open Account Setting
+              </a>
             </CardContent>
           </Card>
         </div>
@@ -249,8 +258,7 @@ export default function AdminDashboard() {
                   className="w-full px-3 py-2 border rounded-md"
                 >
                   <option value="Starter">Starter</option>
-                  <option value="Professional">Professional</option>
-                  <option value="Enterprise">Enterprise</option>
+                  <option value="Feature-Rich">Feature-Rich</option>
                 </select>
               </div>
 

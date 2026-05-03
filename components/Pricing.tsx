@@ -23,7 +23,7 @@ const prices = {
 
 const mainTiers = [
   {
-    name: "Basic Website",
+    name: "Starter Website",
     tagline: "Get online fast",
     setupFee: prices.basicWebsite.setup,
     monthly: prices.basicWebsite.monthly,
@@ -45,7 +45,7 @@ const mainTiers = [
     monthly: prices.featureRichWebsite.monthly,
     annual: prices.featureRichWebsite.annual,
     features: [
-      "Everything in Basic Website, scoped to your needs during a free consultation",
+      "Everything in Starter Website, scoped to your needs during a free consultation",
       "Up to 100 pages",
       "Priority maintenance & support",
     ],
