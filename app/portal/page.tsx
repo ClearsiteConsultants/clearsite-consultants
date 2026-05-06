@@ -19,10 +19,11 @@ interface Invoice {
   invoice_number: string | null;
   qbo_doc_number: string | null;
   amount_due: number;
+  invoice_total: number | null;
   amount_paid: number;
+  invoice_date: string | null;
   due_date: string;
   qbo_payment_url: string | null;
-  file_url: string | null;
   qbo_sync_status: string | null;
   paid_at: string | null;
   created_at: string;
@@ -223,12 +224,14 @@ export default function Portal() {
             <p className="text-gray-600">No invoices yet.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px]">
+              <table className="w-full min-w-[900px]">
                 <thead>
                   <tr className="border-b border-gray-200 text-left text-sm text-gray-500 uppercase">
                     <th className="py-3 pr-4">Invoice</th>
+                    <th className="py-3 pr-4">Invoice Date</th>
                     <th className="py-3 pr-4">Due Date</th>
-                    <th className="py-3 pr-4">Amount</th>
+                    <th className="py-3 pr-4">Pre-Tax</th>
+                    <th className="py-3 pr-4">Total</th>
                     <th className="py-3 pr-4">Status</th>
                     <th className="py-3 pr-4">Actions</th>
                   </tr>
@@ -259,8 +262,14 @@ export default function Portal() {
                             </span>
                           )}
                         </td>
+                        <td className="py-4 pr-4 text-gray-700">{formatDate(invoice.invoice_date)}</td>
                         <td className="py-4 pr-4 text-gray-700">{formatDate(invoice.due_date)}</td>
                         <td className="py-4 pr-4 text-gray-900">${Number(invoice.amount_due || 0).toFixed(2)}</td>
+                        <td className="py-4 pr-4 text-gray-900">
+                          {invoice.invoice_total != null
+                            ? `$${Number(invoice.invoice_total).toFixed(2)}`
+                            : "—"}
+                        </td>
                         <td className="py-4 pr-4">
                           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${statusClass}`}>
                             {status}
@@ -281,16 +290,6 @@ export default function Portal() {
                             {invoice.has_pdf && (
                               <a
                                 href={`/api/invoices/${invoice.id}/pdf`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-gray-700 font-semibold hover:text-gray-900"
-                              >
-                                View PDF
-                              </a>
-                            )}
-                            {!invoice.has_pdf && invoice.file_url && (
-                              <a
-                                href={invoice.file_url}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-gray-700 font-semibold hover:text-gray-900"

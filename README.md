@@ -21,21 +21,25 @@ This branch is a Next.js App Router implementation that includes:
 ## Invoice Workflow
 
 ### QuickBooks-native creation (default)
-Admin enters **client**, **amount**, and **due date** only. The app:
+Admin enters **client**, optional **product/service** (dropdown), **amount**, optional **invoice date**, and **due date**. The app:
 1. Ensures a QuickBooks customer exists for the client (creates one if not).
 2. Creates the invoice in QuickBooks — QuickBooks auto-generates the invoice/doc number.
+   - If a product/service is selected, its item ID is passed to QBO and its unit price auto-fills the amount field.
+   - If an invoice date is provided, it is passed as `TxnDate` to QBO.
 3. Downloads the invoice PDF from QuickBooks and stores it in the database.
-4. Persists the QuickBooks invoice ID, doc number, payment URL, and PDF metadata.
+4. Persists the QuickBooks invoice ID, doc number, payment URL, invoice date, and both pre-tax amount (`amount_due`) and QBO tax-inclusive total (`invoice_total`).
 5. Returns all of this in the API response; the portal immediately shows Pay Now and View PDF.
 
 ### Manual-link mode (for pre-existing QuickBooks invoices)
 Admin can link an already-existing QuickBooks invoice without creating a new one:
-- Required: client, QuickBooks payment link (must be an HTTPS intuit.com URL), amount, due date.
-- Optional: invoice number override, QuickBooks invoice ID (for future webhook reconciliation), internal notes.
+- Required: **client** and **QuickBooks invoice number** (the `DocNumber` / `qbo_doc_number`).
+- The server looks up the invoice in QuickBooks constrained to the client's QBO customer ID.
+- All invoice fields (date, due date, amount, payment URL, PDF) are synced automatically.
+- Returns 404 if no matching invoice found, 409 if already linked.
 - Saved invoices are tagged as **"Manually linked"** in the portal.
 
 ### Portal
-Clients see the QuickBooks-generated doc number (falling back to local invoice number), a **Pay Now** button (from the stored QuickBooks payment URL), and a **View PDF** button (served from the stored PDF endpoint `/api/invoices/[id]/pdf`). Legacy invoices with a `file_url` still show their PDF link.
+Clients see the QuickBooks-generated doc number, **Invoice Date**, **Due Date**, pre-tax amount (`amount_due`), QBO total (`invoice_total`), a **Pay Now** button, and a **View PDF** button (served from `/api/invoices/[id]/pdf`).
 
 ## Getting Started
 
@@ -91,6 +95,7 @@ QUICKBOOKS_ENVIRONMENT="sandbox"
 QUICKBOOKS_CLIENT_ID=YOUR_INTUIT_APP_CLIENT_ID
 QUICKBOOKS_CLIENT_SECRET=YOUR_INTUIT_APP_CLIENT_SECRET
 QUICKBOOKS_REDIRECT_URI="http://localhost:3000/api/integrations/quickbooks/callback"
+# Optional fallback item ID — used when no product/service is selected in the invoice form
 QUICKBOOKS_DEFAULT_ITEM_ID=YOUR_QUICKBOOKS_SERVICE_ITEM_ID
 QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN=YOUR_INTUIT_WEBHOOK_TOKEN
 ```
@@ -122,7 +127,8 @@ This creates (or updates) the required tables and columns:
 - `clients` (with `qbo_customer_id`)
 - `subscriptions`
 - `invoices` (with `qbo_invoice_id`, `qbo_doc_number`, `qbo_sync_status`, `qbo_payment_url`,
-  `pdf_data`, `pdf_mime_type`, `pdf_filename`, `pdf_size`, `is_manual_link`, `notes`)
+  `invoice_date`, `invoice_total`, `pdf_data`, `pdf_mime_type`, `pdf_filename`, `pdf_size`,
+  `is_manual_link`, `notes`; `file_url` removed if present)
 - `quickbooks_connections`
 
 ### 3. Start app and verify auth flow
@@ -161,8 +167,9 @@ WHERE table_name = 'invoices'
 ORDER BY ordinal_position;
 ```
 
-Expected columns include: `qbo_doc_number`, `pdf_data`, `pdf_mime_type`, `pdf_filename`, `pdf_size`,
-`is_manual_link`, `notes`.
+Expected columns include: `qbo_doc_number`, `invoice_date`, `invoice_total`, `pdf_data`,
+`pdf_mime_type`, `pdf_filename`, `pdf_size`, `is_manual_link`, `notes`. Column `file_url` must
+**not** be present.
 
 ## Project Structure
 
@@ -247,17 +254,18 @@ The `users` table is never written to by this app — it is read-only for admin 
 ## Admin Invoice Modes
 
 ### Create in QuickBooks (default)
-- Fields: **Client** (dropdown), **Amount Due**, **Due Date**
+- Fields: **Client** (dropdown), optional **Product/Service** (QBO item dropdown), **Amount Due** (auto-fills from selected item rate), optional **Invoice Date**, **Due Date**
 - QuickBooks auto-generates the invoice number
-- PDF is downloaded from QuickBooks and stored in the database
+- PDF is downloaded from QuickBooks and stored in the database with filename `invoice_date-qbo_doc_number.pdf`
 - Success message includes the QuickBooks-generated doc number
 
 ### Link Existing Invoice (manual-link)
 Use this mode to attach a pre-existing QuickBooks invoice to a local client account without creating a new QuickBooks invoice.
-- Required fields: **Client**, **QuickBooks Payment Link** (must be `https://…intuit.com/…`), **Amount Due**, **Due Date**
-- Optional fields: **Invoice Number**, **QuickBooks Invoice ID** (enables future webhook reconciliation), **Internal Notes**
-- Validation errors match the agreed copy (e.g., "Enter a valid https:// QuickBooks payment link.", "Due Date must be today or later.")
-- Success message: "Linked QuickBooks invoice saved to client account."
+- Required fields: **Client**, **QuickBooks Invoice Number** (the `DocNumber` / `qbo_doc_number`)
+- Server performs a QBO lookup by invoice number constrained to the client's QBO customer ID
+- All invoice data (date, due date, amount, total, payment URL, PDF) is synced automatically
+- Returns 404 if the invoice number does not match any QBO invoice for that client
+- Returns 409 if the invoice is already linked to this client
 
 ## Deployment (Vercel)
 
@@ -284,21 +292,37 @@ Use this mode to attach a pre-existing QuickBooks invoice to a local client acco
 ### Rollout order
 
 1. **Run the DB bootstrap** (`npm run db:bootstrap` targeting production) **before** deploying the new code.
-   This adds `qbo_doc_number`, `pdf_data`, `pdf_mime_type`, `pdf_filename`, `pdf_size`, `is_manual_link`, and `notes` columns without breaking existing rows.
+   This adds `invoice_date`, `invoice_total`, and all prior columns, and **drops `file_url`** if it still exists.
+   > ⚠️ **Breaking change**: `file_url` is removed from the schema. Any records that relied solely on
+   > `file_url` for PDF access will no longer display a PDF link after deployment. Ensure `pdf_data` is
+   > populated for all active invoices before deploying (or accept that legacy PDF links will be removed).
 2. Deploy the new code.
 3. Reconnect QuickBooks from `/admin/invoices` if the OAuth tokens expired during the rollout.
-4. Create one test invoice in the admin UI and verify the portal shows the QBO doc number, Pay Now, and View PDF.
+4. Create one test invoice in the admin UI and verify the portal shows the QBO doc number, Invoice Date, Due Date, Pay Now, and View PDF.
 
 ### Rollback
 
 If you need to roll back:
 1. Redeploy the previous code version (Vercel instant rollback).
-2. The schema changes are additive and backward-compatible — old code continues to work against the new schema.
-3. No data migration is required to roll back.
+2. **The `file_url` column drop is not reversible via rollback.** If you need to restore it:
+   ```sql
+   ALTER TABLE invoices ADD COLUMN IF NOT EXISTS file_url TEXT;
+   ```
+3. The `invoice_date` and `invoice_total` columns are additive — old code ignores them and continues to work.
+4. No data migration is required beyond the `file_url` note above.
 
-## Regression: Legacy Invoices
+## Breaking Change: file_url Removal
 
-Pre-existing invoices that have a `file_url` (uploaded PDFs) will continue to display a **View PDF** link in the portal pointing to the original URL. Invoices without `pdf_data` fall back to `file_url` automatically.
+The `file_url` column has been **removed** from the `invoices` table. Any invoices that previously
+stored only a `file_url` (and no `pdf_data`) will no longer display a PDF link in the portal.
+
+**Before deploying**, ensure all invoices with active PDF links have their `pdf_data` column populated,
+or accept that legacy file-URL-only PDFs will become inaccessible.
+
+To restore the column if needed after a rollback:
+```sql
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS file_url TEXT;
+```
 
 ## PDF Storage Notes
 

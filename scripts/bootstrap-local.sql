@@ -51,7 +51,6 @@ CREATE TABLE IF NOT EXISTS invoices (
   invoice_number VARCHAR(100),
   amount_due NUMERIC(10,2),
   due_date DATE,
-  file_url TEXT,
   qbo_payment_url TEXT,
   created_at TIMESTAMP DEFAULT NOW()
 );
@@ -91,6 +90,16 @@ ADD COLUMN IF NOT EXISTS is_manual_link BOOLEAN DEFAULT FALSE;
 
 ALTER TABLE invoices
 ADD COLUMN IF NOT EXISTS notes TEXT;
+
+ALTER TABLE invoices
+ADD COLUMN IF NOT EXISTS invoice_date DATE;
+
+ALTER TABLE invoices
+ADD COLUMN IF NOT EXISTS invoice_total NUMERIC(10,2);
+
+-- Remove legacy file_url column if it still exists.
+ALTER TABLE invoices
+DROP COLUMN IF EXISTS file_url;
 
 CREATE TABLE IF NOT EXISTS quickbooks_connections (
   id SERIAL PRIMARY KEY,

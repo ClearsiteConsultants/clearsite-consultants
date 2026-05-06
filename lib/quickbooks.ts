@@ -245,10 +245,12 @@ export async function createQuickBooksInvoice(realmId: string, data: {
   customerId: string;
   invoiceNumber?: string;
   amountDue: number;
+  invoiceDate?: string;
   dueDate: string;
   description: string;
+  itemId?: string;
 }) {
-  const defaultItemId = process.env.QUICKBOOKS_DEFAULT_ITEM_ID;
+  const defaultItemId = data.itemId || process.env.QUICKBOOKS_DEFAULT_ITEM_ID;
   if (!defaultItemId) {
     throw new Error("QUICKBOOKS_DEFAULT_ITEM_ID is required to create invoices in QuickBooks");
   }
@@ -256,6 +258,7 @@ export async function createQuickBooksInvoice(realmId: string, data: {
   const payload = {
     CustomerRef: { value: data.customerId },
     ...(data.invoiceNumber ? { DocNumber: data.invoiceNumber } : {}),
+    ...(data.invoiceDate ? { TxnDate: data.invoiceDate } : {}),
     DueDate: data.dueDate,
     PrivateNote: data.description,
     Line: [
@@ -286,6 +289,76 @@ export async function getQuickBooksInvoice(realmId: string, qboInvoiceId: string
   });
 
   return result.Invoice;
+}
+
+export type QuickBooksItem = {
+  Id: string;
+  Name: string;
+  UnitPrice: number;
+  Taxable: boolean;
+  Active: boolean;
+  Type: string;
+};
+
+export async function getQuickBooksItems(realmId: string): Promise<QuickBooksItem[]> {
+  const query = "SELECT Id, Name, UnitPrice, Taxable, Active, Type FROM Item WHERE Active = true MAXRESULTS 200";
+  const connection = await getFreshQuickBooksConnection();
+  const url = `${getApiBaseUrl()}/v3/company/${realmId}/query?query=${encodeURIComponent(query)}&minorversion=75`;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${connection.access_token}`,
+      Accept: "application/json",
+    },
+  });
+  const result = await response.json() as { QueryResponse?: { Item?: Array<Record<string, unknown>> } };
+  if (!response.ok) {
+    throw new Error(`QuickBooks API error: ${JSON.stringify(result)}`);
+  }
+  const items = result.QueryResponse?.Item || [];
+  return items.map((item) => ({
+    Id: String(item.Id || ""),
+    Name: String(item.Name || ""),
+    UnitPrice: Number(item.UnitPrice ?? 0),
+    Taxable: Boolean(item.Taxable),
+    Active: Boolean(item.Active),
+    Type: String(item.Type || ""),
+  }));
+}
+
+export async function findQuickBooksInvoiceByDocNumber(
+  realmId: string,
+  docNumber: string,
+  customerId?: string
+): Promise<Record<string, unknown> | null> {
+  const safeDocNumber = escapeQuickBooksQueryValue(docNumber);
+  const query = `SELECT * FROM Invoice WHERE DocNumber = '${safeDocNumber}' MAXRESULTS 5`;
+  const connection = await getFreshQuickBooksConnection();
+  const url = `${getApiBaseUrl()}/v3/company/${realmId}/query?query=${encodeURIComponent(query)}&minorversion=75`;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${connection.access_token}`,
+      Accept: "application/json",
+    },
+  });
+  const result = await response.json() as { QueryResponse?: { Invoice?: Array<Record<string, unknown>> } };
+  if (!response.ok) {
+    throw new Error(`QuickBooks API error: ${JSON.stringify(result)}`);
+  }
+  const invoices = result.QueryResponse?.Invoice || [];
+  if (invoices.length === 0) return null;
+
+  if (customerId) {
+    // Constrain to the specified customer.
+    const match = invoices.find((inv) => {
+      const ref = inv.CustomerRef as { value?: string } | undefined;
+      return ref?.value === customerId;
+    });
+    return match ?? null;
+  }
+
+  return invoices[0];
 }
 
 export async function getQuickBooksInvoicePdf(realmId: string, qboInvoiceId: string): Promise<{
@@ -333,6 +406,10 @@ export function extractQuickBooksInvoiceState(invoice: Record<string, unknown>) 
     (typeof invoice.InvoiceLinkUrl === "string" && invoice.InvoiceLinkUrl) ||
     null;
 
+  const invoiceDate = typeof invoice.TxnDate === "string" && invoice.TxnDate
+    ? invoice.TxnDate.slice(0, 10)
+    : null;
+
   return {
     qboInvoiceId: String(invoice.Id || ""),
     qboDocNumber: invoice.DocNumber ? String(invoice.DocNumber) : null,
@@ -342,6 +419,8 @@ export function extractQuickBooksInvoiceState(invoice: Record<string, unknown>) 
       ? String((invoice.MetaData as { LastUpdatedTime?: string } | undefined)?.LastUpdatedTime || new Date().toISOString())
       : null,
     paymentUrl,
+    invoiceDate,
+    invoiceTotal: total,
   };
 }
 

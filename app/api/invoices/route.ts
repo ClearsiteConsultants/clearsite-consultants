@@ -6,10 +6,10 @@ import {
   createInvoice,
   getAllClients,
   getClientInvoicesForPortal,
-  checkDuplicateManualLink,
 } from "@/lib/db";
-import { syncInvoiceToQuickBooks } from "@/lib/quickbooks-sync";
-import { isValidQboPaymentUrl } from "@/lib/utils";
+import { syncInvoiceToQuickBooks, linkInvoiceByDocNumber } from "@/lib/quickbooks-sync";
+import { getQuickBooksConnection } from "@/lib/db";
+import { getQuickBooksItems } from "@/lib/quickbooks";
 
 function parseClientId(sessionUserId: string) {
   if (sessionUserId.startsWith("client:")) {
@@ -18,7 +18,7 @@ function parseClientId(sessionUserId: string) {
   return sessionUserId;
 }
 
-// GET /api/invoices - Get client's invoices
+// GET /api/invoices - Get client's invoices or admin lists
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
@@ -49,6 +49,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(clients);
     }
 
+    if (action === "qbo-items") {
+      if (userType !== "admin") {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      const connection = await getQuickBooksConnection();
+      if (!connection) {
+        return NextResponse.json({ error: "QuickBooks is not connected" }, { status: 503 });
+      }
+      const items = await getQuickBooksItems(connection.realm_id);
+      return NextResponse.json(items);
+    }
+
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal server error";
@@ -69,13 +81,13 @@ export async function POST(req: NextRequest) {
     const {
       client_id,
       amount_due,
+      invoice_date,
       due_date,
+      qbo_item_id,
       sync_to_qbo,
       // Manual-link mode fields
       mode,
-      qbo_payment_url,
-      invoice_number,
-      qbo_invoice_id,
+      qbo_doc_number,
       notes,
     } = body;
 
@@ -84,47 +96,26 @@ export async function POST(req: NextRequest) {
       if (!client_id) {
         return NextResponse.json({ error: "Client is required." }, { status: 400 });
       }
-      if (!qbo_payment_url) {
-        return NextResponse.json({ error: "QuickBooks Payment Link is required." }, { status: 400 });
-      }
-      if (!isValidQboPaymentUrl(String(qbo_payment_url))) {
-        return NextResponse.json({ error: "Enter a valid https:// QuickBooks payment link." }, { status: 400 });
-      }
-      if (!amount_due || Number(amount_due) <= 0) {
-        return NextResponse.json({ error: "Amount Due must be greater than 0." }, { status: 400 });
-      }
-      if (!due_date) {
-        return NextResponse.json({ error: "Due Date is required." }, { status: 400 });
-      }
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (new Date(due_date) < today) {
-        return NextResponse.json({ error: "Due Date must be today or later." }, { status: 400 });
-      }
-
-      const isDuplicate = await checkDuplicateManualLink(client_id, qbo_payment_url);
-      if (isDuplicate) {
-        return NextResponse.json(
-          { error: "This client already has an invoice with this QuickBooks payment link." },
-          { status: 409 }
-        );
+      if (!qbo_doc_number || !String(qbo_doc_number).trim()) {
+        return NextResponse.json({ error: "QuickBooks Invoice Number is required." }, { status: 400 });
       }
 
       try {
-        const invoice = await createInvoice({
-          client_id,
-          invoice_number: invoice_number || null,
-          amount_due: Number(amount_due),
-          due_date,
-          qbo_payment_url,
-          qbo_invoice_id: qbo_invoice_id || null,
-          qbo_sync_status: "sent",
-          is_manual_link: true,
-          notes: notes || null,
-        });
+        const invoice = await linkInvoiceByDocNumber(String(client_id), String(qbo_doc_number).trim());
+        if (notes) {
+          // notes is informational only — not persisted in the new lookup flow
+        }
         return NextResponse.json(invoice, { status: 201 });
-      } catch {
-        return NextResponse.json({ error: "Could not save linked invoice. Please try again." }, { status: 500 });
+      } catch (linkError: unknown) {
+        const err = linkError instanceof Error ? linkError : new Error("Could not link invoice.");
+        const code = (err as { code?: string }).code;
+        if (code === "NOT_FOUND") {
+          return NextResponse.json({ error: err.message }, { status: 404 });
+        }
+        if (code === "DUPLICATE") {
+          return NextResponse.json({ error: err.message }, { status: 409 });
+        }
+        return NextResponse.json({ error: err.message }, { status: 500 });
       }
     }
 
@@ -140,13 +131,18 @@ export async function POST(req: NextRequest) {
       client_id,
       invoice_number: null,
       amount_due: Number(amount_due),
+      invoice_date: invoice_date || null,
       due_date,
       qbo_sync_status: "pending",
+      // Store the selected item ID as a temporary field for sync to pick up
+      // (qbo_item_id is not a DB column — it's carried through the in-memory invoice object)
     });
 
     if (sync_to_qbo !== false) {
       try {
-        const syncedInvoice = await syncInvoiceToQuickBooks(String(invoice.id));
+        // Attach the selected item id to the in-memory invoice for syncInvoiceToQuickBooks.
+        const invoiceWithItem = { ...invoice, qbo_item_id: qbo_item_id || null };
+        const syncedInvoice = await syncInvoiceToQuickBooks(String(invoice.id), invoiceWithItem);
         return NextResponse.json(syncedInvoice, { status: 201 });
       } catch (syncError: unknown) {
         const syncMessage = syncError instanceof Error ? syncError.message : "QuickBooks sync failed";
