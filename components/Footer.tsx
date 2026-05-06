@@ -28,10 +28,21 @@ export default function Footer() {
             </a>
           </nav>
 
-          {/* Copyright */}
-          <p className="text-sm text-gray-600">
-            © 2026 Clearsite Consultants. All rights reserved.
-          </p>
+          {/* Copyright & Legal */}
+          <div className="flex flex-col items-center md:items-end gap-1">
+            <p className="text-sm text-gray-600">
+              © 2026 Clearsite Consultants. All rights reserved.
+            </p>
+            <div className="flex items-center gap-3">
+              <Link href="/privacy" className="text-xs text-gray-500 hover:text-primary transition-colors">
+                Privacy Policy
+              </Link>
+              <span className="text-xs text-gray-400">·</span>
+              <Link href="/terms" className="text-xs text-gray-500 hover:text-primary transition-colors">
+                Terms of Use
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </footer>

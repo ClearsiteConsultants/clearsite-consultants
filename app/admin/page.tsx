@@ -64,7 +64,7 @@ export default function AdminDashboard() {
   const loadClients = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/admin/clients");
+      const res = await fetch("/api/admin/clients", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setClients(data);

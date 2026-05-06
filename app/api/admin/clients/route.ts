@@ -22,7 +22,11 @@ export async function GET() {
       ORDER BY company_name
     `;
 
-    return NextResponse.json(result.rows);
+    return NextResponse.json(result.rows, {
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+      },
+    });
   } catch (error) {
     console.error("Failed to fetch clients", error);
     return NextResponse.json(

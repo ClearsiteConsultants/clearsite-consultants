@@ -327,9 +327,10 @@ export function extractQuickBooksInvoiceState(invoice: Record<string, unknown>) 
   const amountPaid = Math.max(0, total - balance);
   const isPaid = balance <= 0.0001;
 
+  // Prefer the hosted customer-facing payment page URL.
   const paymentUrl =
-    (typeof invoice.InvoiceLink === "string" && invoice.InvoiceLink) ||
     (typeof invoice.OnlineInvoiceLink === "string" && invoice.OnlineInvoiceLink) ||
+    (typeof invoice.InvoiceLink === "string" && invoice.InvoiceLink) ||
     (typeof invoice.InvoiceLinkUrl === "string" && invoice.InvoiceLinkUrl) ||
     null;
 

@@ -1,4 +1,5 @@
 import {
+  getClientQboInvoiceIds,
   getClientQuickBooksProfile,
   getInvoiceById,
   getQuickBooksConnection,
@@ -142,4 +143,26 @@ export async function syncInvoiceByQuickBooksInvoiceId(qboInvoiceId: string) {
     paidAt: qboState.paidAt,
     qboPaymentUrl: qboState.paymentUrl,
   });
+}
+
+export async function syncClientInvoicesFromQuickBooks(clientId: string) {
+  const connection = await getQuickBooksConnection();
+  if (!connection) {
+    return { synced: 0, failed: 0 };
+  }
+
+  const qboInvoiceIds = await getClientQboInvoiceIds(clientId);
+  let synced = 0;
+  let failed = 0;
+
+  for (const qboInvoiceId of qboInvoiceIds) {
+    try {
+      await syncInvoiceByQuickBooksInvoiceId(qboInvoiceId);
+      synced += 1;
+    } catch {
+      failed += 1;
+    }
+  }
+
+  return { synced, failed };
 }

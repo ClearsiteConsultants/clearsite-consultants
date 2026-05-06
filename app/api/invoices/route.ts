@@ -8,7 +8,7 @@ import {
   getClientInvoicesForPortal,
   checkDuplicateManualLink,
 } from "@/lib/db";
-import { syncInvoiceToQuickBooks } from "@/lib/quickbooks-sync";
+import { syncClientInvoicesFromQuickBooks, syncInvoiceToQuickBooks } from "@/lib/quickbooks-sync";
 import { isValidQboPaymentUrl } from "@/lib/utils";
 
 function parseClientId(sessionUserId: string) {
@@ -32,6 +32,11 @@ export async function GET(req: NextRequest) {
 
     if (userType === "client") {
       const clientId = parseClientId(session.user.id as string);
+      try {
+        await syncClientInvoicesFromQuickBooks(clientId);
+      } catch {
+        // Fall back to local invoice data when QuickBooks sync is unavailable.
+      }
       const invoices = await getClientInvoicesForPortal(clientId);
       return NextResponse.json(invoices, {
         headers: {
