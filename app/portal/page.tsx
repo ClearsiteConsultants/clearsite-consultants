@@ -24,6 +24,7 @@ interface Invoice {
   invoice_date: string | null;
   due_date: string;
   qbo_payment_url: string | null;
+  file_url: string | null;
   qbo_sync_status: string | null;
   paid_at: string | null;
   created_at: string;
@@ -290,6 +291,16 @@ export default function Portal() {
                             {invoice.has_pdf && (
                               <a
                                 href={`/api/invoices/${invoice.id}/pdf`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-gray-700 font-semibold hover:text-gray-900"
+                              >
+                                View PDF
+                              </a>
+                            )}
+                            {!invoice.has_pdf && invoice.file_url && (
+                              <a
+                                href={invoice.file_url}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-gray-700 font-semibold hover:text-gray-900"

@@ -97,10 +97,6 @@ ADD COLUMN IF NOT EXISTS invoice_date DATE;
 ALTER TABLE invoices
 ADD COLUMN IF NOT EXISTS invoice_total NUMERIC(10,2);
 
--- Remove legacy file_url column if it still exists.
-ALTER TABLE invoices
-DROP COLUMN IF EXISTS file_url;
-
 CREATE TABLE IF NOT EXISTS quickbooks_connections (
   id SERIAL PRIMARY KEY,
   realm_id VARCHAR(64) UNIQUE NOT NULL,

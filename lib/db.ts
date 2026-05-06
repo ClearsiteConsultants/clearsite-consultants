@@ -157,6 +157,7 @@ export async function getClientInvoicesForPortal(clientId: string) {
       invoice_date,
       due_date,
       qbo_payment_url,
+      file_url,
       qbo_sync_status,
       paid_at,
       created_at,

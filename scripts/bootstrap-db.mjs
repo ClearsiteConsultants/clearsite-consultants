@@ -158,12 +158,6 @@ async function run() {
       ADD COLUMN IF NOT EXISTS invoice_total NUMERIC(10,2)
     `;
 
-    // Remove legacy file_url column if it still exists.
-    await tx`
-      ALTER TABLE invoices
-      DROP COLUMN IF EXISTS file_url
-    `;
-
     await tx`
       CREATE TABLE IF NOT EXISTS quickbooks_connections (
         id SERIAL PRIMARY KEY,
