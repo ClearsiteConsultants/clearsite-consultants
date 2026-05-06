@@ -72,8 +72,8 @@ async function ensureQuickBooksCustomer(clientId: string) {
  */
 function buildPdfFilename(invoiceDate: string | null, qboDocNumber: string | null): string {
   const date = invoiceDate ? invoiceDate.slice(0, 10) : "unknown-date";
-  const doc = qboDocNumber ? String(qboDocNumber) : "unknown";
-  const safe = `${date}-${doc}`.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/^\.+/, "_");
+  const docNumber = qboDocNumber ? String(qboDocNumber) : "unknown";
+  const safe = `${date}-${docNumber}`.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/^\.+/, "_");
   return `${safe}.pdf`;
 }
 
