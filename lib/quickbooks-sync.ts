@@ -107,20 +107,24 @@ async function ensureLocalClientForQuickBooksCustomer(qboCustomerId: string) {
     const localClient = await getClientByEmail(email);
     if (localClient) {
       if (localClient.qbo_customer_id && String(localClient.qbo_customer_id) !== qboCustomerId) {
-        throw new Error("A local client with this email is already linked to a different QuickBooks customer.");
+        throw new Error(
+          `A local client with this email is already linked to QuickBooks customer ${String(localClient.qbo_customer_id)} and cannot be relinked to ${qboCustomerId}.`
+        );
       }
       await setClientQuickBooksCustomerId(String(localClient.id), qboCustomerId);
       return String(localClient.id);
     }
   }
 
+  // System-generated placeholder credential for QBO-imported clients.
+  // These records are created for invoice linkage; client login should be set up separately.
   const passwordHash = await bcrypt.hash(crypto.randomUUID(), 10);
   const companyName =
     qboCustomer.CompanyName?.trim() ||
     qboCustomer.DisplayName?.trim() ||
     `QuickBooks Customer ${qboCustomerId}`;
   const createdClient = await createClient({
-    email: email || `qbo-customer-${qboCustomerId}@placeholder.invalid`,
+    email: email || `qbo-customer-${qboCustomerId}@placeholder.clearsite.invalid`,
     password_hash: passwordHash,
     company_name: companyName,
     first_name: qboCustomer.GivenName?.trim() || "",

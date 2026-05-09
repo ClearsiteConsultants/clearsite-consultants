@@ -107,7 +107,6 @@ export async function POST(req: NextRequest) {
       manual_link_mode,
       qbo_invoice_id,
       qbo_customer_id,
-      notes,
     } = body;
 
     // ── Manual-link mode ──────────────────────────────────────────────
@@ -133,9 +132,6 @@ export async function POST(req: NextRequest) {
           qboCustomerId: linkMode === "new-client" ? String(qbo_customer_id) : undefined,
           qboInvoiceId: invoiceId,
         });
-        if (notes) {
-          // notes is informational only — not persisted in the new lookup flow
-        }
         return NextResponse.json(invoice, { status: 201 });
       } catch (linkError: unknown) {
         const err = linkError instanceof Error ? linkError : new Error("Could not link invoice.");

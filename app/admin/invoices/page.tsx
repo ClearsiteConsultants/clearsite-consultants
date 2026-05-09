@@ -574,6 +574,9 @@ export default function AdminInvoices() {
                     ))}
                   </select>
                   {mlErrors.customer && <p className="mt-1 text-sm text-red-600">{mlErrors.customer}</p>}
+                  <p className="mt-1 text-xs text-gray-500">
+                    New client mode reuses an existing local record when the QuickBooks customer or email already matches, and creates a local client record only when needed.
+                  </p>
                 </div>
               )}
 
@@ -587,6 +590,9 @@ export default function AdminInvoices() {
                   className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 ${mlErrors.invoiceId ? "border-red-400" : "border-gray-300"}`}
                 />
                 {mlErrors.invoiceId && <p className="mt-1 text-sm text-red-600">{mlErrors.invoiceId}</p>}
+                <p className="mt-1 text-xs text-gray-500">
+                  Find the QuickBooks invoice ID in the invoice URL or on the QuickBooks invoice details page.
+                </p>
               </div>
 
               <div className="flex gap-3">
