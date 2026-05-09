@@ -575,7 +575,7 @@ export default function AdminInvoices() {
                   </select>
                   {mlErrors.customer && <p className="mt-1 text-sm text-red-600">{mlErrors.customer}</p>}
                   <p className="mt-1 text-xs text-gray-500">
-                    New client mode reuses an existing local record when the QuickBooks customer or email already matches, and creates a local client record only when needed.
+                    Reuses existing local clients by QuickBooks customer ID or email; creates a new record only if no match is found.
                   </p>
                 </div>
               )}

@@ -117,7 +117,7 @@ async function ensureLocalClientForQuickBooksCustomer(qboCustomerId: string) {
   }
 
   // System-generated placeholder credential for QBO-imported clients.
-  // These records are created for invoice linkage; client login should be set up separately.
+  // These records are created for invoice linkage; clients must use password reset/setup before logging in.
   const passwordHash = await bcrypt.hash(crypto.randomUUID(), 10);
   const companyName =
     qboCustomer.CompanyName?.trim() ||
