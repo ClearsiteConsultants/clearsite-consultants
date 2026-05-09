@@ -7,10 +7,9 @@ import {
   getAllClients,
   getClientInvoicesForPortal,
 } from "@/lib/db";
-import { syncInvoiceToQuickBooks, linkInvoiceByDocNumber } from "@/lib/quickbooks-sync";
 import { getQuickBooksConnection } from "@/lib/db";
 import { getQuickBooksItems } from "@/lib/quickbooks";
-import { syncClientInvoicesFromQuickBooks, syncInvoiceToQuickBooks } from "@/lib/quickbooks-sync";
+import { syncClientInvoicesFromQuickBooks, syncInvoiceToQuickBooks, linkInvoiceByDocNumber } from "@/lib/quickbooks-sync";
 
 function parseClientId(sessionUserId: string) {
   if (sessionUserId.startsWith("client:")) {

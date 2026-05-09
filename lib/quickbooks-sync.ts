@@ -271,6 +271,8 @@ export async function linkInvoiceByDocNumber(clientId: string, qboDocNumber: str
   }
 
   return invoice;
+}
+
 export async function syncClientInvoicesFromQuickBooks(clientId: string) {
   const connection = await getQuickBooksConnection();
   if (!connection) {
