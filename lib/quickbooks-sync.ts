@@ -308,7 +308,7 @@ export async function linkInvoiceById(options: {
   } else {
     if (!client.qbo_customer_id) {
       throw new Error(
-        "This client does not have a QuickBooks customer ID. Use New QBO Client mode and select a QuickBooks customer."
+        "This client does not have a QuickBooks customer ID. Use new client mode and select a QuickBooks customer."
       );
     }
     customerId = String(client.qbo_customer_id);
