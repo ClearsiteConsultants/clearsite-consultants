@@ -300,6 +300,37 @@ export type QuickBooksItem = {
   Type: string;
 };
 
+export type QuickBooksCustomer = {
+  Id: string;
+  DisplayName: string;
+  CompanyName: string;
+  Active: boolean;
+};
+
+export async function getQuickBooksCustomers(realmId: string): Promise<QuickBooksCustomer[]> {
+  const query = "SELECT Id, DisplayName, CompanyName, Active FROM Customer WHERE Active = true MAXRESULTS 200";
+  const connection = await getFreshQuickBooksConnection();
+  const url = `${getApiBaseUrl()}/v3/company/${realmId}/query?query=${encodeURIComponent(query)}&minorversion=75`;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${connection.access_token}`,
+      Accept: "application/json",
+    },
+  });
+  const result = await response.json() as { QueryResponse?: { Customer?: Array<Record<string, unknown>> } };
+  if (!response.ok) {
+    throw new Error(`QuickBooks API error: ${JSON.stringify(result)}`);
+  }
+  const customers = result.QueryResponse?.Customer || [];
+  return customers.map((c) => ({
+    Id: String(c.Id || ""),
+    DisplayName: String(c.DisplayName || ""),
+    CompanyName: String(c.CompanyName || ""),
+    Active: Boolean(c.Active),
+  }));
+}
+
 export async function getQuickBooksItems(realmId: string): Promise<QuickBooksItem[]> {
   const query = "SELECT Id, Name, UnitPrice, Taxable, Active, Type FROM Item WHERE Active = true MAXRESULTS 200";
   const connection = await getFreshQuickBooksConnection();

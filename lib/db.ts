@@ -52,6 +52,16 @@ export async function getClientQuickBooksProfile(clientId: string) {
   return result.rows[0];
 }
 
+export async function getClientByQboCustomerId(qboCustomerId: string) {
+  const result = await sql`
+    SELECT id, email, company_name, first_name, last_name, phone, domain_name, qbo_customer_id
+    FROM clients
+    WHERE qbo_customer_id = ${qboCustomerId}
+    LIMIT 1
+  `;
+  return result.rows[0] || null;
+}
+
 export async function setClientQuickBooksCustomerId(clientId: string, qboCustomerId: string) {
   const result = await sql`
     UPDATE clients
