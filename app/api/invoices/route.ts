@@ -111,6 +111,9 @@ export async function POST(req: NextRequest) {
 
     // ── Manual-link mode ──────────────────────────────────────────────
     if (mode === "manual-link") {
+      if (!client_id) {
+        return NextResponse.json({ error: "Client is required." }, { status: 400 });
+      }
       if (!qbo_invoice_id || !String(qbo_invoice_id).trim()) {
         return NextResponse.json({ error: "QuickBooks Invoice ID is required." }, { status: 400 });
       }
@@ -118,17 +121,13 @@ export async function POST(req: NextRequest) {
       const invoiceId = String(qbo_invoice_id).trim();
       const linkMode = manual_link_mode === "new-client" ? "new-client" : "existing-client";
 
-      if (linkMode === "existing-client") {
-        if (!client_id) {
-          return NextResponse.json({ error: "Client is required." }, { status: 400 });
-        }
-      } else if (!qbo_customer_id) {
+      if (linkMode === "new-client" && !qbo_customer_id) {
         return NextResponse.json({ error: "QuickBooks customer is required." }, { status: 400 });
       }
 
       try {
         const invoice = await linkInvoiceById({
-          clientId: linkMode === "existing-client" ? String(client_id) : undefined,
+          clientId: String(client_id),
           qboCustomerId: linkMode === "new-client" ? String(qbo_customer_id) : undefined,
           qboInvoiceId: invoiceId,
         });

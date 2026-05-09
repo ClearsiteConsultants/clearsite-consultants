@@ -1,8 +1,5 @@
 import {
-  createClient,
   getClientQboInvoiceIds,
-  getClientByEmail,
-  getClientByQboCustomerId,
   getClientQuickBooksProfile,
   getInvoiceById,
   getQuickBooksConnection,
@@ -18,12 +15,9 @@ import {
   extractQuickBooksInvoiceState,
   findQuickBooksCustomerByDisplayName,
   findQuickBooksInvoiceByDocNumber,
-  getQuickBooksCustomer,
   getQuickBooksInvoice,
   getQuickBooksInvoicePdf,
 } from "@/lib/quickbooks";
-import bcrypt from "bcryptjs";
-import crypto from "crypto";
 
 function toNumber(value: unknown) {
   const parsed = Number(value);
@@ -87,54 +81,6 @@ function buildPdfFilename(invoiceDate: string | null, qboDocNumber: string | nul
 function getQuickBooksInvoiceCustomerId(invoice: Record<string, unknown>) {
   const customerRef = invoice.CustomerRef as { value?: string } | undefined;
   return customerRef?.value ? String(customerRef.value) : null;
-}
-
-async function ensureLocalClientForQuickBooksCustomer(qboCustomerId: string) {
-  const existingClient = await getClientByQboCustomerId(qboCustomerId);
-  if (existingClient) {
-    return String(existingClient.id);
-  }
-
-  const connection = await getQuickBooksConnection();
-  if (!connection) {
-    throw new Error("QuickBooks is not connected yet");
-  }
-
-  const qboCustomer = await getQuickBooksCustomer(connection.realm_id, qboCustomerId);
-  const email = qboCustomer.PrimaryEmailAddr?.Address?.trim().toLowerCase() || null;
-
-  if (email) {
-    const localClient = await getClientByEmail(email);
-    if (localClient) {
-      if (localClient.qbo_customer_id && String(localClient.qbo_customer_id) !== qboCustomerId) {
-        throw new Error(
-          `A local client with this email is already linked to QuickBooks customer ${String(localClient.qbo_customer_id)} and cannot be relinked to ${qboCustomerId}.`
-        );
-      }
-      await setClientQuickBooksCustomerId(String(localClient.id), qboCustomerId);
-      return String(localClient.id);
-    }
-  }
-
-  // System-generated placeholder credential for QBO-imported clients.
-  // These records are created for invoice linkage; clients must use password reset/setup before logging in.
-  const passwordHash = await bcrypt.hash(crypto.randomUUID(), 10);
-  const companyName =
-    qboCustomer.CompanyName?.trim() ||
-    qboCustomer.DisplayName?.trim() ||
-    `QuickBooks Customer ${qboCustomerId}`;
-  const createdClient = await createClient({
-    email: email || `qbo-customer-${qboCustomerId}@placeholder.clearsite.invalid`,
-    password_hash: passwordHash,
-    company_name: companyName,
-    first_name: qboCustomer.GivenName?.trim() || "",
-    last_name: qboCustomer.FamilyName?.trim() || "",
-    phone: qboCustomer.PrimaryPhone?.FreeFormNumber?.trim() || undefined,
-    domain_name: qboCustomer.WebAddr?.URI?.trim() || undefined,
-  });
-
-  await setClientQuickBooksCustomerId(String(createdClient.id), qboCustomerId);
-  return String(createdClient.id);
 }
 
 export async function syncInvoiceToQuickBooks(localInvoiceId: string, invoiceOverride?: Record<string, unknown>) {
@@ -333,7 +279,7 @@ export async function linkInvoiceByDocNumber(clientId: string, qboDocNumber: str
 }
 
 export async function linkInvoiceById(options: {
-  clientId?: string;
+  clientId: string;
   qboCustomerId?: string;
   qboInvoiceId: string;
 }) {
@@ -342,24 +288,30 @@ export async function linkInvoiceById(options: {
     throw new Error("QuickBooks is not connected yet");
   }
 
-  let resolvedClientId = options.clientId ? String(options.clientId) : null;
-  let customerId = options.qboCustomerId ? String(options.qboCustomerId) : null;
+  const resolvedClientId = String(options.clientId);
+  const client = await getClientQuickBooksProfile(resolvedClientId);
+  if (!client) {
+    throw new Error("Client not found");
+  }
 
-  if (resolvedClientId) {
-    const client = await getClientQuickBooksProfile(resolvedClientId);
-    if (!client) {
-      throw new Error("Client not found");
+  let customerId: string;
+  if (options.qboCustomerId) {
+    customerId = String(options.qboCustomerId);
+    if (client.qbo_customer_id && String(client.qbo_customer_id) !== customerId) {
+      throw new Error(
+        `This client is already linked to QuickBooks customer ${String(client.qbo_customer_id)} and cannot be linked to ${customerId}.`
+      );
     }
     if (!client.qbo_customer_id) {
+      await setClientQuickBooksCustomerId(resolvedClientId, customerId);
+    }
+  } else {
+    if (!client.qbo_customer_id) {
       throw new Error(
-        "This client does not have a QuickBooks customer ID. Create an invoice for this client using the QuickBooks mode first."
+        "This client does not have a QuickBooks customer ID. Use New QBO Client mode and select a QuickBooks customer."
       );
     }
     customerId = String(client.qbo_customer_id);
-  } else if (customerId) {
-    resolvedClientId = await ensureLocalClientForQuickBooksCustomer(customerId);
-  } else {
-    throw new Error("A client or QuickBooks customer is required.");
   }
 
   let qboInvoice: Record<string, unknown>;

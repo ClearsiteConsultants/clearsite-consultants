@@ -268,9 +268,10 @@ export default function AdminInvoices() {
 
   const validateManualLink = () => {
     const errors: Record<string, string> = {};
-    if (manualLinkMode === "existing-client") {
-      if (!mlClientId) errors.client = "Client is required.";
-    } else if (!mlQboCustomerId) {
+    if (!mlClientId) {
+      errors.client = "Client is required.";
+    }
+    if (manualLinkMode === "new-client" && !mlQboCustomerId) {
       errors.customer = "QuickBooks customer is required.";
     }
     if (!mlQboInvoiceId || !mlQboInvoiceId.trim()) errors.invoiceId = "QuickBooks Invoice ID is required.";
@@ -296,7 +297,7 @@ export default function AdminInvoices() {
         body: JSON.stringify({
           mode: "manual-link",
           manual_link_mode: manualLinkMode,
-          client_id: manualLinkMode === "existing-client" ? mlClientId : undefined,
+          client_id: mlClientId,
           qbo_customer_id: manualLinkMode === "new-client" ? mlQboCustomerId : undefined,
           qbo_invoice_id: mlQboInvoiceId.trim(),
         }),
@@ -502,7 +503,7 @@ export default function AdminInvoices() {
         {formMode === "manual-link" && (
           <div className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm">
             <p className="text-sm text-gray-600 mb-6">
-              Link an existing QuickBooks invoice that was created directly in QuickBooks. Use existing client mode for a current Clearsite client, or new client mode to pull from active QuickBooks customers and create a local client record if needed.
+              Link an existing QuickBooks invoice created directly in QuickBooks. A local client must always be selected before linking.
             </p>
             <form onSubmit={handleManualLinkSubmit} className="space-y-6" noValidate>
               <div>
@@ -533,24 +534,24 @@ export default function AdminInvoices() {
                 </div>
               </div>
 
-              {manualLinkMode === "existing-client" ? (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Client</label>
-                  <select
-                    value={mlClientId}
-                    onChange={(e) => setMlClientId(e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 ${mlErrors.client ? "border-red-400" : "border-gray-300"}`}
-                  >
-                    <option value="">Select a client</option>
-                    {clients.map((client) => (
-                      <option key={client.id} value={client.id}>
-                        {client.company_name}
-                      </option>
-                    ))}
-                  </select>
-                  {mlErrors.client && <p className="mt-1 text-sm text-red-600">{mlErrors.client}</p>}
-                </div>
-              ) : (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Local Client</label>
+                <select
+                  value={mlClientId}
+                  onChange={(e) => setMlClientId(e.target.value)}
+                  className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 ${mlErrors.client ? "border-red-400" : "border-gray-300"}`}
+                >
+                  <option value="">Select a local client</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.company_name}
+                    </option>
+                  ))}
+                </select>
+                {mlErrors.client && <p className="mt-1 text-sm text-red-600">{mlErrors.client}</p>}
+              </div>
+
+              {manualLinkMode === "new-client" && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">QuickBooks Customer</label>
                   <select
@@ -575,7 +576,7 @@ export default function AdminInvoices() {
                   </select>
                   {mlErrors.customer && <p className="mt-1 text-sm text-red-600">{mlErrors.customer}</p>}
                   <p className="mt-1 text-xs text-gray-500">
-                    Reuses existing local clients by QuickBooks customer ID or email; creates a new record only if no match is found.
+                    This mode links the selected local client to the selected QuickBooks customer, then links the invoice.
                   </p>
                 </div>
               )}
