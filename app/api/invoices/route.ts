@@ -10,6 +10,7 @@ import {
 import { syncInvoiceToQuickBooks, linkInvoiceByDocNumber } from "@/lib/quickbooks-sync";
 import { getQuickBooksConnection } from "@/lib/db";
 import { getQuickBooksItems } from "@/lib/quickbooks";
+import { syncClientInvoicesFromQuickBooks, syncInvoiceToQuickBooks } from "@/lib/quickbooks-sync";
 
 function parseClientId(sessionUserId: string) {
   if (sessionUserId.startsWith("client:")) {
@@ -32,6 +33,11 @@ export async function GET(req: NextRequest) {
 
     if (userType === "client") {
       const clientId = parseClientId(session.user.id as string);
+      try {
+        await syncClientInvoicesFromQuickBooks(clientId);
+      } catch {
+        // Fall back to local invoice data when QuickBooks sync is unavailable.
+      }
       const invoices = await getClientInvoicesForPortal(clientId);
       return NextResponse.json(invoices, {
         headers: {

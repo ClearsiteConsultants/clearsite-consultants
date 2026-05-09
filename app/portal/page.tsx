@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
+import { Button } from "@/components/ui/button";
 
 interface Client {
   id: string;
@@ -234,6 +235,7 @@ export default function Portal() {
                     <th className="py-3 pr-4">Pre-Tax</th>
                     <th className="py-3 pr-4">Total</th>
                     <th className="py-3 pr-4">Status</th>
+                    <th className="py-3 pr-4">Documents</th>
                     <th className="py-3 pr-4">Actions</th>
                   </tr>
                 </thead>
@@ -252,6 +254,7 @@ export default function Portal() {
                     // Prefer QuickBooks doc number; fall back to local invoice number.
                     const displayNumber = invoice.qbo_doc_number || invoice.invoice_number || "—";
                     const isManualLink = invoice.is_manual_link === true;
+                    const payNowHref = invoice.qbo_payment_url || (invoice.has_pdf ? `/api/invoices/${invoice.id}/pdf` : invoice.file_url);
 
                     return (
                       <tr key={invoice.id} className="border-b border-gray-100">
@@ -278,16 +281,6 @@ export default function Portal() {
                         </td>
                         <td className="py-4 pr-4">
                           <div className="flex flex-wrap gap-3 text-sm">
-                            {invoice.qbo_payment_url && status !== "paid" && (
-                              <a
-                                href={invoice.qbo_payment_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-blue-700 font-semibold hover:text-blue-800"
-                              >
-                                Pay Now
-                              </a>
-                            )}
                             {invoice.has_pdf && (
                               <a
                                 href={`/api/invoices/${invoice.id}/pdf`}
@@ -307,6 +300,21 @@ export default function Portal() {
                               >
                                 View PDF
                               </a>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-4 pr-4">
+                          <div className="flex flex-wrap gap-3 text-sm">
+                            {payNowHref && status !== "paid" && (
+                              <Button asChild size="sm" className="h-8 px-3 text-xs tracking-[0.12em]">
+                                <a
+                                  href={payNowHref}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  Pay Now
+                                </a>
+                              </Button>
                             )}
                           </div>
                         </td>

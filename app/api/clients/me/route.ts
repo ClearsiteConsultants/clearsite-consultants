@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { sql } from "@/lib/db";
+import { syncClientInvoicesFromQuickBooks } from "@/lib/quickbooks-sync";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -24,6 +25,12 @@ export async function GET() {
     const clientId = parseClientId(session.user.id as string);
     if (!clientId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      await syncClientInvoicesFromQuickBooks(clientId);
+    } catch {
+      // Fall back to local client data when QuickBooks sync is unavailable.
     }
 
     const result = await sql`

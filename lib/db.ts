@@ -130,12 +130,31 @@ export async function updateClientStatus(clientId: string, newStatus: string) {
   return result.rows[0];
 }
 
-export async function updateNextInvoiceDue(clientId: string, dueDate: string) {
+export async function updateNextInvoiceDue(clientId: string, dueDate: string | null) {
   const result = await sql`
     UPDATE clients SET next_invoice_due = ${dueDate}, updated_at = NOW() WHERE id = ${clientId}
     RETURNING *
   `;
   return result.rows[0];
+}
+
+export async function getNextUnpaidInvoiceDueDate(clientId: string) {
+  const result = await sql`
+    SELECT due_date
+    FROM invoices
+    WHERE client_id = ${clientId}
+      AND paid_at IS NULL
+      AND LOWER(COALESCE(qbo_sync_status, 'pending')) <> 'paid'
+    ORDER BY due_date ASC, created_at ASC
+    LIMIT 1
+  `;
+
+  return result.rows[0]?.due_date ? String(result.rows[0].due_date).slice(0, 10) : null;
+}
+
+export async function refreshClientNextInvoiceDue(clientId: string) {
+  const dueDate = await getNextUnpaidInvoiceDueDate(clientId);
+  return updateNextInvoiceDue(clientId, dueDate);
 }
 
 export async function getClientInvoices(clientId: string) {
@@ -216,7 +235,13 @@ export async function updateInvoiceQuickBooksData(data: {
     WHERE id = ${data.invoiceId}
     RETURNING *
   `;
-  return result.rows[0];
+
+  const invoice = result.rows[0];
+  if (invoice?.client_id) {
+    await refreshClientNextInvoiceDue(String(invoice.client_id));
+  }
+
+  return invoice;
 }
 
 export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
@@ -243,7 +268,13 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
     WHERE qbo_invoice_id = ${data.qboInvoiceId}
     RETURNING *
   `;
-  return result.rows[0];
+
+  const invoice = result.rows[0];
+  if (invoice?.client_id) {
+    await refreshClientNextInvoiceDue(String(invoice.client_id));
+  }
+
+  return invoice;
 }
 
 export async function getQuickBooksConnection() {
@@ -345,7 +376,24 @@ export async function createInvoice(data: {
     )
     RETURNING *
   `;
+
+  await refreshClientNextInvoiceDue(data.client_id);
+
   return result.rows[0];
+}
+
+export async function getClientQboInvoiceIds(clientId: string) {
+  const result = await sql`
+    SELECT qbo_invoice_id
+    FROM invoices
+    WHERE client_id = ${clientId}
+      AND qbo_invoice_id IS NOT NULL
+    ORDER BY created_at DESC
+  `;
+
+  return result.rows
+    .map((row) => row.qbo_invoice_id)
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
 }
 
 export async function getAllClients() {
