@@ -31,6 +31,7 @@ interface QboItem {
 }
 
 type FormMode = "qbo-create" | "manual-link";
+type ManualLinkMode = "existing-client" | "new-client";
 const MAX_AMOUNT_DUE = 10_000;
 const MAX_AMOUNT_DUE_DIGITS = MAX_AMOUNT_DUE * 100;
 const MAX_AMOUNT_DUE_MESSAGE = "Max Limit is $10,000.00";
@@ -53,10 +54,10 @@ export default function AdminInvoices() {
   const [selectedItemId, setSelectedItemId] = useState("");
 
   // Manual-link mode fields
+  const [manualLinkMode, setManualLinkMode] = useState<ManualLinkMode>("existing-client");
+  const [mlClientId, setMlClientId] = useState("");
   const [mlQboCustomerId, setMlQboCustomerId] = useState("");
-  const [mlManualCustomerId, setMlManualCustomerId] = useState("");
-  const [mlUseManualCustomer, setMlUseManualCustomer] = useState(false);
-  const [mlDocNumber, setMlDocNumber] = useState("");
+  const [mlQboInvoiceId, setMlQboInvoiceId] = useState("");
   const [mlErrors, setMlErrors] = useState<Record<string, string>>({});
 
   const [submitting, setSubmitting] = useState(false);
@@ -181,18 +182,19 @@ export default function AdminInvoices() {
   };
 
   const resetManualLinkForm = () => {
+    setManualLinkMode("existing-client");
+    setMlClientId("");
     setMlQboCustomerId("");
-    setMlManualCustomerId("");
-    setMlUseManualCustomer(false);
-    setMlDocNumber("");
+    setMlQboInvoiceId("");
     setMlErrors({});
   };
 
-  const handleToggleManualCustomer = () => {
-    setMlUseManualCustomer((prev) => !prev);
+  const handleManualLinkModeChange = (nextMode: ManualLinkMode) => {
+    setManualLinkMode(nextMode);
+    setMlClientId("");
     setMlQboCustomerId("");
-    setMlManualCustomerId("");
-    setMlErrors((e) => ({ ...e, customer: "" }));
+    setMlQboInvoiceId("");
+    setMlErrors({});
   };
 
   const handleQboAmountDueChange = (value: string) => {
@@ -266,9 +268,12 @@ export default function AdminInvoices() {
 
   const validateManualLink = () => {
     const errors: Record<string, string> = {};
-    const effectiveCustomerId = mlUseManualCustomer ? mlManualCustomerId.trim() : mlQboCustomerId;
-    if (!effectiveCustomerId) errors.customer = mlUseManualCustomer ? "Customer ID is required." : "Customer is required.";
-    if (!mlDocNumber || !mlDocNumber.trim()) errors.docNumber = "QuickBooks Invoice Number is required.";
+    if (manualLinkMode === "existing-client") {
+      if (!mlClientId) errors.client = "Client is required.";
+    } else if (!mlQboCustomerId) {
+      errors.customer = "QuickBooks customer is required.";
+    }
+    if (!mlQboInvoiceId || !mlQboInvoiceId.trim()) errors.invoiceId = "QuickBooks Invoice ID is required.";
     return errors;
   };
 
@@ -284,27 +289,27 @@ export default function AdminInvoices() {
     setMlErrors({});
     setSubmitting(true);
 
-    const effectiveCustomerId = mlUseManualCustomer ? mlManualCustomerId.trim() : mlQboCustomerId;
-
     try {
       const res = await fetch("/api/invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: "manual-link",
-          qbo_customer_id: effectiveCustomerId,
-          qbo_doc_number: mlDocNumber.trim(),
+          manual_link_mode: manualLinkMode,
+          client_id: manualLinkMode === "existing-client" ? mlClientId : undefined,
+          qbo_customer_id: manualLinkMode === "new-client" ? mlQboCustomerId : undefined,
+          qbo_invoice_id: mlQboInvoiceId.trim(),
         }),
       });
 
       const payload = await res.json();
       if (!res.ok) {
         if (res.status === 404) {
-          setMlErrors({ docNumber: payload.error });
+          setMlErrors({ invoiceId: payload.error });
           return;
         }
         if (res.status === 409) {
-          setMlErrors({ docNumber: payload.error });
+          setMlErrors({ invoiceId: payload.error });
           return;
         }
         throw new Error(payload?.error || "Could not link invoice. Please try again.");
@@ -497,29 +502,57 @@ export default function AdminInvoices() {
         {formMode === "manual-link" && (
           <div className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm">
             <p className="text-sm text-gray-600 mb-6">
-              Link an existing QuickBooks invoice to a client account by entering the client and QuickBooks invoice number. The server will look up the invoice in QuickBooks and sync all fields automatically.
+              Link an existing QuickBooks invoice that was created directly in QuickBooks. Use existing client mode for a current Clearsite client, or new client mode to pull from active QuickBooks customers and create a local client record if needed.
             </p>
             <form onSubmit={handleManualLinkSubmit} className="space-y-6" noValidate>
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700">QuickBooks Customer</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Client Type</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
                     type="button"
-                    onClick={handleToggleManualCustomer}
-                    className="text-xs text-blue-600 hover:underline"
+                    onClick={() => handleManualLinkModeChange("existing-client")}
+                    className={`rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+                      manualLinkMode === "existing-client"
+                        ? "bg-primary text-white border-primary"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                    }`}
                   >
-                    {mlUseManualCustomer ? "← Back to customer list" : "Enter customer ID manually"}
+                    Existing Client
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleManualLinkModeChange("new-client")}
+                    className={`rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+                      manualLinkMode === "new-client"
+                        ? "bg-primary text-white border-primary"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    New Client
                   </button>
                 </div>
-                {mlUseManualCustomer ? (
-                  <input
-                    type="text"
-                    value={mlManualCustomerId}
-                    onChange={(e) => setMlManualCustomerId(e.target.value)}
-                    placeholder="QuickBooks Customer ID (e.g. 123)"
-                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 ${mlErrors.customer ? "border-red-400" : "border-gray-300"}`}
-                  />
-                ) : (
+              </div>
+
+              {manualLinkMode === "existing-client" ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Client</label>
+                  <select
+                    value={mlClientId}
+                    onChange={(e) => setMlClientId(e.target.value)}
+                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 ${mlErrors.client ? "border-red-400" : "border-gray-300"}`}
+                  >
+                    <option value="">Select a client</option>
+                    {clients.map((client) => (
+                      <option key={client.id} value={client.id}>
+                        {client.company_name}
+                      </option>
+                    ))}
+                  </select>
+                  {mlErrors.client && <p className="mt-1 text-sm text-red-600">{mlErrors.client}</p>}
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">QuickBooks Customer</label>
                   <select
                     value={mlQboCustomerId}
                     onChange={(e) => setMlQboCustomerId(e.target.value)}
@@ -533,26 +566,27 @@ export default function AdminInvoices() {
                         ? "Connect QuickBooks to load customers"
                         : "Select a QuickBooks customer"}
                     </option>
-                    {qboCustomers.map((c) => (
-                      <option key={c.Id} value={c.Id}>
-                        {c.DisplayName}{c.CompanyName && c.CompanyName !== c.DisplayName ? ` (${c.CompanyName})` : ""}
+                    {qboCustomers.map((customer) => (
+                      <option key={customer.Id} value={customer.Id}>
+                        {customer.DisplayName}
+                        {customer.CompanyName && customer.CompanyName !== customer.DisplayName ? ` (${customer.CompanyName})` : ""}
                       </option>
                     ))}
                   </select>
-                )}
-                {mlErrors.customer && <p className="mt-1 text-sm text-red-600">{mlErrors.customer}</p>}
-              </div>
+                  {mlErrors.customer && <p className="mt-1 text-sm text-red-600">{mlErrors.customer}</p>}
+                </div>
+              )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">QuickBooks Invoice Number</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">QuickBooks Invoice ID</label>
                 <input
                   type="text"
-                  value={mlDocNumber}
-                  onChange={(e) => setMlDocNumber(e.target.value)}
-                  placeholder="e.g. 1042"
-                  className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 ${mlErrors.docNumber ? "border-red-400" : "border-gray-300"}`}
+                  value={mlQboInvoiceId}
+                  onChange={(e) => setMlQboInvoiceId(e.target.value)}
+                  placeholder="e.g. 215"
+                  className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 ${mlErrors.invoiceId ? "border-red-400" : "border-gray-300"}`}
                 />
-                {mlErrors.docNumber && <p className="mt-1 text-sm text-red-600">{mlErrors.docNumber}</p>}
+                {mlErrors.invoiceId && <p className="mt-1 text-sm text-red-600">{mlErrors.invoiceId}</p>}
               </div>
 
               <div className="flex gap-3">

@@ -307,6 +307,24 @@ export type QuickBooksCustomer = {
   Active: boolean;
 };
 
+export type QuickBooksCustomerDetail = {
+  Id: string;
+  DisplayName: string;
+  CompanyName: string;
+  GivenName?: string;
+  FamilyName?: string;
+  Active: boolean;
+  PrimaryEmailAddr?: {
+    Address?: string;
+  };
+  PrimaryPhone?: {
+    FreeFormNumber?: string;
+  };
+  WebAddr?: {
+    URI?: string;
+  };
+};
+
 export async function getQuickBooksCustomers(realmId: string): Promise<QuickBooksCustomer[]> {
   const query = "SELECT Id, DisplayName, CompanyName, Active FROM Customer WHERE Active = true MAXRESULTS 200";
   const connection = await getFreshQuickBooksConnection();
@@ -329,6 +347,15 @@ export async function getQuickBooksCustomers(realmId: string): Promise<QuickBook
     CompanyName: String(c.CompanyName || ""),
     Active: Boolean(c.Active),
   }));
+}
+
+export async function getQuickBooksCustomer(realmId: string, customerId: string): Promise<QuickBooksCustomerDetail> {
+  const result = await quickBooksApiRequest<{ Customer: QuickBooksCustomerDetail }>({
+    method: "GET",
+    path: `/v3/company/${realmId}/customer/${encodeURIComponent(customerId)}?minorversion=75`,
+  });
+
+  return result.Customer;
 }
 
 export async function getQuickBooksItems(realmId: string): Promise<QuickBooksItem[]> {

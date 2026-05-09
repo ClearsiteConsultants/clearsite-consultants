@@ -6,11 +6,10 @@ import {
   createInvoice,
   getAllClients,
   getClientInvoicesForPortal,
-  getClientByQboCustomerId,
 } from "@/lib/db";
 import { getQuickBooksConnection } from "@/lib/db";
 import { getQuickBooksItems, getQuickBooksCustomers } from "@/lib/quickbooks";
-import { syncClientInvoicesFromQuickBooks, syncInvoiceToQuickBooks, linkInvoiceByDocNumber } from "@/lib/quickbooks-sync";
+import { syncClientInvoicesFromQuickBooks, syncInvoiceToQuickBooks, linkInvoiceById } from "@/lib/quickbooks-sync";
 
 function parseClientId(sessionUserId: string) {
   if (sessionUserId.startsWith("client:")) {
@@ -105,39 +104,35 @@ export async function POST(req: NextRequest) {
       sync_to_qbo,
       // Manual-link mode fields
       mode,
+      manual_link_mode,
+      qbo_invoice_id,
       qbo_customer_id,
-      qbo_doc_number,
       notes,
     } = body;
 
     // ── Manual-link mode ──────────────────────────────────────────────
     if (mode === "manual-link") {
-      if (!qbo_customer_id && !client_id) {
-        return NextResponse.json({ error: "A QuickBooks customer or client ID is required." }, { status: 400 });
-      }
-      if (!qbo_doc_number || !String(qbo_doc_number).trim()) {
-        return NextResponse.json({ error: "QuickBooks Invoice Number is required." }, { status: 400 });
+      if (!qbo_invoice_id || !String(qbo_invoice_id).trim()) {
+        return NextResponse.json({ error: "QuickBooks Invoice ID is required." }, { status: 400 });
       }
 
-      // Resolve DB client_id from QBO customer ID when provided.
-      let resolvedClientId = client_id ? String(client_id) : null;
-      if (qbo_customer_id && !resolvedClientId) {
-        const matchedClient = await getClientByQboCustomerId(String(qbo_customer_id));
-        if (!matchedClient) {
-          return NextResponse.json(
-            { error: "No client account found for this QuickBooks customer. Make sure the client has been linked to QuickBooks." },
-            { status: 404 }
-          );
+      const invoiceId = String(qbo_invoice_id).trim();
+      const linkMode = manual_link_mode === "new-client" ? "new-client" : "existing-client";
+
+      if (linkMode === "existing-client") {
+        if (!client_id) {
+          return NextResponse.json({ error: "Client is required." }, { status: 400 });
         }
-        resolvedClientId = String(matchedClient.id);
-      }
-
-      if (!resolvedClientId) {
-        return NextResponse.json({ error: "Could not determine client for this invoice." }, { status: 400 });
+      } else if (!qbo_customer_id) {
+        return NextResponse.json({ error: "QuickBooks customer is required." }, { status: 400 });
       }
 
       try {
-        const invoice = await linkInvoiceByDocNumber(resolvedClientId, String(qbo_doc_number).trim());
+        const invoice = await linkInvoiceById({
+          clientId: linkMode === "existing-client" ? String(client_id) : undefined,
+          qboCustomerId: linkMode === "new-client" ? String(qbo_customer_id) : undefined,
+          qboInvoiceId: invoiceId,
+        });
         if (notes) {
           // notes is informational only — not persisted in the new lookup flow
         }

@@ -1,5 +1,8 @@
 import {
+  createClient,
   getClientQboInvoiceIds,
+  getClientByEmail,
+  getClientByQboCustomerId,
   getClientQuickBooksProfile,
   getInvoiceById,
   getQuickBooksConnection,
@@ -15,9 +18,12 @@ import {
   extractQuickBooksInvoiceState,
   findQuickBooksCustomerByDisplayName,
   findQuickBooksInvoiceByDocNumber,
+  getQuickBooksCustomer,
   getQuickBooksInvoice,
   getQuickBooksInvoicePdf,
 } from "@/lib/quickbooks";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 function toNumber(value: unknown) {
   const parsed = Number(value);
@@ -76,6 +82,55 @@ function buildPdfFilename(invoiceDate: string | null, qboDocNumber: string | nul
   const docNumber = qboDocNumber ? String(qboDocNumber) : "unknown";
   const safe = `${date}-${docNumber}`.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/^\.+/, "_");
   return `${safe}.pdf`;
+}
+
+function getQuickBooksInvoiceCustomerId(invoice: Record<string, unknown>) {
+  const customerRef = invoice.CustomerRef as { value?: string } | undefined;
+  return customerRef?.value ? String(customerRef.value) : null;
+}
+
+async function ensureLocalClientForQuickBooksCustomer(qboCustomerId: string) {
+  const existingClient = await getClientByQboCustomerId(qboCustomerId);
+  if (existingClient) {
+    return String(existingClient.id);
+  }
+
+  const connection = await getQuickBooksConnection();
+  if (!connection) {
+    throw new Error("QuickBooks is not connected yet");
+  }
+
+  const qboCustomer = await getQuickBooksCustomer(connection.realm_id, qboCustomerId);
+  const email = qboCustomer.PrimaryEmailAddr?.Address?.trim().toLowerCase() || null;
+
+  if (email) {
+    const localClient = await getClientByEmail(email);
+    if (localClient) {
+      if (localClient.qbo_customer_id && String(localClient.qbo_customer_id) !== qboCustomerId) {
+        throw new Error("A local client with this email is already linked to a different QuickBooks customer.");
+      }
+      await setClientQuickBooksCustomerId(String(localClient.id), qboCustomerId);
+      return String(localClient.id);
+    }
+  }
+
+  const passwordHash = await bcrypt.hash(crypto.randomUUID(), 10);
+  const companyName =
+    qboCustomer.CompanyName?.trim() ||
+    qboCustomer.DisplayName?.trim() ||
+    `QuickBooks Customer ${qboCustomerId}`;
+  const createdClient = await createClient({
+    email: email || `qbo-customer-${qboCustomerId}@placeholder.invalid`,
+    password_hash: passwordHash,
+    company_name: companyName,
+    first_name: qboCustomer.GivenName?.trim() || "",
+    last_name: qboCustomer.FamilyName?.trim() || "",
+    phone: qboCustomer.PrimaryPhone?.FreeFormNumber?.trim() || undefined,
+    domain_name: qboCustomer.WebAddr?.URI?.trim() || undefined,
+  });
+
+  await setClientQuickBooksCustomerId(String(createdClient.id), qboCustomerId);
+  return String(createdClient.id);
 }
 
 export async function syncInvoiceToQuickBooks(localInvoiceId: string, invoiceOverride?: Record<string, unknown>) {
@@ -241,6 +296,115 @@ export async function linkInvoiceByDocNumber(clientId: string, qboDocNumber: str
   });
 
   // Attempt to download the invoice PDF; failures are non-fatal.
+  let pdfPayload: { data: Buffer; mimeType: string; filename: string; size: number } | null = null;
+  try {
+    pdfPayload = await getQuickBooksInvoicePdf(connection.realm_id, qboState.qboInvoiceId);
+    pdfPayload = {
+      ...pdfPayload,
+      filename: buildPdfFilename(qboState.invoiceDate, qboState.qboDocNumber),
+    };
+  } catch {
+    // PDF download failure should not block invoice linking.
+  }
+
+  if (pdfPayload) {
+    return updateInvoiceQuickBooksData({
+      invoiceId: String(invoice.id),
+      qboInvoiceId: qboState.qboInvoiceId,
+      qboDocNumber: qboState.qboDocNumber,
+      qboPaymentUrl: qboState.paymentUrl,
+      qboSyncStatus: qboState.qboSyncStatus,
+      amountPaid: qboState.amountPaid,
+      paidAt: qboState.paidAt,
+      invoiceDate: qboState.invoiceDate,
+      invoiceTotal: qboState.invoiceTotal,
+      pdfData: pdfPayload.data,
+      pdfMimeType: pdfPayload.mimeType,
+      pdfFilename: pdfPayload.filename,
+      pdfSize: pdfPayload.size,
+    });
+  }
+
+  return invoice;
+}
+
+export async function linkInvoiceById(options: {
+  clientId?: string;
+  qboCustomerId?: string;
+  qboInvoiceId: string;
+}) {
+  const connection = await getQuickBooksConnection();
+  if (!connection) {
+    throw new Error("QuickBooks is not connected yet");
+  }
+
+  let resolvedClientId = options.clientId ? String(options.clientId) : null;
+  let customerId = options.qboCustomerId ? String(options.qboCustomerId) : null;
+
+  if (resolvedClientId) {
+    const client = await getClientQuickBooksProfile(resolvedClientId);
+    if (!client) {
+      throw new Error("Client not found");
+    }
+    if (!client.qbo_customer_id) {
+      throw new Error(
+        "This client does not have a QuickBooks customer ID. Create an invoice for this client using the QuickBooks mode first."
+      );
+    }
+    customerId = String(client.qbo_customer_id);
+  } else if (customerId) {
+    resolvedClientId = await ensureLocalClientForQuickBooksCustomer(customerId);
+  } else {
+    throw new Error("A client or QuickBooks customer is required.");
+  }
+
+  let qboInvoice: Record<string, unknown>;
+  try {
+    qboInvoice = await getQuickBooksInvoice(connection.realm_id, options.qboInvoiceId);
+  } catch (error) {
+    throw Object.assign(
+      new Error(`No QuickBooks invoice found with invoice ID "${options.qboInvoiceId}".`),
+      { code: "NOT_FOUND", cause: error }
+    );
+  }
+
+  const invoiceCustomerId = getQuickBooksInvoiceCustomerId(qboInvoice);
+  if (!invoiceCustomerId || invoiceCustomerId !== customerId) {
+    throw Object.assign(
+      new Error(`No QuickBooks invoice found with invoice ID "${options.qboInvoiceId}" for this client.`),
+      { code: "NOT_FOUND" }
+    );
+  }
+
+  const qboState = extractQuickBooksInvoiceState(qboInvoice);
+  const isDuplicate = await checkDuplicateByQboInvoiceId(resolvedClientId, qboState.qboInvoiceId);
+  if (isDuplicate) {
+    throw Object.assign(
+      new Error("This QuickBooks invoice is already linked to this client."),
+      { code: "DUPLICATE" }
+    );
+  }
+
+  const dueDate =
+    typeof qboInvoice.DueDate === "string" && qboInvoice.DueDate
+      ? qboInvoice.DueDate.slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
+
+  const invoice = await createInvoice({
+    client_id: resolvedClientId,
+    amount_due: toNumber(qboInvoice.TotalAmt),
+    invoice_date: qboState.invoiceDate,
+    due_date: dueDate,
+    invoice_total: qboState.invoiceTotal,
+    qbo_invoice_id: qboState.qboInvoiceId,
+    qbo_doc_number: qboState.qboDocNumber,
+    qbo_payment_url: qboState.paymentUrl,
+    qbo_sync_status: qboState.qboSyncStatus,
+    amount_paid: qboState.amountPaid,
+    paid_at: qboState.paidAt,
+    is_manual_link: true,
+  });
+
   let pdfPayload: { data: Buffer; mimeType: string; filename: string; size: number } | null = null;
   try {
     pdfPayload = await getQuickBooksInvoicePdf(connection.realm_id, qboState.qboInvoiceId);
