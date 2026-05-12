@@ -52,6 +52,16 @@ export async function getClientQuickBooksProfile(clientId: string) {
   return result.rows[0];
 }
 
+export async function getClientByQboCustomerId(qboCustomerId: string) {
+  const result = await sql`
+    SELECT id, email, company_name, first_name, last_name, phone, domain_name, qbo_customer_id
+    FROM clients
+    WHERE qbo_customer_id = ${qboCustomerId}
+    LIMIT 1
+  `;
+  return result.rows[0] || null;
+}
+
 export async function setClientQuickBooksCustomerId(clientId: string, qboCustomerId: string) {
   const result = await sql`
     UPDATE clients
@@ -171,7 +181,9 @@ export async function getClientInvoicesForPortal(clientId: string) {
       invoice_number,
       qbo_doc_number,
       amount_due,
+      invoice_total,
       amount_paid,
+      invoice_date,
       due_date,
       qbo_payment_url,
       file_url,
@@ -205,6 +217,8 @@ export async function updateInvoiceQuickBooksData(data: {
   qboSyncStatus: string;
   amountPaid?: number;
   paidAt?: string | Date | null;
+  invoiceDate?: string | null;
+  invoiceTotal?: number | null;
   pdfData?: Buffer | null;
   pdfMimeType?: string | null;
   pdfFilename?: string | null;
@@ -221,6 +235,8 @@ export async function updateInvoiceQuickBooksData(data: {
       qbo_sync_status = ${data.qboSyncStatus},
       amount_paid = COALESCE(${data.amountPaid ?? null}, amount_paid),
       paid_at = COALESCE(${data.paidAt || null}, paid_at),
+      invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
+      invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
       pdf_data = COALESCE(${data.pdfData ?? null}, pdf_data),
       pdf_mime_type = COALESCE(${data.pdfMimeType ?? null}, pdf_mime_type),
       pdf_filename = COALESCE(${data.pdfFilename ?? null}, pdf_filename),
@@ -245,6 +261,8 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
   paidAt?: string | Date | null;
   qboPaymentUrl?: string | null;
   qboDocNumber?: string | null;
+  invoiceDate?: string | null;
+  invoiceTotal?: number | null;
 }) {
   const result = await sql`
     UPDATE invoices
@@ -254,6 +272,8 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
       paid_at = COALESCE(${data.paidAt || null}, paid_at),
       qbo_payment_url = COALESCE(${data.qboPaymentUrl || null}, qbo_payment_url),
       qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
+      invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
+      invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
       last_synced_at = NOW()
     WHERE qbo_invoice_id = ${data.qboInvoiceId}
     RETURNING *
@@ -317,8 +337,9 @@ export async function createInvoice(data: {
   client_id: string;
   invoice_number?: string | null;
   amount_due: number;
+  invoice_date?: string | null;
   due_date: string;
-  file_url?: string | null;
+  invoice_total?: number | null;
   qbo_payment_url?: string | null;
   qbo_invoice_id?: string | null;
   qbo_doc_number?: string | null;
@@ -333,8 +354,9 @@ export async function createInvoice(data: {
       client_id,
       invoice_number,
       amount_due,
+      invoice_date,
       due_date,
-      file_url,
+      invoice_total,
       qbo_payment_url,
       qbo_invoice_id,
       qbo_doc_number,
@@ -349,8 +371,9 @@ export async function createInvoice(data: {
       ${data.client_id},
       ${data.invoice_number || null},
       ${data.amount_due},
+      ${data.invoice_date || null},
       ${data.due_date},
-      ${data.file_url || null},
+      ${data.invoice_total ?? null},
       ${data.qbo_payment_url || null},
       ${data.qbo_invoice_id || null},
       ${data.qbo_doc_number || null},
@@ -398,12 +421,11 @@ export async function getInvoicePdfById(invoiceId: string) {
   return result.rows[0];
 }
 
-export async function checkDuplicateManualLink(clientId: string, qboPaymentUrl: string) {
+export async function checkDuplicateByQboInvoiceId(clientId: string, qboInvoiceId: string) {
   const result = await sql`
     SELECT id FROM invoices
     WHERE client_id = ${clientId}
-      AND qbo_payment_url = ${qboPaymentUrl}
-      AND is_manual_link = TRUE
+      AND qbo_invoice_id = ${qboInvoiceId}
     LIMIT 1
   `;
   return result.rows.length > 0;

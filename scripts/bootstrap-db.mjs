@@ -83,7 +83,6 @@ async function run() {
         invoice_number VARCHAR(100),
         amount_due NUMERIC(10,2),
         due_date DATE,
-        file_url TEXT,
         qbo_payment_url TEXT,
         created_at TIMESTAMP DEFAULT NOW()
       )
@@ -147,6 +146,16 @@ async function run() {
     await tx`
       ALTER TABLE invoices
       ADD COLUMN IF NOT EXISTS notes TEXT
+    `;
+
+    await tx`
+      ALTER TABLE invoices
+      ADD COLUMN IF NOT EXISTS invoice_date DATE
+    `;
+
+    await tx`
+      ALTER TABLE invoices
+      ADD COLUMN IF NOT EXISTS invoice_total NUMERIC(10,2)
     `;
 
     await tx`
