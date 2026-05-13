@@ -6,6 +6,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type HeaderProps = {
   showNavigation?: boolean;
@@ -37,18 +44,61 @@ export default function Header({ showNavigation = true }: HeaderProps) {
   const { data: session, status } = useSession();
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    if (!isMenuOpen && !isDropdownOpen) {
+    const recoverBodyInteraction = () => {
+      const body = document.body;
+      const hasActiveRadixLayer =
+        document.querySelector("[data-radix-popper-content-wrapper]") !== null ||
+        document.querySelector("[data-radix-dialog-content]") !== null ||
+        document.querySelector("[data-radix-portal]") !== null;
+
+      if (body.style.pointerEvents === "none") {
+        body.style.pointerEvents = "";
+      }
+
+      if (!hasActiveRadixLayer) {
+        if (body.style.overflow === "hidden") {
+          body.style.overflow = "";
+        }
+        if (body.style.paddingRight) {
+          body.style.paddingRight = "";
+        }
+      }
+    };
+
+    recoverBodyInteraction();
+    const immediateTimer = window.setTimeout(recoverBodyInteraction, 0);
+    const followUpTimer = window.setTimeout(recoverBodyInteraction, 150);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        recoverBodyInteraction();
+      }
+    };
+
+    window.addEventListener("focus", recoverBodyInteraction);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    document.addEventListener("pointerdown", recoverBodyInteraction, true);
+
+    return () => {
+      window.clearTimeout(immediateTimer);
+      window.clearTimeout(followUpTimer);
+      window.removeEventListener("focus", recoverBodyInteraction);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      document.removeEventListener("pointerdown", recoverBodyInteraction, true);
+    };
+  }, [pathname, status]);
+
+  useEffect(() => {
+    if (!isMenuOpen) {
       return;
     }
 
     const handleOutsidePointerDown = (event: MouseEvent | TouchEvent) => {
       if (headerRef.current && !headerRef.current.contains(event.target as Node)) {
         setIsMenuOpen(false);
-        setIsDropdownOpen(false);
       }
     };
 
@@ -59,11 +109,11 @@ export default function Header({ showNavigation = true }: HeaderProps) {
       document.removeEventListener("mousedown", handleOutsidePointerDown);
       document.removeEventListener("touchstart", handleOutsidePointerDown);
     };
-  }, [isMenuOpen, isDropdownOpen]);
+  }, [isMenuOpen]);
 
   const handleNavLinkClick = () => {
     setIsMenuOpen(false);
-    setIsDropdownOpen(false);
+    setIsProfileMenuOpen(false);
   };
 
   const handleMenuButtonClick = () => {
@@ -72,7 +122,7 @@ export default function Header({ showNavigation = true }: HeaderProps) {
 
   const handleHomeClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
     setIsMenuOpen(false);
-    setIsDropdownOpen(false);
+    setIsProfileMenuOpen(false);
 
     if (window.location.pathname === "/") {
       event.preventDefault();
@@ -82,7 +132,7 @@ export default function Header({ showNavigation = true }: HeaderProps) {
 
   const handleLogout = async () => {
     setIsMenuOpen(false);
-    setIsDropdownOpen(false);
+    setIsProfileMenuOpen(false);
     await signOut({ redirect: true, callbackUrl: "/" });
   };
 
@@ -101,57 +151,56 @@ export default function Header({ showNavigation = true }: HeaderProps) {
   const showSimplifiedNavigation = showNavigation && !isHomepage;
 
   const renderProfileMenu = () => (
-    <div className="relative">
-      <button
-        onClick={() => setIsDropdownOpen((prev) => !prev)}
-        className="flex items-center gap-2 focus:outline-none"
-        aria-label="Account menu"
-      >
-        <span className="w-9 h-9 rounded-full bg-primary text-white text-sm font-bold flex items-center justify-center select-none">
-          {initials}
-        </span>
-        <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform ${isDropdownOpen ? "rotate-180" : ""}`} />
-      </button>
+    <DropdownMenu modal={false} open={isProfileMenuOpen} onOpenChange={setIsProfileMenuOpen}>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="flex items-center gap-2 focus:outline-none"
+          aria-label="Account menu"
+        >
+          <span className="w-9 h-9 rounded-full bg-primary text-white text-sm font-bold flex items-center justify-center select-none">
+            {initials}
+          </span>
+          <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform ${isProfileMenuOpen ? "rotate-180" : ""}`} />
+        </button>
+      </DropdownMenuTrigger>
 
-      {isDropdownOpen && (
-        <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl border border-gray-200 shadow-lg py-1 z-50">
-          <Link
-            href={portalHref}
-            onClick={handleNavLinkClick}
-            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 font-medium"
-          >
+      <DropdownMenuContent
+        align="end"
+        className="w-52 rounded-xl border-gray-200 py-1 shadow-lg z-[120]"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        onCloseAutoFocus={(event) => event.preventDefault()}
+      >
+        <DropdownMenuItem asChild className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 font-medium cursor-pointer">
+          <Link href={portalHref} onClick={handleNavLinkClick}>
             {portalLabel}
           </Link>
-          {userType === "admin" && (
-            <Link
-              href="/admin/invoices"
-              onClick={handleNavLinkClick}
-              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 font-medium"
-            >
+        </DropdownMenuItem>
+        {userType === "admin" && (
+          <DropdownMenuItem asChild className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 font-medium cursor-pointer">
+            <Link href="/admin/invoices" onClick={handleNavLinkClick}>
               Invoice Management
             </Link>
-          )}
-          <Link
-            href="/account-settings"
-            onClick={handleNavLinkClick}
-            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 font-medium"
-          >
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem asChild className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 font-medium cursor-pointer">
+          <Link href="/account-settings" onClick={handleNavLinkClick}>
             Account Settings
           </Link>
-          <hr className="my-1 border-gray-100" />
-          <button
-            onClick={handleLogout}
-            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 font-medium"
-          >
-            Log out
-          </button>
-        </div>
-      )}
-    </div>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator className="my-1 bg-gray-100" />
+        <DropdownMenuItem
+          onClick={handleLogout}
+          className="w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-50 font-medium cursor-pointer"
+        >
+          Log out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 
   return (
-    <header ref={headerRef} className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur border-b border-gray-200/70">
+    <header ref={headerRef} className="fixed top-0 left-0 right-0 z-[100] isolate pointer-events-auto bg-white/80 backdrop-blur border-b border-gray-200/70">
       <div className="mx-auto w-full max-w-[1800px] px-3 py-3 sm:px-5 lg:px-6">
         <div className="flex items-center justify-between">
           {/* Logo */}
