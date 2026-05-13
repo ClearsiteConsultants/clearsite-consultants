@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { getQuickBooksConnection, upsertQuickBooksConnection } from "@/lib/db";
+import { getQuickBooksConnection, upsertQuickBooksConnection, QuickBooksConnectionRow } from "@/lib/db";
 
 type QuickBooksTokenResponse = {
   access_token: string;
@@ -9,13 +9,8 @@ type QuickBooksTokenResponse = {
   token_type: string;
 };
 
-type QuickBooksConnection = {
-  realm_id: string;
-  access_token: string;
-  refresh_token: string;
-  token_expires_at: string;
-  connected_by_user_id?: string | null;
-};
+// Alias the DB row type so internal callers have a stable name.
+type QuickBooksConnection = QuickBooksConnectionRow;
 
 function getQuickBooksEnv() {
   return process.env.QUICKBOOKS_ENVIRONMENT === "production" ? "production" : "sandbox";
@@ -152,7 +147,7 @@ export async function getFreshQuickBooksConnection(): Promise<QuickBooksConnecti
 
   const expiresAt = new Date(connection.token_expires_at).getTime();
   if (expiresAt > Date.now() + 2 * 60 * 1000) {
-    return connection as QuickBooksConnection;
+    return connection;
   }
 
   const refreshed = await refreshQuickBooksTokens(connection.refresh_token);
@@ -164,7 +159,11 @@ export async function getFreshQuickBooksConnection(): Promise<QuickBooksConnecti
     connectedByUserId: connection.connected_by_user_id || null,
   });
 
-  return updated as QuickBooksConnection;
+  if (!updated) {
+    throw new Error("Failed to persist refreshed QuickBooks tokens");
+  }
+
+  return updated;
 }
 
 export async function quickBooksApiRequest<T>(options: {

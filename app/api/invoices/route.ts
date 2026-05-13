@@ -51,7 +51,9 @@ export async function GET(req: NextRequest) {
       }
       // Admin endpoint to list all clients
       const clients = await getAllClients();
-      return NextResponse.json(clients);
+      return NextResponse.json(clients, {
+        headers: { "Cache-Control": "no-store, max-age=0" },
+      });
     }
 
     if (action === "qbo-customers") {
@@ -63,7 +65,9 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "QuickBooks is not connected" }, { status: 503 });
       }
       const customers = await getQuickBooksCustomers(connection.realm_id);
-      return NextResponse.json(customers);
+      return NextResponse.json(customers, {
+        headers: { "Cache-Control": "no-store, max-age=0" },
+      });
     }
 
     if (action === "qbo-items") {
@@ -75,7 +79,9 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "QuickBooks is not connected" }, { status: 503 });
       }
       const items = await getQuickBooksItems(connection.realm_id);
-      return NextResponse.json(items);
+      return NextResponse.json(items, {
+        headers: { "Cache-Control": "no-store, max-age=0" },
+      });
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });

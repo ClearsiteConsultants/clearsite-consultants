@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db";
-import bcrypt from "bcryptjs";
+import { hashPassword } from "@/lib/password-utils";
+import { validatePasswordPolicy } from "@/lib/password-policy";
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,10 +15,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Hash password
-    const password_hash = await bcrypt.hash(password, 10);
+    const policyCheck = validatePasswordPolicy(password);
+    if (!policyCheck.valid) {
+      return NextResponse.json(
+        { error: policyCheck.message },
+        { status: 400 }
+      );
+    }
 
-    // Create client
+    const password_hash = await hashPassword(password);
+
     const client = await createClient({
       email,
       password_hash,

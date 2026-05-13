@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { getClientById, updateClientPasswordById, getUserById, updateAdminPasswordById } from "@/lib/db";
 import { validatePasswordPolicy } from "@/lib/password-policy";
+import { hashPassword, verifyPassword } from "@/lib/password-utils";
 
 type AttemptState = {
   count: number;
@@ -111,13 +111,13 @@ export async function POST(req: NextRequest) {
       passwordHash = adminUser.password_hash as string;
     }
 
-    const currentPasswordValid = await bcrypt.compare(currentPassword, passwordHash);
+    const { valid: currentPasswordValid } = await verifyPassword(currentPassword, passwordHash);
     if (!currentPasswordValid) {
       recordFailedAttempt(rawUserId as string);
       return NextResponse.json({ error: "Invalid current password" }, { status: 401 });
     }
 
-    const isSamePassword = await bcrypt.compare(newPassword, passwordHash);
+    const { valid: isSamePassword } = await verifyPassword(newPassword, passwordHash);
     if (isSamePassword) {
       return NextResponse.json(
         { error: "New password must be different from current password" },
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const newPasswordHash = await bcrypt.hash(newPassword, 10);
+    const newPasswordHash = await hashPassword(newPassword);
 
     let updated;
     if (parsed.type === "client") {
