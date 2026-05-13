@@ -55,7 +55,8 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.redirect(new URL("/admin/invoices?qbo=connected", req.url));
-  } catch {
+  } catch (error: unknown) {
+    console.error("QuickBooks token exchange failed:", error instanceof Error ? error.message : error);
     return NextResponse.redirect(new URL("/admin/invoices?qbo=error&reason=token_exchange_failed", req.url));
   }
 }

@@ -106,8 +106,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     sessionToken: {
       options: {
         httpOnly: true,
-        // Enable secure flag whenever the app is served over HTTPS (production and
-        // any staging/preview environment) or when NODE_ENV is explicitly production.
+        // Enable the secure flag when NODE_ENV is production (always) OR when the
+        // app URL is explicitly HTTPS (e.g., staging/preview environments).
+        // An empty or undefined NEXTAUTH_URL yields "" which does NOT start with
+        // "https://", so local http:// development is unaffected.
         secure:
           process.env.NODE_ENV === "production" ||
           (process.env.NEXTAUTH_URL ?? "").startsWith("https://"),

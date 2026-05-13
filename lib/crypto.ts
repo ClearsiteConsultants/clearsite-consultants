@@ -33,11 +33,17 @@ function getEncryptionKey(): Buffer | null {
  * Encrypts a plaintext string using AES-256-GCM.
  * Returns a string prefixed with "enc:v1:" so encrypted values are unambiguous.
  * Falls back to returning the plaintext unchanged when no encryption key is configured
- * (allows local development without the key).
+ * (allows local development without the key); a console warning is emitted.
  */
 export function encryptToken(plaintext: string): string {
   const key = getEncryptionKey();
-  if (!key) return plaintext;
+  if (!key) {
+    console.warn(
+      "[crypto] QBO_TOKEN_ENCRYPTION_KEY is not set – storing OAuth token in plaintext. " +
+        "Set this key in production to enable encryption at rest."
+    );
+    return plaintext;
+  }
 
   const iv = crypto.randomBytes(IV_LENGTH);
   const cipher = crypto.createCipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });

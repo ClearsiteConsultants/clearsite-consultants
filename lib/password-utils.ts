@@ -9,7 +9,11 @@ import bcrypt from "bcryptjs";
  *
  * IMPORTANT: Rotating AUTH_SECRET will invalidate all password hashes produced
  * by this function. If AUTH_SECRET must be rotated, all users will need to reset
- * their passwords.
+ * their passwords OR the rotation must be performed as a two-phase migration:
+ *   1. Deploy a new version that accepts BOTH old and new secrets (updating
+ *      verifyPassword to try both HMAC keys).
+ *   2. Force all users to change their passwords (invalidating old-key hashes).
+ *   3. Remove support for the old key in a follow-up deploy.
  */
 function getHmacKey(): string {
   const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
