@@ -21,8 +21,11 @@ const securityHeaders = [
     value: "strict-origin-when-cross-origin",
   },
   {
-    // Restrictive CSP. Adjust 'connect-src', 'img-src', and 'font-src' as third-party
-    // integrations are added. Do NOT loosen 'script-src' without a nonce/hash strategy.
+    // Restrictive CSP. 'unsafe-inline' and 'unsafe-eval' for script-src are required
+    // by Next.js's built-in CSS-in-JS and HMR mechanism. A nonce- or hash-based
+    // strategy should replace these directives once the app adopts a custom Document
+    // that threads nonces through to inline scripts. Adjust 'connect-src', 'img-src',
+    // and 'font-src' as third-party integrations are added.
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",

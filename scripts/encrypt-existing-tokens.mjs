@@ -11,10 +11,9 @@
  *   node scripts/encrypt-existing-tokens.mjs
  *
  * Rollback:
- *   The script prints the original plaintext values to stdout before encrypting them.
- *   Keep that output in a secure location to allow reverting if needed.
- *   To roll back, run the companion script:
- *     node scripts/decrypt-existing-tokens.mjs
+ *   Take a full database backup BEFORE running this script. To roll back,
+ *   restore from the backup. The script does NOT store plaintext tokens to avoid
+ *   leaking credentials to process logs or stdout.
  *
  * Safety:
  *   - The script skips rows whose tokens already begin with "enc:v1:" (already encrypted).
@@ -102,13 +101,8 @@ for (const row of rows) {
     continue;
   }
 
-  // Print originals to stdout (operator should capture and store securely for rollback).
-  if (!alreadyEncryptedAccess) {
-    console.log(`Row id=${row.id} – ORIGINAL access_token  : ${row.access_token}`);
-  }
-  if (!alreadyEncryptedRefresh) {
-    console.log(`Row id=${row.id} – ORIGINAL refresh_token : ${row.refresh_token}`);
-  }
+  // NOTE: Plaintext tokens are NOT printed here to avoid leaking them to stdout.
+  // Before running this script take a full database backup for rollback purposes.
 
   const newAccessToken = alreadyEncryptedAccess
     ? row.access_token

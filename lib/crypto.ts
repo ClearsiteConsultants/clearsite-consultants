@@ -13,7 +13,14 @@ const ENCRYPTED_PREFIX = "enc:v1:";
  */
 function getEncryptionKey(): Buffer | null {
   const keyHex = process.env.QBO_TOKEN_ENCRYPTION_KEY;
-  if (!keyHex) return null;
+  if (!keyHex) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "QBO_TOKEN_ENCRYPTION_KEY must be set in production to encrypt OAuth tokens"
+      );
+    }
+    return null;
+  }
   if (keyHex.length !== 64) {
     throw new Error(
       "QBO_TOKEN_ENCRYPTION_KEY must be a 64-character hex string (32 bytes / 256 bits)"
