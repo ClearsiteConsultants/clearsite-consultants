@@ -2,6 +2,27 @@ import { NextRequest, NextResponse } from "next/server";
 import { exchangeCodeForTokens, verifyQuickBooksOAuthState } from "@/lib/quickbooks";
 import { upsertQuickBooksConnection } from "@/lib/db";
 
+/**
+ * Allowlist of reason codes that may be surfaced to the UI.
+ * Any error not in this list is replaced with the generic fallback so that
+ * internal error messages are never propagated to the browser.
+ */
+const ALLOWED_ERROR_REASONS = new Set([
+  "access_denied",
+  "invalid_scope",
+  "missing_params",
+  "invalid_state",
+  "token_exchange_failed",
+  "server_error",
+  "temporarily_unavailable",
+]);
+
+const GENERIC_ERROR_REASON = "auth_error";
+
+function sanitizeReason(raw: string): string {
+  return ALLOWED_ERROR_REASONS.has(raw) ? raw : GENERIC_ERROR_REASON;
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const code = searchParams.get("code");
@@ -10,7 +31,8 @@ export async function GET(req: NextRequest) {
   const oauthError = searchParams.get("error");
 
   if (oauthError) {
-    return NextResponse.redirect(new URL(`/admin/invoices?qbo=error&reason=${encodeURIComponent(oauthError)}`, req.url));
+    const reason = sanitizeReason(oauthError);
+    return NextResponse.redirect(new URL(`/admin/invoices?qbo=error&reason=${encodeURIComponent(reason)}`, req.url));
   }
 
   if (!code || !realmId || !state) {
@@ -33,8 +55,7 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.redirect(new URL("/admin/invoices?qbo=connected", req.url));
-  } catch (error: unknown) {
-    const reason = error instanceof Error ? error.message : "token_exchange_failed";
-    return NextResponse.redirect(new URL(`/admin/invoices?qbo=error&reason=${encodeURIComponent(reason)}`, req.url));
+  } catch {
+    return NextResponse.redirect(new URL("/admin/invoices?qbo=error&reason=token_exchange_failed", req.url));
   }
 }

@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { sql } from "@/lib/db";
-import bcrypt from "bcryptjs";
+import { verifyPassword, hashPassword } from "@/lib/password-utils";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -29,8 +29,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           if (userResult.rows.length > 0) {
             const user = userResult.rows[0];
-            const passwordValid = await bcrypt.compare(password, user.password_hash);
-            if (passwordValid) {
+            const { valid, legacy } = await verifyPassword(password, user.password_hash);
+            if (valid) {
+              if (legacy) {
+                // Upgrade legacy bcrypt hash to modern prehash+bcrypt in the background.
+                const newHash = await hashPassword(password);
+                await sql`UPDATE users SET password_hash = ${newHash} WHERE id = ${user.id}`;
+              }
               return {
                 id: `user:${user.id}`,
                 email: user.email,
@@ -50,8 +55,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (clientResult.rows.length === 0) return null;
 
           const client = clientResult.rows[0];
-          const passwordValid = await bcrypt.compare(password, client.password_hash);
-          if (!passwordValid) return null;
+          const { valid, legacy } = await verifyPassword(password, client.password_hash);
+          if (!valid) return null;
+
+          if (legacy) {
+            // Upgrade legacy bcrypt hash to modern prehash+bcrypt in the background.
+            const newHash = await hashPassword(password);
+            await sql`UPDATE clients SET password_hash = ${newHash} WHERE id = ${client.id}`;
+          }
+
           return {
             id: `client:${client.id}`,
             email: client.email,
@@ -88,6 +100,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           typeof token.last_name === "string" ? token.last_name : "";
       }
       return session;
+    },
+  },
+  cookies: {
+    sessionToken: {
+      options: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        path: "/",
+      },
     },
   },
   pages: {

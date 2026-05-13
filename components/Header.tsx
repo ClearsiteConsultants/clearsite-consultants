@@ -168,7 +168,6 @@ export default function Header({ showNavigation = true }: HeaderProps) {
       <DropdownMenuContent
         align="end"
         className="w-52 rounded-xl border-gray-200 py-1 shadow-lg z-[120]"
-        onOpenAutoFocus={(event) => event.preventDefault()}
         onCloseAutoFocus={(event) => event.preventDefault()}
       >
         <DropdownMenuItem asChild className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 font-medium cursor-pointer">

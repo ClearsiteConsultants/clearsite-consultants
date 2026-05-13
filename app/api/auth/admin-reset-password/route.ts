@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
 import {
   getClientById,
@@ -9,6 +8,7 @@ import {
 } from "@/lib/db";
 import { isAdminSession } from "@/lib/admin-auth";
 import { validatePasswordPolicy } from "@/lib/password-policy";
+import { hashPassword, verifyPassword } from "@/lib/password-utils";
 
 export async function POST(req: NextRequest) {
   try {
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (targetCurrentHash) {
-      const isSamePassword = await bcrypt.compare(newPassword, targetCurrentHash);
+      const { valid: isSamePassword } = await verifyPassword(newPassword, targetCurrentHash);
       if (isSamePassword) {
         return NextResponse.json(
           { error: "New password must be different from current password" },
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const passwordHash = await hashPassword(newPassword);
     const updated = client_id
       ? await updateClientPasswordById(String(client_id), passwordHash)
       : await updateClientPasswordByEmail(String(email), passwordHash);

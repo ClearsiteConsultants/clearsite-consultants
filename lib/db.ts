@@ -1,4 +1,5 @@
 import postgres from "postgres";
+import { encryptToken, decryptToken } from "@/lib/crypto";
 
 const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL || "";
 
@@ -10,6 +11,18 @@ const db = postgres(connectionString, {
 // Wraps the postgres tagged template literal to match the { rows } shape used throughout this file.
 export const sql = (strings: TemplateStringsArray, ...values: unknown[]) =>
   db(strings, ...values as Parameters<typeof db>[1][]).then((rows) => ({ rows }));
+
+/** Typed representation of a row in the quickbooks_connections table. */
+export type QuickBooksConnectionRow = {
+  id: number;
+  realm_id: string;
+  access_token: string;
+  refresh_token: string;
+  token_expires_at: string;
+  connected_by_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
 
 export async function getClientByEmail(email: string) {
   const result = await sql`
@@ -287,14 +300,20 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
   return invoice;
 }
 
-export async function getQuickBooksConnection() {
+export async function getQuickBooksConnection(): Promise<QuickBooksConnectionRow | undefined> {
   const result = await sql`
     SELECT *
     FROM quickbooks_connections
     ORDER BY id DESC
     LIMIT 1
   `;
-  return result.rows[0];
+  const row = result.rows[0] as QuickBooksConnectionRow | undefined;
+  if (!row) return row;
+  return {
+    ...row,
+    access_token: decryptToken(row.access_token),
+    refresh_token: decryptToken(row.refresh_token),
+  };
 }
 
 export async function upsertQuickBooksConnection(data: {
@@ -304,6 +323,9 @@ export async function upsertQuickBooksConnection(data: {
   tokenExpiresAt: Date;
   connectedByUserId?: string | null;
 }) {
+  const encryptedAccessToken = encryptToken(data.accessToken);
+  const encryptedRefreshToken = encryptToken(data.refreshToken);
+
   const result = await sql`
     INSERT INTO quickbooks_connections (
       realm_id,
@@ -315,8 +337,8 @@ export async function upsertQuickBooksConnection(data: {
     )
     VALUES (
       ${data.realmId},
-      ${data.accessToken},
-      ${data.refreshToken},
+      ${encryptedAccessToken},
+      ${encryptedRefreshToken},
       ${data.tokenExpiresAt.toISOString()},
       ${data.connectedByUserId || null},
       NOW()
@@ -330,7 +352,14 @@ export async function upsertQuickBooksConnection(data: {
       updated_at = NOW()
     RETURNING *
   `;
-  return result.rows[0];
+  const row = result.rows[0] as QuickBooksConnectionRow | undefined;
+  if (!row) return row;
+  // Return decrypted tokens so callers always see plaintext.
+  return {
+    ...row,
+    access_token: data.accessToken,
+    refresh_token: data.refreshToken,
+  } as QuickBooksConnectionRow;
 }
 
 export async function createInvoice(data: {

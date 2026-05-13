@@ -10,15 +10,13 @@ export async function GET() {
   }
 
   const connection = await getQuickBooksConnection();
-  if (!connection) {
-    return NextResponse.json({ connected: false });
-  }
 
-  return NextResponse.json({
-    connected: true,
-    realmId: connection.realm_id,
-    tokenExpiresAt: connection.token_expires_at,
-    connectedByUserId: connection.connected_by_user_id,
-    updatedAt: connection.updated_at,
-  });
+  return NextResponse.json(
+    { connected: Boolean(connection) },
+    {
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+      },
+    }
+  );
 }
