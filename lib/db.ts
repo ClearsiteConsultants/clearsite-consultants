@@ -354,11 +354,11 @@ export async function upsertQuickBooksConnection(data: {
   `;
   const row = result.rows[0] as QuickBooksConnectionRow | undefined;
   if (!row) return row;
-  // Return decrypted tokens so callers always see plaintext.
+  // Decrypt the stored ciphertext to confirm what was persisted and return plaintext.
   return {
     ...row,
-    access_token: data.accessToken,
-    refresh_token: data.refreshToken,
+    access_token: decryptToken(row.access_token),
+    refresh_token: decryptToken(row.refresh_token),
   } as QuickBooksConnectionRow;
 }
 

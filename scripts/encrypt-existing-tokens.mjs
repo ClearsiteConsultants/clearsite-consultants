@@ -73,7 +73,10 @@ function isEncrypted(value) {
 
 // ---------- main ----------
 const sql = postgres(connectionString, {
-  ssl: connectionString.includes("localhost") ? false : { rejectUnauthorized: false },
+  // For non-localhost connections, enforce TLS with proper certificate validation.
+  // If your database uses a self-signed certificate, set PGSSLMODE=no-verify in
+  // your environment instead of weakening the default here.
+  ssl: connectionString.includes("localhost") ? false : true,
   prepare: false,
 });
 

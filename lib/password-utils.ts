@@ -20,14 +20,14 @@ function getHmacKey(): string {
 }
 
 /**
- * Normalises a raw password string before passing it to bcrypt.
+ * Normalizes a raw password string before passing it to bcrypt.
  *
  * bcrypt silently truncates input at 72 bytes, so a password of 72+ characters
  * could match a shorter one that shares the same prefix. Passing the HMAC-SHA-256
  * digest (base64, always 44 chars = 44 bytes) ensures:
  *   - Passwords of any length (up to 128+ chars) are handled deterministically.
  *   - The bcrypt input is always within the safe 72-byte range.
- *   - An application-layer secret is mixed in for defence-in-depth.
+ *   - An application-layer secret is mixed in for defense-in-depth.
  */
 export function prehashPassword(password: string): string {
   return crypto
