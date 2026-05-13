@@ -56,7 +56,12 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.redirect(new URL("/admin/invoices?qbo=connected", req.url));
   } catch (error: unknown) {
-    console.error("QuickBooks token exchange failed:", error instanceof Error ? error.message : error);
+    // Log a sanitized error summary for diagnostics – never log raw error payloads
+    // from Intuit, which could contain sensitive OAuth details.
+    const errSummary = error instanceof Error
+      ? error.message.slice(0, 200)
+      : "unknown error";
+    console.error("QuickBooks token exchange failed:", errSummary);
     return NextResponse.redirect(new URL("/admin/invoices?qbo=error&reason=token_exchange_failed", req.url));
   }
 }

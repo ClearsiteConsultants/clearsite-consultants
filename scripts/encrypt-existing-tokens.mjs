@@ -22,7 +22,7 @@
  *   - Take a database backup BEFORE running this script.
  */
 
-import { createHmac, createCipheriv, randomBytes } from "crypto";
+import { createCipheriv, randomBytes } from "crypto";
 import postgres from "postgres";
 
 // ---------- configuration ----------

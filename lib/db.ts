@@ -359,7 +359,7 @@ export async function upsertQuickBooksConnection(data: {
     ...row,
     access_token: decryptToken(row.access_token),
     refresh_token: decryptToken(row.refresh_token),
-  } as QuickBooksConnectionRow;
+  };
 }
 
 export async function createInvoice(data: {
