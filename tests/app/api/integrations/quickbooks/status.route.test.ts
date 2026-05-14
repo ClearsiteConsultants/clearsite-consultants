@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const authMock = vi.fn();
-const getQuickBooksConnectionMock = vi.fn();
+const { authMock, getQuickBooksConnectionMock } = vi.hoisted(() => ({
+  authMock: vi.fn(),
+  getQuickBooksConnectionMock: vi.fn(),
+}));
 
 vi.mock("@/app/api/auth/[...nextauth]/route", () => ({ auth: authMock }));
 vi.mock("@/lib/db", () => ({ getQuickBooksConnection: getQuickBooksConnectionMock }));

@@ -1,9 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const verifyQuickBooksOAuthStateMock = vi.fn();
-const exchangeCodeForTokensMock = vi.fn();
-const upsertQuickBooksConnectionMock = vi.fn();
+const {
+  verifyQuickBooksOAuthStateMock,
+  exchangeCodeForTokensMock,
+  upsertQuickBooksConnectionMock,
+} = vi.hoisted(() => ({
+  verifyQuickBooksOAuthStateMock: vi.fn(),
+  exchangeCodeForTokensMock: vi.fn(),
+  upsertQuickBooksConnectionMock: vi.fn(),
+}));
 
 vi.mock("@/lib/quickbooks", () => ({
   verifyQuickBooksOAuthState: verifyQuickBooksOAuthStateMock,

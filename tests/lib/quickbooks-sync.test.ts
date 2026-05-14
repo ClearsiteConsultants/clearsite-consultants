@@ -1,11 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getQuickBooksConnectionMock = vi.fn();
-const getClientQboInvoiceIdsMock = vi.fn();
-const updateInvoiceStatusByQuickBooksInvoiceIdMock = vi.fn();
-
-const getQuickBooksInvoiceMock = vi.fn();
-const extractQuickBooksInvoiceStateMock = vi.fn();
+const {
+  getQuickBooksConnectionMock,
+  getClientQboInvoiceIdsMock,
+  updateInvoiceStatusByQuickBooksInvoiceIdMock,
+  getQuickBooksInvoiceMock,
+  extractQuickBooksInvoiceStateMock,
+} = vi.hoisted(() => ({
+  getQuickBooksConnectionMock: vi.fn(),
+  getClientQboInvoiceIdsMock: vi.fn(),
+  updateInvoiceStatusByQuickBooksInvoiceIdMock: vi.fn(),
+  getQuickBooksInvoiceMock: vi.fn(),
+  extractQuickBooksInvoiceStateMock: vi.fn(),
+}));
 
 vi.mock("@/lib/db", () => ({
   getClientQboInvoiceIds: getClientQboInvoiceIdsMock,

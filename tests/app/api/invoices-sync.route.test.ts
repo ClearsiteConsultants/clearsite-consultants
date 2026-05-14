@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const authMock = vi.fn();
-const syncInvoiceToQuickBooksMock = vi.fn();
+const { authMock, syncInvoiceToQuickBooksMock } = vi.hoisted(() => ({
+  authMock: vi.fn(),
+  syncInvoiceToQuickBooksMock: vi.fn(),
+}));
 
 vi.mock("@/app/api/auth/[...nextauth]/route", () => ({ auth: authMock }));
 vi.mock("@/lib/quickbooks-sync", () => ({ syncInvoiceToQuickBooks: syncInvoiceToQuickBooksMock }));

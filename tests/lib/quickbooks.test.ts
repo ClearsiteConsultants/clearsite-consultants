@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getQuickBooksConnectionMock = vi.fn();
-const upsertQuickBooksConnectionMock = vi.fn();
-const setQuickBooksConnectionAuthStateMock = vi.fn();
+const {
+  getQuickBooksConnectionMock,
+  upsertQuickBooksConnectionMock,
+  setQuickBooksConnectionAuthStateMock,
+} = vi.hoisted(() => ({
+  getQuickBooksConnectionMock: vi.fn(),
+  upsertQuickBooksConnectionMock: vi.fn(),
+  setQuickBooksConnectionAuthStateMock: vi.fn(),
+}));
 
 vi.mock("@/lib/db", () => ({
   getQuickBooksConnection: getQuickBooksConnectionMock,
