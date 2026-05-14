@@ -20,6 +20,10 @@ export type QuickBooksConnectionRow = {
   refresh_token: string;
   token_expires_at: string;
   connected_by_user_id: string | null;
+  reconnect_required: boolean;
+  reconnect_reason: string | null;
+  last_auth_error_code: string | null;
+  last_auth_error_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -322,9 +326,19 @@ export async function upsertQuickBooksConnection(data: {
   refreshToken: string;
   tokenExpiresAt: Date;
   connectedByUserId?: string | null;
+  reconnectRequired?: boolean;
+  reconnectReason?: string | null;
+  lastAuthErrorCode?: string | null;
+  lastAuthErrorAt?: Date | null;
 }) {
   const encryptedAccessToken = encryptToken(data.accessToken);
   const encryptedRefreshToken = encryptToken(data.refreshToken);
+  const reconnectRequired = data.reconnectRequired ?? false;
+  const reconnectReason = reconnectRequired ? (data.reconnectReason ?? null) : null;
+  const lastAuthErrorCode = reconnectRequired ? (data.lastAuthErrorCode ?? null) : null;
+  const lastAuthErrorAt = reconnectRequired
+    ? (data.lastAuthErrorAt ?? new Date()).toISOString()
+    : null;
 
   const result = await sql`
     INSERT INTO quickbooks_connections (
@@ -333,6 +347,10 @@ export async function upsertQuickBooksConnection(data: {
       refresh_token,
       token_expires_at,
       connected_by_user_id,
+      reconnect_required,
+      reconnect_reason,
+      last_auth_error_code,
+      last_auth_error_at,
       updated_at
     )
     VALUES (
@@ -341,6 +359,10 @@ export async function upsertQuickBooksConnection(data: {
       ${encryptedRefreshToken},
       ${data.tokenExpiresAt.toISOString()},
       ${data.connectedByUserId || null},
+      ${reconnectRequired},
+      ${reconnectReason},
+      ${lastAuthErrorCode},
+      ${lastAuthErrorAt},
       NOW()
     )
     ON CONFLICT (realm_id)
@@ -349,12 +371,62 @@ export async function upsertQuickBooksConnection(data: {
       refresh_token = EXCLUDED.refresh_token,
       token_expires_at = EXCLUDED.token_expires_at,
       connected_by_user_id = EXCLUDED.connected_by_user_id,
+      reconnect_required = EXCLUDED.reconnect_required,
+      reconnect_reason = EXCLUDED.reconnect_reason,
+      last_auth_error_code = EXCLUDED.last_auth_error_code,
+      last_auth_error_at = EXCLUDED.last_auth_error_at,
       updated_at = NOW()
     RETURNING *
   `;
   const row = result.rows[0] as QuickBooksConnectionRow | undefined;
   if (!row) return row;
   // Decrypt the stored ciphertext to confirm what was persisted and return plaintext.
+  return {
+    ...row,
+    access_token: decryptToken(row.access_token),
+    refresh_token: decryptToken(row.refresh_token),
+  };
+}
+
+export async function setQuickBooksConnectionAuthState(data: {
+  reconnectRequired: boolean;
+  reconnectReason?: string | null;
+  lastAuthErrorCode?: string | null;
+  realmId?: string;
+}) {
+  const reconnectReason = data.reconnectRequired ? (data.reconnectReason ?? null) : null;
+  const lastAuthErrorCode = data.reconnectRequired ? (data.lastAuthErrorCode ?? null) : null;
+  const result = data.realmId
+    ? await sql`
+        UPDATE quickbooks_connections
+        SET
+          reconnect_required = ${data.reconnectRequired},
+          reconnect_reason = ${reconnectReason},
+          last_auth_error_code = ${lastAuthErrorCode},
+          last_auth_error_at = ${data.reconnectRequired ? new Date().toISOString() : null},
+          updated_at = NOW()
+        WHERE realm_id = ${data.realmId}
+        RETURNING *
+      `
+    : await sql`
+        UPDATE quickbooks_connections
+        SET
+          reconnect_required = ${data.reconnectRequired},
+          reconnect_reason = ${reconnectReason},
+          last_auth_error_code = ${lastAuthErrorCode},
+          last_auth_error_at = ${data.reconnectRequired ? new Date().toISOString() : null},
+          updated_at = NOW()
+        WHERE id = (
+          SELECT id
+          FROM quickbooks_connections
+          ORDER BY id DESC
+          LIMIT 1
+        )
+        RETURNING *
+      `;
+
+  const row = result.rows[0] as QuickBooksConnectionRow | undefined;
+  if (!row) return row;
   return {
     ...row,
     access_token: decryptToken(row.access_token),

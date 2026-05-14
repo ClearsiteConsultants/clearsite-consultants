@@ -1,5 +1,10 @@
 import crypto from "crypto";
-import { getQuickBooksConnection, upsertQuickBooksConnection, QuickBooksConnectionRow } from "@/lib/db";
+import {
+  getQuickBooksConnection,
+  setQuickBooksConnectionAuthState,
+  upsertQuickBooksConnection,
+  QuickBooksConnectionRow,
+} from "@/lib/db";
 
 type QuickBooksTokenResponse = {
   access_token: string;
@@ -11,6 +16,78 @@ type QuickBooksTokenResponse = {
 
 // Alias the DB row type so internal callers have a stable name.
 type QuickBooksConnection = QuickBooksConnectionRow;
+
+export type QuickBooksReconnectReason = "missing_connection" | "invalid_grant" | "api_unauthorized";
+
+export class QuickBooksReconnectRequiredError extends Error {
+  reconnectRequired = true;
+  reconnectReason: QuickBooksReconnectReason;
+  reasonCode: string | null;
+
+  constructor(reason: QuickBooksReconnectReason, message = "QuickBooks reconnect is required", reasonCode?: string | null) {
+    super(message);
+    this.name = "QuickBooksReconnectRequiredError";
+    this.reconnectReason = reason;
+    this.reasonCode = reasonCode ?? null;
+  }
+}
+
+export function isQuickBooksReconnectRequiredError(error: unknown): error is QuickBooksReconnectRequiredError {
+  return error instanceof QuickBooksReconnectRequiredError;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" ? value as Record<string, unknown> : null;
+}
+
+function lowerString(value: unknown) {
+  return typeof value === "string" ? value.toLowerCase() : "";
+}
+
+function getTokenErrorCode(payload: unknown) {
+  const record = asRecord(payload);
+  const code = record?.error;
+  return typeof code === "string" ? code : null;
+}
+
+function isInvalidGrantTokenPayload(payload: unknown) {
+  return lowerString(getTokenErrorCode(payload)) === "invalid_grant";
+}
+
+function extractQuickBooksApiErrorCode(payload: unknown): string | null {
+  const record = asRecord(payload);
+  const fault = asRecord(record?.Fault);
+  const errors = Array.isArray(fault?.Error) ? fault?.Error : [];
+  const firstError = asRecord(errors[0]);
+  const code = firstError?.code;
+  return typeof code === "string" ? code : null;
+}
+
+function isUnauthorizedApiPayload(payload: unknown) {
+  const record = asRecord(payload);
+  const fault = asRecord(record?.Fault);
+  const errors = Array.isArray(fault?.Error) ? fault?.Error : [];
+  const firstError = asRecord(errors[0]);
+  const signals = [
+    lowerString(fault?.type),
+    lowerString(firstError?.Message),
+    lowerString(firstError?.Detail),
+    lowerString(firstError?.code),
+  ].filter(Boolean);
+  return signals.some((signal) =>
+    signal.includes("auth") || signal.includes("token") || signal.includes("unauthor")
+  );
+}
+
+async function parseJsonResponse(response: Response): Promise<unknown> {
+  const raw = await response.text();
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
 
 function getQuickBooksEnv() {
   return process.env.QUICKBOOKS_ENVIRONMENT === "production" ? "production" : "sandbox";
@@ -111,9 +188,12 @@ async function tokenRequest(params: URLSearchParams) {
     body: params.toString(),
   });
 
-  const payload = await response.json();
+  const payload = await parseJsonResponse(response);
   if (!response.ok) {
-    throw new Error(`QuickBooks token exchange failed: ${JSON.stringify(payload)}`);
+    if (isInvalidGrantTokenPayload(payload)) {
+      throw new QuickBooksReconnectRequiredError("invalid_grant", "QuickBooks authorization is no longer valid", "invalid_grant");
+    }
+    throw new Error("QuickBooks token exchange failed");
   }
 
   return payload as QuickBooksTokenResponse;
@@ -139,10 +219,43 @@ export async function refreshQuickBooksTokens(refreshToken: string) {
   return tokenRequest(params);
 }
 
+async function markReconnectRequired(connection: QuickBooksConnection, reason: QuickBooksReconnectReason, reasonCode?: string | null) {
+  await setQuickBooksConnectionAuthState({
+    realmId: connection.realm_id,
+    reconnectRequired: true,
+    reconnectReason: reason,
+    lastAuthErrorCode: reasonCode ?? null,
+  });
+}
+
+async function throwQuickBooksApiError(connection: QuickBooksConnection, response: Response, payload: unknown): Promise<never> {
+  const payloadRecord = asRecord(payload);
+  const unauthorized = (response.status === 401 || response.status === 403)
+    && (isUnauthorizedApiPayload(payload) || !payloadRecord || Object.keys(payloadRecord).length === 0);
+  if (unauthorized) {
+    const reasonCode = extractQuickBooksApiErrorCode(payload);
+    await markReconnectRequired(connection, "api_unauthorized", reasonCode);
+    throw new QuickBooksReconnectRequiredError(
+      "api_unauthorized",
+      "QuickBooks authorization is no longer valid",
+      reasonCode
+    );
+  }
+  throw new Error("QuickBooks API request failed");
+}
+
 export async function getFreshQuickBooksConnection(): Promise<QuickBooksConnection> {
   const connection = await getQuickBooksConnection();
   if (!connection) {
-    throw new Error("QuickBooks is not connected yet");
+    throw new QuickBooksReconnectRequiredError("missing_connection", "QuickBooks reconnect is required", "missing_connection");
+  }
+
+  if (connection.reconnect_required) {
+    throw new QuickBooksReconnectRequiredError(
+      (connection.reconnect_reason as QuickBooksReconnectReason | null) || "invalid_grant",
+      "QuickBooks reconnect is required",
+      connection.last_auth_error_code
+    );
   }
 
   const expiresAt = new Date(connection.token_expires_at).getTime();
@@ -150,13 +263,26 @@ export async function getFreshQuickBooksConnection(): Promise<QuickBooksConnecti
     return connection;
   }
 
-  const refreshed = await refreshQuickBooksTokens(connection.refresh_token);
+  let refreshed: QuickBooksTokenResponse;
+  try {
+    refreshed = await refreshQuickBooksTokens(connection.refresh_token);
+  } catch (error) {
+    if (isQuickBooksReconnectRequiredError(error)) {
+      await markReconnectRequired(connection, "invalid_grant", error.reasonCode);
+    }
+    throw error;
+  }
+
   const updated = await upsertQuickBooksConnection({
     realmId: connection.realm_id,
     accessToken: refreshed.access_token,
     refreshToken: refreshed.refresh_token,
     tokenExpiresAt: new Date(Date.now() + refreshed.expires_in * 1000),
     connectedByUserId: connection.connected_by_user_id || null,
+    reconnectRequired: false,
+    reconnectReason: null,
+    lastAuthErrorCode: null,
+    lastAuthErrorAt: null,
   });
 
   if (!updated) {
@@ -187,9 +313,9 @@ export async function quickBooksApiRequest<T>(options: {
       : undefined,
   });
 
-  const payload = await response.json();
+  const payload = await parseJsonResponse(response);
   if (!response.ok) {
-    throw new Error(`QuickBooks API error: ${JSON.stringify(payload)}`);
+    await throwQuickBooksApiError(connection, response, payload);
   }
 
   return payload as T;
@@ -211,9 +337,9 @@ export async function findQuickBooksCustomerByDisplayName(realmId: string, displ
       Accept: "application/json",
     },
   });
-  const result = await response.json() as { QueryResponse?: { Customer?: Array<{ Id: string }> } };
+  const result = await parseJsonResponse(response) as { QueryResponse?: { Customer?: Array<{ Id: string }> } };
   if (!response.ok) {
-    throw new Error(`QuickBooks API error: ${JSON.stringify(result)}`);
+    await throwQuickBooksApiError(connection, response, result);
   }
   return result.QueryResponse?.Customer?.[0] || null;
 }
@@ -335,9 +461,9 @@ export async function getQuickBooksCustomers(realmId: string): Promise<QuickBook
       Accept: "application/json",
     },
   });
-  const result = await response.json() as { QueryResponse?: { Customer?: Array<Record<string, unknown>> } };
+  const result = await parseJsonResponse(response) as { QueryResponse?: { Customer?: Array<Record<string, unknown>> } };
   if (!response.ok) {
-    throw new Error(`QuickBooks API error: ${JSON.stringify(result)}`);
+    await throwQuickBooksApiError(connection, response, result);
   }
   const customers = result.QueryResponse?.Customer || [];
   return customers.map((c) => ({
@@ -368,9 +494,9 @@ export async function getQuickBooksItems(realmId: string): Promise<QuickBooksIte
       Accept: "application/json",
     },
   });
-  const result = await response.json() as { QueryResponse?: { Item?: Array<Record<string, unknown>> } };
+  const result = await parseJsonResponse(response) as { QueryResponse?: { Item?: Array<Record<string, unknown>> } };
   if (!response.ok) {
-    throw new Error(`QuickBooks API error: ${JSON.stringify(result)}`);
+    await throwQuickBooksApiError(connection, response, result);
   }
   const items = result.QueryResponse?.Item || [];
   return items.map((item) => ({
@@ -399,9 +525,9 @@ export async function findQuickBooksInvoiceByDocNumber(
       Accept: "application/json",
     },
   });
-  const result = await response.json() as { QueryResponse?: { Invoice?: Array<Record<string, unknown>> } };
+  const result = await parseJsonResponse(response) as { QueryResponse?: { Invoice?: Array<Record<string, unknown>> } };
   if (!response.ok) {
-    throw new Error(`QuickBooks API error: ${JSON.stringify(result)}`);
+    await throwQuickBooksApiError(connection, response, result);
   }
   const invoices = result.QueryResponse?.Invoice || [];
   if (invoices.length === 0) return null;
@@ -435,8 +561,7 @@ export async function getQuickBooksInvoicePdf(realmId: string, qboInvoiceId: str
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`QuickBooks PDF download failed (${response.status}): ${text}`);
+    await throwQuickBooksApiError(connection, response, {});
   }
 
   const arrayBuffer = await response.arrayBuffer();

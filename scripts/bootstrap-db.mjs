@@ -166,9 +166,33 @@ async function run() {
         refresh_token TEXT NOT NULL,
         token_expires_at TIMESTAMP NOT NULL,
         connected_by_user_id VARCHAR(255),
+        reconnect_required BOOLEAN NOT NULL DEFAULT FALSE,
+        reconnect_reason VARCHAR(64),
+        last_auth_error_code VARCHAR(64),
+        last_auth_error_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )
+    `;
+
+    await tx`
+      ALTER TABLE quickbooks_connections
+      ADD COLUMN IF NOT EXISTS reconnect_required BOOLEAN NOT NULL DEFAULT FALSE
+    `;
+
+    await tx`
+      ALTER TABLE quickbooks_connections
+      ADD COLUMN IF NOT EXISTS reconnect_reason VARCHAR(64)
+    `;
+
+    await tx`
+      ALTER TABLE quickbooks_connections
+      ADD COLUMN IF NOT EXISTS last_auth_error_code VARCHAR(64)
+    `;
+
+    await tx`
+      ALTER TABLE quickbooks_connections
+      ADD COLUMN IF NOT EXISTS last_auth_error_at TIMESTAMP
     `;
 
     await tx`CREATE INDEX IF NOT EXISTS idx_invoices_client_id ON invoices(client_id)`;

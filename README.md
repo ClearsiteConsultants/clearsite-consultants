@@ -65,6 +65,8 @@ Open [http://localhost:3000](http://localhost:3000) with your browser.
 | `npm run build` | Create production build |
 | `npm run start` | Start production server from the build output |
 | `npm run lint` | Run ESLint |
+| `npm run test` | Run Vitest unit + route tests |
+| `npm run test:coverage` | Run Vitest with coverage reporting |
 | `npm run db:bootstrap` | Create required tables in the database targeted by `POSTGRES_URL` or `DATABASE_URL` |
 
 ## Local Database Setup (Windows + PostgreSQL)
@@ -130,6 +132,22 @@ This creates (or updates) the required tables and columns:
   `invoice_date`, `invoice_total`, `file_url`, `pdf_data`, `pdf_mime_type`, `pdf_filename`,
   `pdf_size`, `is_manual_link`, `notes`)
 - `quickbooks_connections`
+  - includes reconnect state columns: `reconnect_required`, `reconnect_reason`, `last_auth_error_code`, `last_auth_error_at`
+
+## QuickBooks reconnect-required schema notes
+
+- Migration is additive only: new columns are added to `quickbooks_connections` with safe defaults (`reconnect_required = false`).
+- Rollback is code-first: redeploy previous code if needed; additive columns can remain in place without breaking older builds.
+- Optional hard rollback SQL (only if required by your policy):
+  - `ALTER TABLE quickbooks_connections DROP COLUMN IF EXISTS reconnect_required, DROP COLUMN IF EXISTS reconnect_reason, DROP COLUMN IF EXISTS last_auth_error_code, DROP COLUMN IF EXISTS last_auth_error_at;`
+
+## Automated testing (Vitest)
+
+- Tests run locally without live Intuit API calls; use mocks for OAuth/API responses.
+- Keep sanitized fixture-style payloads in tests (do not commit raw OAuth tokens).
+- Run:
+  - `npm run test`
+  - `npm run test:coverage`
 
 ### 3. Start app and verify auth flow
 
@@ -318,4 +336,3 @@ If you need to roll back:
 - [Next.js Documentation](https://nextjs.org/docs)
 - [NextAuth Documentation](https://next-auth.js.org/)
 - [QuickBooks Online API](https://developer.intuit.com/app/developer/qbo/docs/api/accounting/most-commonly-used/invoice)
-

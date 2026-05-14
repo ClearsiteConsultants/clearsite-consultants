@@ -64,14 +64,17 @@ export default function AdminInvoices() {
   const [qboLoading, setQboLoading] = useState(true);
   const [qboStatus, setQboStatus] = useState<{
     connected: boolean;
+    reconnectRequired?: boolean;
+    reconnectReason?: string | null;
     realmId?: string;
     tokenExpiresAt?: string;
-  }>({ connected: false });
+  }>({ connected: false, reconnectRequired: false, reconnectReason: null });
   const [message, setMessage] = useState({ type: "", text: "" });
 
   const amountDueDisplay = amountDueDigits ? `$${formatCurrencyFromDigits(amountDueDigits)}` : "";
   const qboAmountDue = currencyDigitsToNumber(amountDueDigits);
   const qboAmountDueExceedsMax = parseInt(amountDueDigits || "0", 10) > MAX_AMOUNT_DUE_DIGITS;
+  const qboReconnectRequired = Boolean(qboStatus.reconnectRequired);
 
   useEffect(() => {
     const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
@@ -88,10 +91,10 @@ export default function AdminInvoices() {
   }, []);
 
   useEffect(() => {
-    if (qboStatus.connected) {
+    if (qboStatus.connected && !qboReconnectRequired) {
       loadQboCustomers();
     }
-  }, [qboStatus.connected]);
+  }, [qboStatus.connected, qboReconnectRequired]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -108,10 +111,10 @@ export default function AdminInvoices() {
 
   // Load QBO items whenever QBO becomes connected and the create form is active.
   useEffect(() => {
-    if (qboStatus.connected && formMode === "qbo-create") {
+    if (qboStatus.connected && !qboReconnectRequired && formMode === "qbo-create") {
       loadQboItems();
     }
-  }, [qboStatus.connected, formMode]);
+  }, [qboStatus.connected, qboReconnectRequired, formMode]);
 
   const loadClients = async () => {
     try {
@@ -131,7 +134,13 @@ export default function AdminInvoices() {
       const res = await fetch("/api/integrations/quickbooks/status", { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
-      setQboStatus(data);
+      setQboStatus({
+        connected: Boolean(data?.connected),
+        reconnectRequired: Boolean(data?.reconnectRequired),
+        reconnectReason: typeof data?.reconnectReason === "string" ? data.reconnectReason : null,
+        realmId: typeof data?.realmId === "string" ? data.realmId : undefined,
+        tokenExpiresAt: typeof data?.tokenExpiresAt === "string" ? data.tokenExpiresAt : undefined,
+      });
     } catch (error) {
       console.error("Failed to load QuickBooks status", error);
     } finally {
@@ -143,9 +152,14 @@ export default function AdminInvoices() {
     try {
       setQboItemsLoading(true);
       const res = await fetch("/api/invoices?action=qbo-items", { cache: "no-store" });
+      const payload = await res.json().catch(() => null);
+      if (payload?.reconnectRequired) {
+        setQboStatus((prev) => ({ ...prev, reconnectRequired: true, reconnectReason: payload.reconnectReason || null }));
+        setMessage({ type: "error", text: payload.error || "QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue." });
+        return;
+      }
       if (res.ok) {
-        const data = await res.json();
-        setQboItems(Array.isArray(data) ? data : []);
+        setQboItems(Array.isArray(payload) ? payload : []);
       }
     } catch (error) {
       console.error("Failed to load QBO items", error);
@@ -158,9 +172,14 @@ export default function AdminInvoices() {
     try {
       setQboCustomersLoading(true);
       const res = await fetch("/api/invoices?action=qbo-customers", { cache: "no-store" });
+      const payload = await res.json().catch(() => null);
+      if (payload?.reconnectRequired) {
+        setQboStatus((prev) => ({ ...prev, reconnectRequired: true, reconnectReason: payload.reconnectReason || null }));
+        setMessage({ type: "error", text: payload.error || "QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue." });
+        return;
+      }
       if (res.ok) {
-        const data = await res.json();
-        setQboCustomers(Array.isArray(data) ? data : []);
+        setQboCustomers(Array.isArray(payload) ? payload : []);
       }
     } catch (error) {
       console.error("Failed to load QBO customers", error);
@@ -223,6 +242,11 @@ export default function AdminInvoices() {
       return;
     }
 
+    if (qboReconnectRequired) {
+      setMessage({ type: "error", text: "QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue." });
+      return;
+    }
+
     if (!selectedClientId || qboAmountDue <= 0 || !dueDate) {
       setMessage({ type: "error", text: "Please fill in all required fields." });
       return;
@@ -246,7 +270,10 @@ export default function AdminInvoices() {
       const payload = await res.json();
       if (!res.ok) throw new Error(payload?.error || "Failed to create invoice");
 
-      if (payload?.sync_error) {
+      if (payload?.reconnectRequired) {
+        setQboStatus((prev) => ({ ...prev, reconnectRequired: true, reconnectReason: payload.reconnectReason || null }));
+        setMessage({ type: "error", text: payload?.sync_error || "QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue." });
+      } else if (payload?.sync_error) {
         setMessage({ type: "error", text: `Invoice created, but QuickBooks sync failed: ${payload.sync_error}` });
       } else if (payload?.qbo_invoice_id) {
         const docLabel = payload.qbo_doc_number ? ` (${payload.qbo_doc_number})` : "";
@@ -291,6 +318,10 @@ export default function AdminInvoices() {
     setSubmitting(true);
 
     try {
+      if (qboReconnectRequired) {
+        setMessage({ type: "error", text: "QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue." });
+        return;
+      }
       const res = await fetch("/api/invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -304,6 +335,11 @@ export default function AdminInvoices() {
       });
 
       const payload = await res.json();
+      if (payload?.reconnectRequired) {
+        setQboStatus((prev) => ({ ...prev, reconnectRequired: true, reconnectReason: payload.reconnectReason || null }));
+        setMessage({ type: "error", text: payload?.error || "QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue." });
+        return;
+      }
       if (!res.ok) {
         if (res.status === 404) {
           setMlErrors({ invoiceId: payload.error });
@@ -368,6 +404,11 @@ export default function AdminInvoices() {
               {qboStatus.connected ? "Reconnect QuickBooks" : "Connect QuickBooks"}
             </button>
           </div>
+          {qboReconnectRequired && (
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue using QuickBooks actions.
+            </div>
+          )}
         </div>
 
         {/* Mode Tabs */}
@@ -439,7 +480,7 @@ export default function AdminInvoices() {
                   value={selectedItemId}
                   onChange={(e) => handleItemSelect(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  disabled={qboItemsLoading || !qboStatus.connected}
+                  disabled={qboItemsLoading || !qboStatus.connected || qboReconnectRequired}
                 >
                   <option value="">{qboItemsLoading ? "Loading items..." : qboStatus.connected ? "Select a product or service" : "Connect QuickBooks to load items"}</option>
                   {qboItems.map((item) => (
@@ -489,9 +530,9 @@ export default function AdminInvoices() {
 
               <button
                 type="submit"
-                disabled={submitting}
-                className="w-full py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition disabled:opacity-50 flex items-center justify-center gap-2 uppercase tracking-[0.18em] text-sm"
-              >
+                  disabled={submitting || qboReconnectRequired}
+                  className="w-full py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition disabled:opacity-50 flex items-center justify-center gap-2 uppercase tracking-[0.18em] text-sm"
+                >
                 <PlusCircle className="w-4 h-4" />
                 {submitting ? "Creating..." : "Create Invoice in QuickBooks"}
               </button>
@@ -558,7 +599,7 @@ export default function AdminInvoices() {
                     value={mlQboCustomerId}
                     onChange={(e) => setMlQboCustomerId(e.target.value)}
                     className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 ${mlErrors.customer ? "border-red-400" : "border-gray-300"}`}
-                    disabled={qboCustomersLoading || !qboStatus.connected}
+                    disabled={qboCustomersLoading || !qboStatus.connected || qboReconnectRequired}
                   >
                     <option value="">
                       {qboCustomersLoading
@@ -599,7 +640,7 @@ export default function AdminInvoices() {
               <div className="flex gap-3">
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || qboReconnectRequired}
                   className="flex-1 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition disabled:opacity-50 flex items-center justify-center gap-2 uppercase tracking-[0.18em] text-sm"
                 >
                   <PlusCircle className="w-4 h-4" />

@@ -8,7 +8,7 @@ import {
   getClientInvoicesForPortal,
 } from "@/lib/db";
 import { getQuickBooksConnection } from "@/lib/db";
-import { getQuickBooksItems, getQuickBooksCustomers } from "@/lib/quickbooks";
+import { getQuickBooksItems, getQuickBooksCustomers, isQuickBooksReconnectRequiredError } from "@/lib/quickbooks";
 import { syncClientInvoicesFromQuickBooks, syncInvoiceToQuickBooks, linkInvoiceById } from "@/lib/quickbooks-sync";
 
 function parseClientId(sessionUserId: string) {
@@ -16,6 +16,15 @@ function parseClientId(sessionUserId: string) {
     return sessionUserId.slice("client:".length);
   }
   return sessionUserId;
+}
+
+function quickBooksReconnectResponse(error: unknown) {
+  if (!isQuickBooksReconnectRequiredError(error)) return null;
+  return {
+    reconnectRequired: true,
+    reconnectReason: error.reconnectReason,
+    message: "QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue.",
+  };
 }
 
 // GET /api/invoices - Get client's invoices or admin lists
@@ -62,12 +71,34 @@ export async function GET(req: NextRequest) {
       }
       const connection = await getQuickBooksConnection();
       if (!connection) {
-        return NextResponse.json({ error: "QuickBooks is not connected" }, { status: 503 });
+        return NextResponse.json(
+          {
+            error: "QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue.",
+            reconnectRequired: true,
+            reconnectReason: "missing_connection",
+          },
+          { status: 503 }
+        );
       }
-      const customers = await getQuickBooksCustomers(connection.realm_id);
-      return NextResponse.json(customers, {
-        headers: { "Cache-Control": "no-store, max-age=0" },
-      });
+      try {
+        const customers = await getQuickBooksCustomers(connection.realm_id);
+        return NextResponse.json(customers, {
+          headers: { "Cache-Control": "no-store, max-age=0" },
+        });
+      } catch (error) {
+        const reconnect = quickBooksReconnectResponse(error);
+        if (reconnect) {
+          return NextResponse.json(
+            {
+              error: reconnect.message,
+              reconnectRequired: true,
+              reconnectReason: reconnect.reconnectReason,
+            },
+            { status: 503 }
+          );
+        }
+        throw error;
+      }
     }
 
     if (action === "qbo-items") {
@@ -76,19 +107,52 @@ export async function GET(req: NextRequest) {
       }
       const connection = await getQuickBooksConnection();
       if (!connection) {
-        return NextResponse.json({ error: "QuickBooks is not connected" }, { status: 503 });
+        return NextResponse.json(
+          {
+            error: "QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue.",
+            reconnectRequired: true,
+            reconnectReason: "missing_connection",
+          },
+          { status: 503 }
+        );
       }
-      const items = await getQuickBooksItems(connection.realm_id);
-      return NextResponse.json(items, {
-        headers: { "Cache-Control": "no-store, max-age=0" },
-      });
+      try {
+        const items = await getQuickBooksItems(connection.realm_id);
+        return NextResponse.json(items, {
+          headers: { "Cache-Control": "no-store, max-age=0" },
+        });
+      } catch (error) {
+        const reconnect = quickBooksReconnectResponse(error);
+        if (reconnect) {
+          return NextResponse.json(
+            {
+              error: reconnect.message,
+              reconnectRequired: true,
+              reconnectReason: reconnect.reconnectReason,
+            },
+            { status: 503 }
+          );
+        }
+        throw error;
+      }
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+      const reconnect = quickBooksReconnectResponse(error);
+      if (reconnect) {
+        return NextResponse.json(
+          {
+            error: reconnect.message,
+            reconnectRequired: true,
+            reconnectReason: reconnect.reconnectReason,
+          },
+          { status: 503 }
+        );
+      }
+      const message = error instanceof Error ? error.message : "Internal server error";
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
 }
 
 // POST /api/invoices - Create invoice (admin only)
@@ -177,12 +241,26 @@ export async function POST(req: NextRequest) {
         const syncedInvoice = await syncInvoiceToQuickBooks(String(invoice.id), invoiceWithItem);
         return NextResponse.json(syncedInvoice, { status: 201 });
       } catch (syncError: unknown) {
+        const reconnect = quickBooksReconnectResponse(syncError);
+        if (reconnect) {
+          return NextResponse.json(
+            {
+              ...invoice,
+              qbo_sync_status: "sync_error",
+              sync_error: reconnect.message,
+              reconnectRequired: true,
+              reconnectReason: reconnect.reconnectReason,
+            },
+            { status: 201 }
+          );
+        }
         const syncMessage = syncError instanceof Error ? syncError.message : "QuickBooks sync failed";
         return NextResponse.json(
           {
             ...invoice,
             qbo_sync_status: "sync_error",
             sync_error: syncMessage,
+            reconnectRequired: false,
           },
           { status: 201 }
         );
