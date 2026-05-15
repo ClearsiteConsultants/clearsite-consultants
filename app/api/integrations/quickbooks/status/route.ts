@@ -12,7 +12,11 @@ export async function GET() {
   const connection = await getQuickBooksConnection();
 
   return NextResponse.json(
-    { connected: Boolean(connection) },
+    {
+      connected: Boolean(connection),
+      reconnectRequired: Boolean(connection?.reconnect_required),
+      reconnectReason: connection?.reconnect_reason || null,
+    },
     {
       headers: {
         "Cache-Control": "no-store, max-age=0",
