@@ -14,8 +14,24 @@ type QuickBooksTokenResponse = {
   token_type: string;
 };
 
+type DiscoveryDocument = {
+  authorization_endpoint: string;
+  token_endpoint: string;
+  [key: string]: unknown;
+};
+
+type CachedEndpoints = {
+  authorization_endpoint: string;
+  token_endpoint: string;
+  expiry: number;
+};
+
 // Alias the DB row type so internal callers have a stable name.
 type QuickBooksConnection = QuickBooksConnectionRow;
+
+// Module-level cache for discovery document endpoints
+let cachedEndpoints: CachedEndpoints | null = null;
+const DISCOVERY_CACHE_TTL_MS = (parseInt(process.env.DISCOVERY_CACHE_TTL_MINUTES || "30", 10) * 60 * 1000);
 
 export type QuickBooksReconnectReason = "missing_connection" | "invalid_grant" | "api_unauthorized";
 
@@ -119,6 +135,99 @@ function getStateSecret() {
   return secret;
 }
 
+function getDiscoveryDocumentUrl() {
+  const env = getQuickBooksEnv();
+  return env === "production"
+    ? "https://developer.api.intuit.com/.well-known/openid_configuration"
+    : "https://developer.api.intuit.com/.well-known/openid_sandbox_configuration";
+}
+
+async function fetchDiscoveryDocument(): Promise<DiscoveryDocument | null> {
+  try {
+    const url = getDiscoveryDocumentUrl();
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(3000), // 3-second timeout
+    });
+
+    if (!response.ok) {
+      console.warn(
+        `[QuickBooks] Failed to fetch discovery document (status ${response.status}). Will use hardcoded endpoints.`
+      );
+      return null;
+    }
+
+    const doc = (await response.json()) as DiscoveryDocument;
+    return doc;
+  } catch (error) {
+    console.warn(
+      `[QuickBooks] Failed to fetch discovery document: ${error instanceof Error ? error.message : String(error)}. Will use hardcoded endpoints.`
+    );
+    return null;
+  }
+}
+
+function validateDiscoveredEndpoints(doc: DiscoveryDocument | null): CachedEndpoints | null {
+  if (!doc) return null;
+
+  const { authorization_endpoint, token_endpoint } = doc;
+
+  // Validate both endpoints exist and are strings
+  if (typeof authorization_endpoint !== "string" || typeof token_endpoint !== "string") {
+    console.warn("[QuickBooks] Discovery document missing required endpoints. Will use hardcoded endpoints.");
+    return null;
+  }
+
+  // Validate both are HTTPS URLs
+  try {
+    const authUrl = new URL(authorization_endpoint);
+    const tokenUrl = new URL(token_endpoint);
+
+    if (authUrl.protocol !== "https:" || tokenUrl.protocol !== "https:") {
+      throw new Error("Endpoints must use HTTPS");
+    }
+
+    // Whitelist of trusted Intuit domains
+    const trustedDomains = ["appcenter.intuit.com", "oauth.platform.intuit.com", "oauth.intuit.com"];
+    const authHostValid = trustedDomains.includes(authUrl.hostname);
+    const tokenHostValid = trustedDomains.includes(tokenUrl.hostname);
+
+    if (!authHostValid || !tokenHostValid) {
+      throw new Error(
+        `Invalid endpoint hostname. Auth: ${authUrl.hostname}, Token: ${tokenUrl.hostname}. Expected one of: ${trustedDomains.join(", ")}`
+      );
+    }
+
+    return {
+      authorization_endpoint,
+      token_endpoint,
+      expiry: Date.now() + DISCOVERY_CACHE_TTL_MS,
+    };
+  } catch (error) {
+    console.warn(`[QuickBooks] Invalid discovery document endpoints: ${error instanceof Error ? error.message : String(error)}. Will use hardcoded endpoints.`);
+    return null;
+  }
+}
+
+async function getCachedEndpoints(): Promise<CachedEndpoints | null> {
+  // Return cached endpoints if still valid
+  if (cachedEndpoints && cachedEndpoints.expiry > Date.now()) {
+    return cachedEndpoints;
+  }
+
+  // Fetch fresh discovery document
+  const doc = await fetchDiscoveryDocument();
+  const validated = validateDiscoveredEndpoints(doc);
+
+  if (validated) {
+    cachedEndpoints = validated;
+    return validated;
+  }
+
+  return null;
+}
+
 function toBase64Url(value: string) {
   return Buffer.from(value, "utf8").toString("base64url");
 }
@@ -157,11 +266,15 @@ export function verifyQuickBooksOAuthState(state: string) {
   return parsed;
 }
 
-export function buildQuickBooksAuthorizeUrl(state: string) {
+export async function buildQuickBooksAuthorizeUrl(state: string) {
   const { clientId, redirectUri } = getOAuthConfig();
-  const authorizeBase = getQuickBooksEnv() === "production"
-    ? "https://appcenter.intuit.com/connect/oauth2"
-    : "https://appcenter.intuit.com/connect/oauth2";
+  
+  // Try to use discovered endpoint, fall back to hardcoded
+  let authorizationEndpoint = "https://appcenter.intuit.com/connect/oauth2";
+  const discovered = await getCachedEndpoints();
+  if (discovered) {
+    authorizationEndpoint = discovered.authorization_endpoint;
+  }
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -171,14 +284,21 @@ export function buildQuickBooksAuthorizeUrl(state: string) {
     state,
   });
 
-  return `${authorizeBase}?${params.toString()}`;
+  return `${authorizationEndpoint}?${params.toString()}`;
 }
 
 async function tokenRequest(params: URLSearchParams) {
   const { clientId, clientSecret } = getOAuthConfig();
   const basic = Buffer.from(`${clientId}:${clientSecret}`, "utf8").toString("base64");
 
-  const response = await fetch("https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer", {
+  // Try to use discovered endpoint, fall back to hardcoded
+  let tokenEndpoint = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
+  const discovered = await getCachedEndpoints();
+  if (discovered) {
+    tokenEndpoint = discovered.token_endpoint;
+  }
+
+  const response = await fetch(tokenEndpoint, {
     method: "POST",
     headers: {
       Authorization: `Basic ${basic}`,
@@ -207,7 +327,7 @@ export async function exchangeCodeForTokens(code: string) {
     redirect_uri: redirectUri,
   });
 
-  return tokenRequest(params);
+  return await tokenRequest(params);
 }
 
 export async function refreshQuickBooksTokens(refreshToken: string) {
@@ -216,7 +336,7 @@ export async function refreshQuickBooksTokens(refreshToken: string) {
     refresh_token: refreshToken,
   });
 
-  return tokenRequest(params);
+  return await tokenRequest(params);
 }
 
 async function markReconnectRequired(connection: QuickBooksConnection, reason: QuickBooksReconnectReason, reasonCode?: string | null) {

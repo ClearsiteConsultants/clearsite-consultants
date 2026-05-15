@@ -303,6 +303,7 @@ Use this mode to attach a pre-existing QuickBooks invoice to a local client acco
 | `QUICKBOOKS_REDIRECT_URI` | `https://YOUR_DOMAIN/api/integrations/quickbooks/callback` |
 | `QUICKBOOKS_DEFAULT_ITEM_ID` | QuickBooks service item ID for invoice line items |
 | `QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN` | Intuit webhook verifier token |
+| `DISCOVERY_CACHE_TTL_MINUTES` | Cache TTL for OAuth discovery document (optional, default: 30 minutes). Lower values mean more frequent endpoint updates but higher API calls. |
 
 > `BLOB_READ_WRITE_TOKEN` is no longer required for the invoice flow. It can be kept if you use the legacy upload endpoint for other purposes.
 
