@@ -110,7 +110,7 @@ export default function Login() {
       });
 
       if (signInResult?.ok) {
-        router.push("/portal");
+        router.push("/account-settings");
       } else if (signInResult?.error) {
         setMessage({
           type: "error",

@@ -48,9 +48,12 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    const { id, plan, service_status } = await req.json();
-    const normalizedPlan = plan ?? null;
-    const normalizedServiceStatus = service_status ?? null;
+    const body = await req.json();
+    const { id, plan, service_status } = body;
+    const hasPlan = Object.prototype.hasOwnProperty.call(body, "plan");
+    const hasServiceStatus = Object.prototype.hasOwnProperty.call(body, "service_status");
+    const normalizedPlan = typeof plan === "string" ? plan.trim() : plan;
+    const normalizedServiceStatus = typeof service_status === "string" ? service_status.trim() : service_status;
 
     if (!id) {
       return NextResponse.json(
@@ -62,8 +65,14 @@ export async function PUT(req: NextRequest) {
     // Update client
     const result = await sql`
       UPDATE clients
-      SET plan = COALESCE(${normalizedPlan}, plan),
-          service_status = COALESCE(${normalizedServiceStatus}, service_status),
+      SET plan = CASE
+            WHEN ${hasPlan} THEN ${normalizedPlan ?? null}
+            ELSE plan
+          END,
+          service_status = CASE
+            WHEN ${hasServiceStatus} THEN ${normalizedServiceStatus ?? null}
+            ELSE service_status
+          END,
           updated_at = NOW()
       WHERE id = ${id}
       RETURNING id, email, company_name, plan, service_status, first_name, last_name, phone, next_invoice_due

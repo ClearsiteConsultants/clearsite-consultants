@@ -27,7 +27,7 @@ Admin enters **client**, optional **product/service** (dropdown), **amount**, op
    - If a product/service is selected, its item ID is passed to QBO and its unit price auto-fills the amount field.
    - If an invoice date is provided, it is passed as `TxnDate` to QBO.
 3. Downloads the invoice PDF from QuickBooks and stores it in the database.
-4. Persists the QuickBooks invoice ID, doc number, payment URL, invoice date, and both pre-tax amount (`amount_due`) and QBO tax-inclusive total (`invoice_total`).
+4. Persists the QuickBooks invoice ID, doc number, payment URL, invoice date, and canonical invoice total (`invoice_total`).
 5. Returns all of this in the API response; the portal immediately shows Pay Now and View PDF.
 
 ### Manual-link mode (for pre-existing QuickBooks invoices)
@@ -39,7 +39,7 @@ Admin can link an already-existing QuickBooks invoice without creating a new one
 - Saved invoices are tagged as **"Manually linked"** in the portal.
 
 ### Portal
-Clients see the QuickBooks-generated doc number, **Invoice Date**, **Due Date**, pre-tax amount (`amount_due`), QBO total (`invoice_total`), a **Pay Now** button, and a **View PDF** button. PDF is served from `/api/invoices/[id]/pdf` when `pdf_data` is stored, or falls back to `file_url` for legacy invoices.
+Clients see the QuickBooks-generated doc number, **Invoice Date**, **Due Date**, canonical **TOTAL** (`invoice_total`), a **Pay Now** button, and a **View PDF** button. PDF is served from `/api/invoices/[id]/pdf` when `pdf_data` is stored, or falls back to `file_url` for legacy invoices.
 
 ## Getting Started
 

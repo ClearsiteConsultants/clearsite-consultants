@@ -30,7 +30,7 @@ async function run() {
         last_name VARCHAR(255) NOT NULL DEFAULT '',
         phone VARCHAR(50),
         domain_name VARCHAR(255),
-        plan VARCHAR(100) DEFAULT 'Starter',
+        plan VARCHAR(100) DEFAULT NULL,
         service_status VARCHAR(50) DEFAULT 'Active',
         next_invoice_due DATE,
         created_at TIMESTAMP DEFAULT NOW(),
@@ -48,6 +48,11 @@ async function run() {
       ADD COLUMN IF NOT EXISTS qbo_customer_id VARCHAR(64)
     `;
 
+    await tx`
+      ALTER TABLE clients
+      ALTER COLUMN plan DROP DEFAULT
+    `;
+
     // Migration: add first_name / last_name for existing databases that still have contact_name.
     await tx`
       ALTER TABLE clients
@@ -57,6 +62,36 @@ async function run() {
     await tx`
       ALTER TABLE clients
       ADD COLUMN IF NOT EXISTS last_name VARCHAR(255) NOT NULL DEFAULT ''
+    `;
+
+    await tx`
+      ALTER TABLE clients
+      ADD COLUMN IF NOT EXISTS billing_address_line1 VARCHAR(255)
+    `;
+
+    await tx`
+      ALTER TABLE clients
+      ADD COLUMN IF NOT EXISTS billing_address_line2 VARCHAR(255)
+    `;
+
+    await tx`
+      ALTER TABLE clients
+      ADD COLUMN IF NOT EXISTS billing_city VARCHAR(255)
+    `;
+
+    await tx`
+      ALTER TABLE clients
+      ADD COLUMN IF NOT EXISTS billing_state VARCHAR(255)
+    `;
+
+    await tx`
+      ALTER TABLE clients
+      ADD COLUMN IF NOT EXISTS billing_postal_code VARCHAR(50)
+    `;
+
+    await tx`
+      ALTER TABLE clients
+      ADD COLUMN IF NOT EXISTS billing_country VARCHAR(255)
     `;
 
     // Drop legacy contact_name column if it still exists.
@@ -156,6 +191,12 @@ async function run() {
     await tx`
       ALTER TABLE invoices
       ADD COLUMN IF NOT EXISTS invoice_total NUMERIC(10,2)
+    `;
+
+    await tx`
+      UPDATE invoices
+      SET invoice_total = COALESCE(invoice_total, amount_due)
+      WHERE invoice_total IS NULL
     `;
 
     await tx`

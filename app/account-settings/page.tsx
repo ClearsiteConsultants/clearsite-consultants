@@ -19,6 +19,20 @@ export default function AccountSettings() {
     newPassword: "",
     confirmPassword: "",
   });
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [savingBilling, setSavingBilling] = useState(false);
+  const [billingMessage, setBillingMessage] = useState({ type: "", text: "" });
+  const [billingForm, setBillingForm] = useState({
+    billing_address_line1: "",
+    billing_address_line2: "",
+    billing_city: "",
+    billing_state: "",
+    billing_postal_code: "",
+    billing_country: "",
+  });
+  const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
+  const firstName = (session?.user as { first_name?: string } | undefined)?.first_name;
+  const lastName = (session?.user as { last_name?: string } | undefined)?.last_name;
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -26,9 +40,31 @@ export default function AccountSettings() {
     }
   }, [status, router]);
 
-  const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
-  const firstName = (session?.user as { first_name?: string } | undefined)?.first_name;
-  const lastName = (session?.user as { last_name?: string } | undefined)?.last_name;
+  useEffect(() => {
+    const loadBilling = async () => {
+      if (status !== "authenticated" || userType !== "client") return;
+      setBillingLoading(true);
+      try {
+        const response = await fetch("/api/clients/me", { cache: "no-store" });
+        if (!response.ok) return;
+        const payload = await response.json();
+        setBillingForm({
+          billing_address_line1: payload.billing_address_line1 || "",
+          billing_address_line2: payload.billing_address_line2 || "",
+          billing_city: payload.billing_city || "",
+          billing_state: payload.billing_state || "",
+          billing_postal_code: payload.billing_postal_code || "",
+          billing_country: payload.billing_country || "",
+        });
+      } catch {
+        setBillingMessage({ type: "error", text: "Unable to load billing address." });
+      } finally {
+        setBillingLoading(false);
+      }
+    };
+
+    loadBilling();
+  }, [status, userType]);
 
   const handlePasswordFieldChange = (field: "newPassword" | "confirmPassword", value: string) => {
     setPasswordForm((prev) => ({ ...prev, [field]: value }));
@@ -93,6 +129,39 @@ export default function AccountSettings() {
       });
     } finally {
       setChangingPassword(false);
+    }
+  };
+
+  const handleBillingChange = (field: keyof typeof billingForm, value: string) => {
+    setBillingForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleBillingSave = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSavingBilling(true);
+    setBillingMessage({ type: "", text: "" });
+
+    try {
+      const response = await fetch("/api/clients/me", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(billingForm),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        setBillingMessage({ type: "error", text: payload?.error || "Unable to save billing address." });
+        return;
+      }
+
+      setBillingMessage({
+        type: payload?.warning ? "error" : "success",
+        text: payload?.warning || "Billing address saved successfully.",
+      });
+    } catch {
+      setBillingMessage({ type: "error", text: "Unable to save billing address." });
+    } finally {
+      setSavingBilling(false);
     }
   };
 
@@ -260,6 +329,101 @@ export default function AccountSettings() {
             </>
           )}
         </div>
+
+        {userType === "client" && (
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mt-8">
+            <h2 className="font-display text-3xl text-gray-900 mb-2">Billing Address</h2>
+            <p className="text-gray-600 mb-4">Billing address is required for invoicing.</p>
+
+            {billingMessage.text && (
+              <div
+                className={`mb-4 rounded-lg p-3 text-sm ${
+                  billingMessage.type === "success"
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-amber-50 text-amber-700"
+                }`}
+              >
+                {billingMessage.text}
+              </div>
+            )}
+
+            {billingLoading ? (
+              <p className="text-gray-600">Loading billing address...</p>
+            ) : (
+              <form onSubmit={handleBillingSave} className="grid gap-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Address Line 1 *</label>
+                  <input
+                    type="text"
+                    value={billingForm.billing_address_line1}
+                    onChange={(event) => handleBillingChange("billing_address_line1", event.target.value)}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    required
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Address Line 2</label>
+                  <input
+                    type="text"
+                    value={billingForm.billing_address_line2}
+                    onChange={(event) => handleBillingChange("billing_address_line2", event.target.value)}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">City *</label>
+                  <input
+                    type="text"
+                    value={billingForm.billing_city}
+                    onChange={(event) => handleBillingChange("billing_city", event.target.value)}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">State/Province *</label>
+                  <input
+                    type="text"
+                    value={billingForm.billing_state}
+                    onChange={(event) => handleBillingChange("billing_state", event.target.value)}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Postal Code *</label>
+                  <input
+                    type="text"
+                    value={billingForm.billing_postal_code}
+                    onChange={(event) => handleBillingChange("billing_postal_code", event.target.value)}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Country *</label>
+                  <input
+                    type="text"
+                    value={billingForm.billing_country}
+                    onChange={(event) => handleBillingChange("billing_country", event.target.value)}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    required
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <button
+                    type="submit"
+                    disabled={savingBilling}
+                    className="rounded-xl bg-primary px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {savingBilling ? "Saving..." : "Save Billing Address"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

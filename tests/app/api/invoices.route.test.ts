@@ -5,12 +5,14 @@ const {
   authMock,
   getQuickBooksConnectionMock,
   createInvoiceMock,
+  getClientBillingAddressMock,
   syncInvoiceToQuickBooksMock,
   getQuickBooksItemsMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn(),
   getQuickBooksConnectionMock: vi.fn(),
   createInvoiceMock: vi.fn(),
+  getClientBillingAddressMock: vi.fn(),
   syncInvoiceToQuickBooksMock: vi.fn(),
   getQuickBooksItemsMock: vi.fn(),
 }));
@@ -21,6 +23,7 @@ vi.mock("@/lib/db", () => ({
   updateClientPlan: vi.fn(),
   cancelClientService: vi.fn(),
   createInvoice: createInvoiceMock,
+  getClientBillingAddress: getClientBillingAddressMock,
   getAllClients: vi.fn(),
   getClientInvoicesForPortal: vi.fn(),
   getQuickBooksConnection: getQuickBooksConnectionMock,
@@ -44,6 +47,14 @@ describe("/api/invoices reconnect-required responses", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     authMock.mockResolvedValue({ user: { id: "admin:1", user_type: "admin" } });
+    getClientBillingAddressMock.mockResolvedValue({
+      id: "1",
+      billing_address_line1: "123 Main St",
+      billing_city: "Austin",
+      billing_state: "TX",
+      billing_postal_code: "78701",
+      billing_country: "US",
+    });
   });
 
   it("returns reconnectRequired=true for qbo-items when auth is invalid", async () => {
@@ -77,7 +88,7 @@ describe("/api/invoices reconnect-required responses", () => {
       method: "POST",
       body: JSON.stringify({
         client_id: "1",
-        amount_due: 100,
+        invoice_total: 100,
         due_date: "2026-01-01",
         sync_to_qbo: true,
       }),
@@ -90,5 +101,33 @@ describe("/api/invoices reconnect-required responses", () => {
     expect(res.status).toBe(201);
     expect(payload.reconnectRequired).toBe(true);
     expect(payload.reconnectReason).toBe("invalid_grant");
+  });
+
+  it("blocks invoice creation when required billing address fields are missing", async () => {
+    getClientBillingAddressMock.mockResolvedValue({
+      id: "1",
+      billing_address_line1: null,
+      billing_city: "Austin",
+      billing_state: "TX",
+      billing_postal_code: "78701",
+      billing_country: "US",
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/invoices", {
+      method: "POST",
+      body: JSON.stringify({
+        client_id: "1",
+        invoice_total: 100,
+        due_date: "2026-01-01",
+      }),
+      headers: { "content-type": "application/json" },
+    });
+
+    const res = await POST(req);
+    const payload = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(payload.error).toContain("Billing address is incomplete");
+    expect(createInvoiceMock).not.toHaveBeenCalled();
   });
 });

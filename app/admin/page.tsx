@@ -12,7 +12,7 @@ interface ClientUser {
   id: string;
   email: string;
   company_name: string;
-  plan: string;
+  plan: string | null;
   service_status: string;
   next_invoice_due: string | null;
   first_name: string;
@@ -22,7 +22,7 @@ interface ClientUser {
 
 interface EditingClient {
   id: string;
-  plan: string;
+  plan: string | null;
   service_status: string;
 }
 
@@ -171,7 +171,7 @@ export default function AdminDashboard() {
                         <td className="px-6 py-4 font-medium">{client.company_name}</td>
                         <td className="px-6 py-4 text-sm">{client.email}</td>
                         <td className="px-6 py-4 text-sm">{[client.first_name, client.last_name].filter(Boolean).join(" ") || "—"}</td>
-                        <td className="px-6 py-4 text-sm">{client.plan}</td>
+                        <td className="px-6 py-4 text-sm">{client.plan || "—"}</td>
                         <td className="px-6 py-4 text-sm">{formatDate(client.next_invoice_due)}</td>
                         <td className="px-6 py-4">
                           <span
@@ -251,15 +251,30 @@ export default function AdminDashboard() {
               <div>
                 <label className="block text-sm font-medium mb-1">Plan</label>
                 <select
-                  value={editingClient.plan}
+                  value={editingClient.plan || ""}
                   onChange={(e) =>
-                    setEditingClient({ ...editingClient, plan: e.target.value })
+                    setEditingClient({ ...editingClient, plan: e.target.value || null })
                   }
                   className="w-full px-3 py-2 border rounded-md"
                 >
+                  <option value="">No active plan</option>
                   <option value="Starter">Starter</option>
                   <option value="Feature-Rich">Feature-Rich</option>
                 </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const confirmed = window.confirm(
+                      "Canceling this plan will remove the client from an active plan. Are you sure you want to proceed?"
+                    );
+                    if (confirmed) {
+                      setEditingClient({ ...editingClient, plan: null });
+                    }
+                  }}
+                  className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+                >
+                  Cancel Plan
+                </button>
               </div>
 
               <div>

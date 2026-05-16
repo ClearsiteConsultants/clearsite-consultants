@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
 import {
-  updateClientPlan,
-  cancelClientService,
   createInvoice,
   getAllClients,
+  getClientBillingAddress,
   getClientInvoicesForPortal,
 } from "@/lib/db";
 import { getQuickBooksConnection } from "@/lib/db";
@@ -167,7 +166,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       client_id,
-      amount_due,
+      invoice_total,
       invoice_date,
       due_date,
       qbo_item_id,
@@ -179,11 +178,41 @@ export async function POST(req: NextRequest) {
       qbo_customer_id,
     } = body;
 
+    if (!client_id) {
+      return NextResponse.json({ error: "Client is required." }, { status: 400 });
+    }
+
+    const selectedClient = await getClientBillingAddress(String(client_id));
+    if (!selectedClient) {
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    }
+
+    const requiredBillingFields: Array<{
+      key: "billing_address_line1" | "billing_city" | "billing_state" | "billing_postal_code" | "billing_country";
+      label: string;
+    }> = [
+      { key: "billing_address_line1", label: "line1" },
+      { key: "billing_city", label: "city" },
+      { key: "billing_state", label: "state" },
+      { key: "billing_postal_code", label: "postal code" },
+      { key: "billing_country", label: "country" },
+    ];
+
+    const missingBillingFields = requiredBillingFields
+      .filter(({ key }) => !String(selectedClient[key] ?? "").trim())
+      .map(({ label }) => label);
+
+    if (missingBillingFields.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Billing address is incomplete. Missing required fields: ${missingBillingFields.join(", ")}.`,
+        },
+        { status: 400 }
+      );
+    }
+
     // ── Manual-link mode ──────────────────────────────────────────────
     if (mode === "manual-link") {
-      if (!client_id) {
-        return NextResponse.json({ error: "Client is required." }, { status: 400 });
-      }
       if (!qbo_invoice_id || !String(qbo_invoice_id).trim()) {
         return NextResponse.json({ error: "QuickBooks Invoice ID is required." }, { status: 400 });
       }
@@ -216,7 +245,13 @@ export async function POST(req: NextRequest) {
     }
 
     // ── QuickBooks-first mode (default) ───────────────────────────────
-    if (!client_id || !amount_due || !due_date) {
+    if (!client_id || !invoice_total || !due_date) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+    if (Number(invoice_total) <= 0) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -226,7 +261,7 @@ export async function POST(req: NextRequest) {
     const invoice = await createInvoice({
       client_id,
       invoice_number: null,
-      amount_due: Number(amount_due),
+      invoice_total: Number(invoice_total),
       invoice_date: invoice_date || null,
       due_date,
       qbo_sync_status: "pending",
@@ -268,33 +303,6 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(invoice, { status: 201 });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
-
-// PUT /api/invoices - Update plan or cancel service
-export async function PUT(req: NextRequest) {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { action, client_id, new_plan } = await req.json();
-
-    if (action === "update-plan") {
-      const client = await updateClientPlan(client_id, new_plan);
-      return NextResponse.json(client);
-    }
-
-    if (action === "cancel-service") {
-      const client = await cancelClientService(client_id);
-      return NextResponse.json(client);
-    }
-
-    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
