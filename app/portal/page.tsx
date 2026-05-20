@@ -2,6 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
@@ -10,17 +11,21 @@ interface Client {
   id: string;
   company_name: string;
   domain_name: string;
-  plan: string;
+  plan: string | null;
   service_status: string;
   next_invoice_due: string | null;
+  billing_address_line1: string | null;
+  billing_city: string | null;
+  billing_state: string | null;
+  billing_postal_code: string | null;
+  billing_country: string | null;
 }
 
 interface Invoice {
   id: string;
   invoice_number: string | null;
   qbo_doc_number: string | null;
-  amount_due: number;
-  invoice_total: number | null;
+  invoice_total: number;
   amount_paid: number;
   invoice_date: string | null;
   due_date: string;
@@ -53,7 +58,6 @@ export default function Portal() {
   const [client, setClient] = useState<Client | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [updatingPlan, setUpdatingPlan] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -96,53 +100,13 @@ export default function Portal() {
     loadClient();
   }, [status, userType]);
 
-  const handlePlanChange = async (newPlan: string) => {
-    if (!client) return;
-    setUpdatingPlan(true);
-
-    try {
-      const res = await fetch("/api/invoices", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "update-plan",
-          client_id: client.id,
-          new_plan: newPlan,
-        }),
-      });
-
-      if (res.ok) {
-        await res.json();
-        setClient({ ...client, plan: newPlan });
-      }
-    } catch (error) {
-      console.error("Failed to update plan", error);
-    } finally {
-      setUpdatingPlan(false);
-    }
-  };
-
-  const handleCancelService = async () => {
-    if (!client || !confirm("Are you sure you want to cancel your service?")) return;
-
-    try {
-      const res = await fetch("/api/invoices", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "cancel-service",
-          client_id: client.id,
-        }),
-      });
-
-      if (res.ok) {
-        await res.json();
-        setClient({ ...client, service_status: "Canceled" });
-      }
-    } catch (error) {
-      console.error("Failed to cancel service", error);
-    }
-  };
+  const hasBillingAddress = Boolean(
+    client?.billing_address_line1?.trim() &&
+      client?.billing_city?.trim() &&
+      client?.billing_state?.trim() &&
+      client?.billing_postal_code?.trim() &&
+      client?.billing_country?.trim()
+  );
 
   if (status === "loading" || loading) {
     return (
@@ -183,7 +147,7 @@ export default function Portal() {
         <div className="grid md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Current Plan</h3>
-            <p className="text-2xl font-bold text-gray-900">{client?.plan || "N/A"}</p>
+            <p className="text-2xl font-bold text-gray-900">{client?.plan || "Not enrolled"}</p>
           </div>
 
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
@@ -202,26 +166,29 @@ export default function Portal() {
         {/* Plan Management */}
         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mb-8">
           <h2 className="font-display text-3xl text-gray-900 mb-4">Manage Plan</h2>
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-            <div className="flex-1">
-              <label className="text-sm font-medium text-gray-700 mb-2 block">Change Plan</label>
-              <select
-                value={client?.plan || "Starter"}
-                onChange={(e) => handlePlanChange(e.target.value)}
-                disabled={updatingPlan || !client}
-                className="w-full sm:w-64 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
-              >
-                <option value="Starter">Starter</option>
-                <option value="Feature-Rich">Feature-Rich</option>
-              </select>
-            </div>
-
-          </div>
+          <p className="text-gray-700 mb-4">
+            Plan updates and evaluations are managed by our team. Please contact support to request changes.
+          </p>
+          <Link
+            href="/#contact"
+            className="inline-block rounded-xl bg-primary px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-primary/90"
+          >
+            Contact Us
+          </Link>
         </div>
 
         {/* Invoices */}
         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
           <h2 className="font-display text-3xl text-gray-900 mb-4">Invoices</h2>
+          {!hasBillingAddress && (
+            <p className="mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+              Billing address required to receive services. Go to{" "}
+              <a href="/account-settings" className="font-semibold underline">
+                account settings
+              </a>{" "}
+              to add one.
+            </p>
+          )}
           {invoices.length === 0 ? (
             <p className="text-gray-600">No invoices yet.</p>
           ) : (
@@ -232,7 +199,6 @@ export default function Portal() {
                     <th className="py-3 pr-4">Invoice</th>
                     <th className="py-3 pr-4">Invoice Date</th>
                     <th className="py-3 pr-4">Due Date</th>
-                    <th className="py-3 pr-4">Pre-Tax</th>
                     <th className="py-3 pr-4">Total</th>
                     <th className="py-3 pr-4">Status</th>
                     <th className="py-3 pr-4">Documents</th>
@@ -268,12 +234,7 @@ export default function Portal() {
                         </td>
                         <td className="py-4 pr-4 text-gray-700">{formatDate(invoice.invoice_date)}</td>
                         <td className="py-4 pr-4 text-gray-700">{formatDate(invoice.due_date)}</td>
-                        <td className="py-4 pr-4 text-gray-900">${Number(invoice.amount_due || 0).toFixed(2)}</td>
-                        <td className="py-4 pr-4 text-gray-900">
-                          {invoice.invoice_total != null
-                            ? `$${Number(invoice.invoice_total).toFixed(2)}`
-                            : "—"}
-                        </td>
+                        <td className="py-4 pr-4 text-gray-900">${Number(invoice.invoice_total || 0).toFixed(2)}</td>
                         <td className="py-4 pr-4">
                           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${statusClass}`}>
                             {status}

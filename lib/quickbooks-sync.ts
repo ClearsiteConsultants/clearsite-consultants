@@ -59,6 +59,14 @@ async function ensureQuickBooksCustomer(clientId: string) {
             email: client.email || undefined,
             phone: client.phone || undefined,
             website: toWebsiteUri(client.domain_name),
+            billingAddress: {
+              line1: client.billing_address_line1 || undefined,
+              line2: client.billing_address_line2 || undefined,
+              city: client.billing_city || undefined,
+              countrySubDivisionCode: client.billing_state || undefined,
+              postalCode: client.billing_postal_code || undefined,
+              country: client.billing_country || undefined,
+            },
           })
         ).Id
       );
@@ -100,7 +108,7 @@ export async function syncInvoiceToQuickBooks(localInvoiceId: string, invoiceOve
     const qboInvoice = await createQuickBooksInvoice(connection.realm_id, {
       customerId,
       invoiceNumber: invoice.invoice_number ? String(invoice.invoice_number) : undefined,
-      amountDue: toNumber(invoice.amount_due),
+      amountDue: toNumber(invoice.invoice_total),
       invoiceDate: invoice.invoice_date ? String(invoice.invoice_date).slice(0, 10) : undefined,
       dueDate: String(invoice.due_date).slice(0, 10),
       description: `Portal invoice${invoice.invoice_number ? ` ${invoice.invoice_number}` : ""}`,
@@ -232,10 +240,9 @@ export async function linkInvoiceByDocNumber(clientId: string, qboDocNumber: str
 
   const invoice = await createInvoice({
     client_id: clientId,
-    amount_due: toNumber(qboInvoice.TotalAmt),
+    invoice_total: qboState.invoiceTotal,
     invoice_date: qboState.invoiceDate,
     due_date: dueDate,
-    invoice_total: qboState.invoiceTotal,
     qbo_invoice_id: qboState.qboInvoiceId,
     qbo_doc_number: qboState.qboDocNumber,
     qbo_payment_url: qboState.paymentUrl,
@@ -348,10 +355,9 @@ export async function linkInvoiceById(options: {
 
   const invoice = await createInvoice({
     client_id: resolvedClientId,
-    amount_due: toNumber(qboInvoice.TotalAmt),
+    invoice_total: qboState.invoiceTotal,
     invoice_date: qboState.invoiceDate,
     due_date: dueDate,
-    invoice_total: qboState.invoiceTotal,
     qbo_invoice_id: qboState.qboInvoiceId,
     qbo_doc_number: qboState.qboDocNumber,
     qbo_payment_url: qboState.paymentUrl,

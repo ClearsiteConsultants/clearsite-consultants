@@ -469,12 +469,31 @@ export async function createQuickBooksCustomer(realmId: string, data: {
   email?: string;
   phone?: string;
   website?: string;
+  billingAddress?: QuickBooksBillingAddress;
 }) {
+  const billAddr = data.billingAddress &&
+    (data.billingAddress.line1 ||
+      data.billingAddress.line2 ||
+      data.billingAddress.city ||
+      data.billingAddress.countrySubDivisionCode ||
+      data.billingAddress.postalCode ||
+      data.billingAddress.country)
+    ? {
+        Line1: data.billingAddress.line1,
+        Line2: data.billingAddress.line2,
+        City: data.billingAddress.city,
+        CountrySubDivisionCode: data.billingAddress.countrySubDivisionCode,
+        PostalCode: data.billingAddress.postalCode,
+        Country: data.billingAddress.country,
+      }
+    : undefined;
+
   const payload = {
     DisplayName: data.displayName,
     PrimaryEmailAddr: data.email ? { Address: data.email } : undefined,
     PrimaryPhone: data.phone ? { FreeFormNumber: data.phone } : undefined,
     WebAddr: data.website ? { URI: data.website } : undefined,
+    BillAddr: billAddr,
   };
 
   const result = await quickBooksApiRequest<{ Customer: { Id: string } }>({
@@ -556,6 +575,7 @@ export type QuickBooksCustomerDetail = {
   Id: string;
   DisplayName: string;
   CompanyName: string;
+  SyncToken?: string;
   GivenName?: string;
   FamilyName?: string;
   Active: boolean;
@@ -568,6 +588,23 @@ export type QuickBooksCustomerDetail = {
   WebAddr?: {
     URI?: string;
   };
+  BillAddr?: {
+    Line1?: string;
+    Line2?: string;
+    City?: string;
+    CountrySubDivisionCode?: string;
+    PostalCode?: string;
+    Country?: string;
+  };
+};
+
+export type QuickBooksBillingAddress = {
+  line1?: string;
+  line2?: string;
+  city?: string;
+  countrySubDivisionCode?: string;
+  postalCode?: string;
+  country?: string;
 };
 
 export async function getQuickBooksCustomers(realmId: string): Promise<QuickBooksCustomer[]> {
@@ -598,6 +635,39 @@ export async function getQuickBooksCustomer(realmId: string, customerId: string)
   const result = await quickBooksApiRequest<{ Customer: QuickBooksCustomerDetail }>({
     method: "GET",
     path: `/v3/company/${realmId}/customer/${encodeURIComponent(customerId)}?minorversion=75`,
+  });
+
+  return result.Customer;
+}
+
+export async function updateQuickBooksCustomerBillingAddress(
+  realmId: string,
+  customerId: string,
+  billingAddress: QuickBooksBillingAddress
+) {
+  const customer = await getQuickBooksCustomer(realmId, customerId);
+  if (!customer.SyncToken) {
+    throw new Error("QuickBooks customer sync token is missing");
+  }
+
+  const payload = {
+    sparse: true,
+    Id: customerId,
+    SyncToken: String(customer.SyncToken),
+    BillAddr: {
+      Line1: billingAddress.line1,
+      Line2: billingAddress.line2,
+      City: billingAddress.city,
+      CountrySubDivisionCode: billingAddress.countrySubDivisionCode,
+      PostalCode: billingAddress.postalCode,
+      Country: billingAddress.country,
+    },
+  };
+
+  const result = await quickBooksApiRequest<{ Customer: QuickBooksCustomerDetail }>({
+    method: "POST",
+    path: `/v3/company/${realmId}/customer?operation=update&minorversion=75`,
+    body: payload,
   });
 
   return result.Customer;

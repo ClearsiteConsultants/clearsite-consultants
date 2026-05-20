@@ -61,7 +61,21 @@ export async function createClient(data: {
 
 export async function getClientQuickBooksProfile(clientId: string) {
   const result = await sql`
-    SELECT id, email, company_name, first_name, last_name, phone, domain_name, qbo_customer_id
+    SELECT
+      id,
+      email,
+      company_name,
+      first_name,
+      last_name,
+      phone,
+      domain_name,
+      qbo_customer_id,
+      billing_address_line1,
+      billing_address_line2,
+      billing_city,
+      billing_state,
+      billing_postal_code,
+      billing_country
     FROM clients
     WHERE id = ${clientId}
     LIMIT 1
@@ -197,7 +211,6 @@ export async function getClientInvoicesForPortal(clientId: string) {
       id,
       invoice_number,
       qbo_doc_number,
-      amount_due,
       invoice_total,
       amount_paid,
       invoice_date,
@@ -437,10 +450,9 @@ export async function setQuickBooksConnectionAuthState(data: {
 export async function createInvoice(data: {
   client_id: string;
   invoice_number?: string | null;
-  amount_due: number;
+  invoice_total: number;
   invoice_date?: string | null;
   due_date: string;
-  invoice_total?: number | null;
   qbo_payment_url?: string | null;
   qbo_invoice_id?: string | null;
   qbo_doc_number?: string | null;
@@ -454,7 +466,6 @@ export async function createInvoice(data: {
     INSERT INTO invoices (
       client_id,
       invoice_number,
-      amount_due,
       invoice_date,
       due_date,
       invoice_total,
@@ -471,10 +482,9 @@ export async function createInvoice(data: {
     VALUES (
       ${data.client_id},
       ${data.invoice_number || null},
-      ${data.amount_due},
       ${data.invoice_date || null},
       ${data.due_date},
-      ${data.invoice_total ?? null},
+      ${data.invoice_total},
       ${data.qbo_payment_url || null},
       ${data.qbo_invoice_id || null},
       ${data.qbo_doc_number || null},
@@ -510,6 +520,68 @@ export async function getClientQboInvoiceIds(clientId: string) {
 export async function getAllClients() {
   const result = await sql`SELECT id, company_name FROM clients ORDER BY company_name`;
   return result.rows;
+}
+
+export async function getClientBillingAddress(clientId: string) {
+  const result = await sql`
+    SELECT
+      id,
+      company_name,
+      qbo_customer_id,
+      billing_address_line1,
+      billing_address_line2,
+      billing_city,
+      billing_state,
+      billing_postal_code,
+      billing_country
+    FROM clients
+    WHERE id = ${clientId}
+    LIMIT 1
+  `;
+  return result.rows[0];
+}
+
+export async function updateClientBillingAddress(
+  clientId: string,
+  data: {
+    billing_address_line1: string | null;
+    billing_address_line2: string | null;
+    billing_city: string | null;
+    billing_state: string | null;
+    billing_postal_code: string | null;
+    billing_country: string | null;
+  }
+) {
+  const result = await sql`
+    UPDATE clients
+    SET
+      billing_address_line1 = ${data.billing_address_line1},
+      billing_address_line2 = ${data.billing_address_line2},
+      billing_city = ${data.billing_city},
+      billing_state = ${data.billing_state},
+      billing_postal_code = ${data.billing_postal_code},
+      billing_country = ${data.billing_country},
+      updated_at = NOW()
+    WHERE id = ${clientId}
+    RETURNING
+      id,
+      email,
+      company_name,
+      first_name,
+      last_name,
+      domain_name,
+      plan,
+      service_status,
+      next_invoice_due,
+      qbo_customer_id,
+      billing_address_line1,
+      billing_address_line2,
+      billing_city,
+      billing_state,
+      billing_postal_code,
+      billing_country
+  `;
+  return result.rows[0];
 }
 
 export async function getInvoicePdfById(invoiceId: string) {

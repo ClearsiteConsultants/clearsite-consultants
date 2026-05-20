@@ -259,7 +259,7 @@ export default function AdminInvoices() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           client_id: selectedClientId,
-          amount_due: qboAmountDue,
+          invoice_total: qboAmountDue,
           invoice_date: invoiceDate || undefined,
           due_date: dueDate,
           qbo_item_id: selectedItemId || undefined,

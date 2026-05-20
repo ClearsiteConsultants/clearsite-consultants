@@ -3,25 +3,39 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   getQuickBooksConnectionMock,
   getClientQboInvoiceIdsMock,
+  getClientQuickBooksProfileMock,
+  getInvoiceByIdMock,
+  setClientQuickBooksCustomerIdMock,
+  updateInvoiceQuickBooksDataMock,
   updateInvoiceStatusByQuickBooksInvoiceIdMock,
+  createQuickBooksCustomerMock,
+  createQuickBooksInvoiceMock,
+  findQuickBooksCustomerByDisplayNameMock,
   getQuickBooksInvoiceMock,
   extractQuickBooksInvoiceStateMock,
 } = vi.hoisted(() => ({
   getQuickBooksConnectionMock: vi.fn(),
   getClientQboInvoiceIdsMock: vi.fn(),
+  getClientQuickBooksProfileMock: vi.fn(),
+  getInvoiceByIdMock: vi.fn(),
+  setClientQuickBooksCustomerIdMock: vi.fn(),
+  updateInvoiceQuickBooksDataMock: vi.fn(),
   updateInvoiceStatusByQuickBooksInvoiceIdMock: vi.fn(),
+  createQuickBooksCustomerMock: vi.fn(),
+  createQuickBooksInvoiceMock: vi.fn(),
+  findQuickBooksCustomerByDisplayNameMock: vi.fn(),
   getQuickBooksInvoiceMock: vi.fn(),
   extractQuickBooksInvoiceStateMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
   getClientQboInvoiceIds: getClientQboInvoiceIdsMock,
+  getClientQuickBooksProfile: getClientQuickBooksProfileMock,
+  getInvoiceById: getInvoiceByIdMock,
+  setClientQuickBooksCustomerId: setClientQuickBooksCustomerIdMock,
+  updateInvoiceQuickBooksData: updateInvoiceQuickBooksDataMock,
   getQuickBooksConnection: getQuickBooksConnectionMock,
   updateInvoiceStatusByQuickBooksInvoiceId: updateInvoiceStatusByQuickBooksInvoiceIdMock,
-  getClientQuickBooksProfile: vi.fn(),
-  getInvoiceById: vi.fn(),
-  setClientQuickBooksCustomerId: vi.fn(),
-  updateInvoiceQuickBooksData: vi.fn(),
   createInvoice: vi.fn(),
   checkDuplicateByQboInvoiceId: vi.fn(),
 }));
@@ -29,14 +43,14 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/quickbooks", () => ({
   getQuickBooksInvoice: getQuickBooksInvoiceMock,
   extractQuickBooksInvoiceState: extractQuickBooksInvoiceStateMock,
-  createQuickBooksCustomer: vi.fn(),
-  createQuickBooksInvoice: vi.fn(),
-  findQuickBooksCustomerByDisplayName: vi.fn(),
+  createQuickBooksCustomer: createQuickBooksCustomerMock,
+  createQuickBooksInvoice: createQuickBooksInvoiceMock,
+  findQuickBooksCustomerByDisplayName: findQuickBooksCustomerByDisplayNameMock,
   findQuickBooksInvoiceByDocNumber: vi.fn(),
   getQuickBooksInvoicePdf: vi.fn(),
 }));
 
-import { syncClientInvoicesFromQuickBooks } from "@/lib/quickbooks-sync";
+import { syncClientInvoicesFromQuickBooks, syncInvoiceToQuickBooks } from "@/lib/quickbooks-sync";
 
 describe("lib/quickbooks-sync", () => {
   beforeEach(() => {
@@ -69,5 +83,61 @@ describe("lib/quickbooks-sync", () => {
     updateInvoiceStatusByQuickBooksInvoiceIdMock.mockResolvedValue({});
 
     await expect(syncClientInvoicesFromQuickBooks("client-1")).resolves.toEqual({ synced: 1, failed: 1 });
+  });
+
+  it("uses canonical invoice_total and sends billing address when creating QBO customer", async () => {
+    getQuickBooksConnectionMock.mockResolvedValue({ realm_id: "123" });
+    getInvoiceByIdMock.mockResolvedValue({
+      id: "inv-1",
+      client_id: "client-1",
+      invoice_number: "INV-1",
+      invoice_total: 150,
+      due_date: "2026-01-01",
+      invoice_date: "2025-12-01",
+      qbo_invoice_id: null,
+    });
+    getClientQuickBooksProfileMock.mockResolvedValue({
+      id: "client-1",
+      company_name: "Acme",
+      email: "billing@acme.com",
+      qbo_customer_id: null,
+      billing_address_line1: "123 Main",
+      billing_address_line2: "Suite 1",
+      billing_city: "Austin",
+      billing_state: "TX",
+      billing_postal_code: "78701",
+      billing_country: "US",
+    });
+    findQuickBooksCustomerByDisplayNameMock.mockResolvedValue(null);
+    createQuickBooksCustomerMock.mockResolvedValue({ Id: "qbo-customer-1" });
+    setClientQuickBooksCustomerIdMock.mockResolvedValue({});
+    createQuickBooksInvoiceMock.mockResolvedValue({ Id: "qbo-inv-1", TotalAmt: 150, Balance: 150 });
+    extractQuickBooksInvoiceStateMock.mockReturnValue({
+      qboInvoiceId: "qbo-inv-1",
+      qboDocNumber: "INV-1",
+      qboSyncStatus: "sent",
+      amountPaid: 0,
+      paidAt: null,
+      paymentUrl: null,
+      invoiceDate: "2025-12-01",
+      invoiceTotal: 150,
+    });
+    updateInvoiceQuickBooksDataMock.mockResolvedValue({});
+
+    await syncInvoiceToQuickBooks("inv-1");
+
+    expect(createQuickBooksCustomerMock).toHaveBeenCalledWith("123", expect.objectContaining({
+      billingAddress: {
+        line1: "123 Main",
+        line2: "Suite 1",
+        city: "Austin",
+        countrySubDivisionCode: "TX",
+        postalCode: "78701",
+        country: "US",
+      },
+    }));
+    expect(createQuickBooksInvoiceMock).toHaveBeenCalledWith("123", expect.objectContaining({
+      amountDue: 150,
+    }));
   });
 });
