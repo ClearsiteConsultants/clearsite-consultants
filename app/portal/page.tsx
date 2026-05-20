@@ -18,7 +18,7 @@ interface Client {
   billing_city: string | null;
   billing_state: string | null;
   billing_postal_code: string | null;
-  billing_country: string | null;
+  // billing_country removed
 }
 
 interface Invoice {
@@ -104,8 +104,7 @@ export default function Portal() {
     client?.billing_address_line1?.trim() &&
       client?.billing_city?.trim() &&
       client?.billing_state?.trim() &&
-      client?.billing_postal_code?.trim() &&
-      client?.billing_country?.trim()
+      client?.billing_postal_code?.trim()
   );
 
   if (status === "loading" || loading) {

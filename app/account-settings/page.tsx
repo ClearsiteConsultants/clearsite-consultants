@@ -28,7 +28,6 @@ export default function AccountSettings() {
     billing_city: "",
     billing_state: "",
     billing_postal_code: "",
-    billing_country: "",
   });
   const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
   const firstName = (session?.user as { first_name?: string } | undefined)?.first_name;
@@ -54,7 +53,6 @@ export default function AccountSettings() {
           billing_city: payload.billing_city || "",
           billing_state: payload.billing_state || "",
           billing_postal_code: payload.billing_postal_code || "",
-          billing_country: payload.billing_country || "",
         });
       } catch {
         setBillingMessage({ type: "error", text: "Unable to load billing address." });
@@ -135,6 +133,10 @@ export default function AccountSettings() {
   const handleBillingChange = (field: keyof typeof billingForm, value: string) => {
     setBillingForm((prev) => ({ ...prev, [field]: value }));
   };
+
+  const US_STATES = [
+    "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"
+  ];
 
   const handleBillingSave = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -381,14 +383,18 @@ export default function AccountSettings() {
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">State/Province *</label>
-                  <input
-                    type="text"
+                  <label className="mb-2 block text-sm font-medium text-gray-700">State *</label>
+                  <select
                     value={billingForm.billing_state}
                     onChange={(event) => handleBillingChange("billing_state", event.target.value)}
                     className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
                     required
-                  />
+                  >
+                    <option value="">Select State</option>
+                    {US_STATES.map((abbr) => (
+                      <option key={abbr} value={abbr}>{abbr}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">Postal Code *</label>
@@ -400,16 +406,7 @@ export default function AccountSettings() {
                     required
                   />
                 </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">Country *</label>
-                  <input
-                    type="text"
-                    value={billingForm.billing_country}
-                    onChange={(event) => handleBillingChange("billing_country", event.target.value)}
-                    className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                    required
-                  />
-                </div>
+                {/* Country field removed: US only */}
 
                 <div className="md:col-span-2">
                   <button

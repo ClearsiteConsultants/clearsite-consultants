@@ -89,10 +89,10 @@ async function run() {
       ADD COLUMN IF NOT EXISTS billing_postal_code VARCHAR(50)
     `;
 
-    await tx`
-      ALTER TABLE clients
-      ADD COLUMN IF NOT EXISTS billing_country VARCHAR(255)
-    `;
+    // await tx`
+    //   ALTER TABLE clients
+    //   // billing_country removed: US only
+    // `;
 
     // Drop legacy contact_name column if it still exists.
     await tx`

@@ -65,7 +65,7 @@ async function ensureQuickBooksCustomer(clientId: string) {
               city: client.billing_city || undefined,
               countrySubDivisionCode: client.billing_state || undefined,
               postalCode: client.billing_postal_code || undefined,
-              country: client.billing_country || undefined,
+              // country removed (US only)
             },
           })
         ).Id

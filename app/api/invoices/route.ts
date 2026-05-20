@@ -188,14 +188,14 @@ export async function POST(req: NextRequest) {
     }
 
     const requiredBillingFields: Array<{
-      key: "billing_address_line1" | "billing_city" | "billing_state" | "billing_postal_code" | "billing_country";
+      key: "billing_address_line1" | "billing_city" | "billing_state" | "billing_postal_code";
       label: string;
     }> = [
       { key: "billing_address_line1", label: "line1" },
       { key: "billing_city", label: "city" },
       { key: "billing_state", label: "state" },
       { key: "billing_postal_code", label: "postal code" },
-      { key: "billing_country", label: "country" },
+      // { key: "billing_country", label: "country" },
     ];
 
     const missingBillingFields = requiredBillingFields

@@ -108,8 +108,7 @@ describe("/api/clients/me", () => {
         billing_address_line1: "123 Main",
         billing_city: "Austin",
         billing_state: "TX",
-        billing_postal_code: "78701",
-        billing_country: "US",
+        billing_postal_code: "78701"
       }),
     }));
     const payload = await response.json();
@@ -147,8 +146,7 @@ describe("/api/clients/me", () => {
         billing_address_line1: "123 Main",
         billing_city: "Austin",
         billing_state: "TX",
-        billing_postal_code: "78701",
-        billing_country: "US",
+        billing_postal_code: "78701"
       }),
     }));
     const payload = await response.json();
@@ -179,8 +177,7 @@ describe("/api/clients/me", () => {
         billing_address_line1: "123 Main",
         billing_city: "Austin",
         billing_state: "TX",
-        billing_postal_code: "78701",
-        billing_country: "US",
+        billing_postal_code: "78701"
       }),
     }));
     const payload = await response.json();

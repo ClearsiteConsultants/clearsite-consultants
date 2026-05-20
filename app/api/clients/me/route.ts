@@ -13,7 +13,6 @@ type BillingAddressPayload = {
   billing_city?: string | null;
   billing_state?: string | null;
   billing_postal_code?: string | null;
-  billing_country?: string | null;
 };
 
 function parseClientId(sessionUserId: string) {
@@ -57,10 +56,7 @@ async function ensureBillingAddressColumns() {
     ALTER TABLE clients
     ADD COLUMN IF NOT EXISTS billing_postal_code VARCHAR(50)
   `;
-  await sql`
-    ALTER TABLE clients
-    ADD COLUMN IF NOT EXISTS billing_country VARCHAR(255)
-  `;
+  // billing_country removed: US only
 }
 
 async function getClientProfile(clientId: string) {
@@ -81,8 +77,7 @@ async function getClientProfile(clientId: string) {
         billing_address_line2,
         billing_city,
         billing_state,
-        billing_postal_code,
-        billing_country
+        billing_postal_code
       FROM clients
       WHERE id = ${clientId}
       LIMIT 1
@@ -120,7 +115,7 @@ async function getClientProfile(clientId: string) {
       billing_city: null,
       billing_state: null,
       billing_postal_code: null,
-      billing_country: null,
+      // billing_country removed
     };
   }
 }
@@ -183,7 +178,7 @@ async function updateBillingAddress(request: Request) {
       billing_city: normalizeTextField(payload.billing_city),
       billing_state: normalizeTextField(payload.billing_state),
       billing_postal_code: normalizeTextField(payload.billing_postal_code),
-      billing_country: normalizeTextField(payload.billing_country),
+      billing_country: 'US',
     };
 
     let updatedClient;
@@ -208,14 +203,14 @@ async function updateBillingAddress(request: Request) {
       try {
         const connection = await getQuickBooksConnection();
         if (connection) {
-          await updateQuickBooksCustomerBillingAddress(connection.realm_id, String(updatedClient.qbo_customer_id), {
-            line1: updatedClient.billing_address_line1 || undefined,
-            line2: updatedClient.billing_address_line2 || undefined,
-            city: updatedClient.billing_city || undefined,
-            countrySubDivisionCode: updatedClient.billing_state || undefined,
-            postalCode: updatedClient.billing_postal_code || undefined,
-            country: updatedClient.billing_country || undefined,
-          });
+            await updateQuickBooksCustomerBillingAddress(connection.realm_id, String(updatedClient.qbo_customer_id), {
+              line1: updatedClient.billing_address_line1 || undefined,
+              line2: updatedClient.billing_address_line2 || undefined,
+              city: updatedClient.billing_city || undefined,
+              countrySubDivisionCode: updatedClient.billing_state || undefined,
+              postalCode: updatedClient.billing_postal_code || undefined,
+              country: 'US',
+            });
         } else {
           warning = "Billing address was saved, but QuickBooks sync is unavailable right now.";
         }

@@ -50,8 +50,7 @@ ADD COLUMN IF NOT EXISTS billing_state VARCHAR(255);
 ALTER TABLE clients
 ADD COLUMN IF NOT EXISTS billing_postal_code VARCHAR(50);
 
-ALTER TABLE clients
-ADD COLUMN IF NOT EXISTS billing_country VARCHAR(255);
+-- billing_country removed: US only
 
 -- Drop legacy contact_name column if it still exists.
 ALTER TABLE clients

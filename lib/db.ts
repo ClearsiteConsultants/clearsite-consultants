@@ -75,7 +75,7 @@ export async function getClientQuickBooksProfile(clientId: string) {
       billing_city,
       billing_state,
       billing_postal_code,
-      billing_country
+      -- billing_country removed
     FROM clients
     WHERE id = ${clientId}
     LIMIT 1
@@ -532,8 +532,7 @@ export async function getClientBillingAddress(clientId: string) {
       billing_address_line2,
       billing_city,
       billing_state,
-      billing_postal_code,
-      billing_country
+      billing_postal_code
     FROM clients
     WHERE id = ${clientId}
     LIMIT 1
@@ -549,7 +548,7 @@ export async function updateClientBillingAddress(
     billing_city: string | null;
     billing_state: string | null;
     billing_postal_code: string | null;
-    billing_country: string | null;
+    // billing_country removed
   }
 ) {
   const result = await sql`
@@ -560,7 +559,7 @@ export async function updateClientBillingAddress(
       billing_city = ${data.billing_city},
       billing_state = ${data.billing_state},
       billing_postal_code = ${data.billing_postal_code},
-      billing_country = ${data.billing_country},
+      billing_country = 'US',
       updated_at = NOW()
     WHERE id = ${clientId}
     RETURNING
