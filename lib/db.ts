@@ -522,6 +522,30 @@ export async function getInvoicePdfById(invoiceId: string) {
   return result.rows[0];
 }
 
+export async function updateClientBillingAddress(clientId: string, data: {
+  billing_address_line1: string | null;
+  billing_address_line2: string | null;
+  billing_address_city: string | null;
+  billing_address_state: string | null;
+  billing_address_zip: string | null;
+  billing_address_country: string | null;
+}) {
+  const result = await sql`
+    UPDATE clients
+    SET
+      billing_address_line1 = ${data.billing_address_line1 ?? null},
+      billing_address_line2 = ${data.billing_address_line2 ?? null},
+      billing_address_city = ${data.billing_address_city ?? null},
+      billing_address_state = ${data.billing_address_state ?? null},
+      billing_address_zip = ${data.billing_address_zip ?? null},
+      billing_address_country = ${data.billing_address_country ?? null},
+      updated_at = NOW()
+    WHERE id = ${clientId}
+    RETURNING id, billing_address_line1, billing_address_line2, billing_address_city, billing_address_state, billing_address_zip, billing_address_country
+  `;
+  return result.rows[0];
+}
+
 export async function checkDuplicateByQboInvoiceId(clientId: string, qboInvoiceId: string) {
   const result = await sql`
     SELECT id FROM invoices

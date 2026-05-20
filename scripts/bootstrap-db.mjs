@@ -195,6 +195,37 @@ async function run() {
       ADD COLUMN IF NOT EXISTS last_auth_error_at TIMESTAMP
     `;
 
+    // Migration: add billing address columns for existing databases.
+    await tx`
+      ALTER TABLE clients
+      ADD COLUMN IF NOT EXISTS billing_address_line1 VARCHAR(255)
+    `;
+
+    await tx`
+      ALTER TABLE clients
+      ADD COLUMN IF NOT EXISTS billing_address_line2 VARCHAR(255)
+    `;
+
+    await tx`
+      ALTER TABLE clients
+      ADD COLUMN IF NOT EXISTS billing_address_city VARCHAR(100)
+    `;
+
+    await tx`
+      ALTER TABLE clients
+      ADD COLUMN IF NOT EXISTS billing_address_state VARCHAR(100)
+    `;
+
+    await tx`
+      ALTER TABLE clients
+      ADD COLUMN IF NOT EXISTS billing_address_zip VARCHAR(20)
+    `;
+
+    await tx`
+      ALTER TABLE clients
+      ADD COLUMN IF NOT EXISTS billing_address_country VARCHAR(100)
+    `;
+
     await tx`CREATE INDEX IF NOT EXISTS idx_invoices_client_id ON invoices(client_id)`;
     await tx`CREATE INDEX IF NOT EXISTS idx_subscriptions_client_id ON subscriptions(client_id)`;
     await tx`CREATE INDEX IF NOT EXISTS idx_invoices_qbo_invoice_id ON invoices(qbo_invoice_id)`;

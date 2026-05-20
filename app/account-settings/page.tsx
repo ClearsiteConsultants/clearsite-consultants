@@ -20,11 +20,52 @@ export default function AccountSettings() {
     confirmPassword: "",
   });
 
+  const [billingForm, setBillingForm] = useState({
+    billing_address_line1: "",
+    billing_address_line2: "",
+    billing_address_city: "",
+    billing_address_state: "",
+    billing_address_zip: "",
+    billing_address_country: "",
+  });
+  const [savingBilling, setSavingBilling] = useState(false);
+  const [billingMessage, setBillingMessage] = useState({ type: "", text: "" });
+  const [billingLoaded, setBillingLoaded] = useState(false);
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login");
     }
   }, [status, router]);
+
+  useEffect(() => {
+    const loadBillingAddress = async () => {
+      if (status !== "authenticated") return;
+      const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
+      if (userType !== "client") return;
+
+      try {
+        const res = await fetch("/api/clients/me", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          setBillingForm({
+            billing_address_line1: data.billing_address_line1 ?? "",
+            billing_address_line2: data.billing_address_line2 ?? "",
+            billing_address_city: data.billing_address_city ?? "",
+            billing_address_state: data.billing_address_state ?? "",
+            billing_address_zip: data.billing_address_zip ?? "",
+            billing_address_country: data.billing_address_country ?? "",
+          });
+        }
+      } catch {
+        // Ignore load errors; form stays empty
+      } finally {
+        setBillingLoaded(true);
+      }
+    };
+
+    loadBillingAddress();
+  }, [status, session]);
 
   const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
   const firstName = (session?.user as { first_name?: string } | undefined)?.first_name;
@@ -93,6 +134,47 @@ export default function AccountSettings() {
       });
     } finally {
       setChangingPassword(false);
+    }
+  };
+
+  const handleBillingFieldChange = (field: keyof typeof billingForm, value: string) => {
+    setBillingForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleBillingSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setBillingMessage({ type: "", text: "" });
+    setSavingBilling(true);
+
+    try {
+      const response = await fetch("/api/clients/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          billing_address_line1: billingForm.billing_address_line1 || null,
+          billing_address_line2: billingForm.billing_address_line2 || null,
+          billing_address_city: billingForm.billing_address_city || null,
+          billing_address_state: billingForm.billing_address_state || null,
+          billing_address_zip: billingForm.billing_address_zip || null,
+          billing_address_country: billingForm.billing_address_country || null,
+        }),
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        setBillingMessage({ type: "error", text: payload?.error || "Unable to save billing address." });
+        return;
+      }
+
+      setBillingMessage({ type: "success", text: "Billing address saved successfully." });
+    } catch (error) {
+      setBillingMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Unable to save billing address.",
+      });
+    } finally {
+      setSavingBilling(false);
     }
   };
 
@@ -260,6 +342,108 @@ export default function AccountSettings() {
             </>
           )}
         </div>
+
+        {/* Billing Address (clients only) */}
+        {userType === "client" && (
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mt-8">
+            <h2 className="font-display text-3xl text-gray-900 mb-2">Billing Address</h2>
+            <p className="text-gray-600 mb-4">Update the billing address associated with your account.</p>
+
+            {billingMessage.text && (
+              <div
+                className={`mb-4 rounded-lg p-3 text-sm ${
+                  billingMessage.type === "success"
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-red-50 text-red-700"
+                }`}
+              >
+                {billingMessage.text}
+              </div>
+            )}
+
+            {!billingLoaded ? (
+              <p className="text-sm text-gray-500">Loading...</p>
+            ) : (
+              <form onSubmit={handleBillingSubmit} className="grid gap-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Address Line 1</label>
+                  <input
+                    type="text"
+                    value={billingForm.billing_address_line1}
+                    onChange={(e) => handleBillingFieldChange("billing_address_line1", e.target.value)}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    placeholder="123 Main St"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Address Line 2</label>
+                  <input
+                    type="text"
+                    value={billingForm.billing_address_line2}
+                    onChange={(e) => handleBillingFieldChange("billing_address_line2", e.target.value)}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    placeholder="Suite 100"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">City</label>
+                  <input
+                    type="text"
+                    value={billingForm.billing_address_city}
+                    onChange={(e) => handleBillingFieldChange("billing_address_city", e.target.value)}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    placeholder="Chicago"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">State</label>
+                  <input
+                    type="text"
+                    value={billingForm.billing_address_state}
+                    onChange={(e) => handleBillingFieldChange("billing_address_state", e.target.value)}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    placeholder="IL"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">ZIP Code</label>
+                  <input
+                    type="text"
+                    value={billingForm.billing_address_zip}
+                    onChange={(e) => handleBillingFieldChange("billing_address_zip", e.target.value)}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    placeholder="60601"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Country</label>
+                  <input
+                    type="text"
+                    value={billingForm.billing_address_country}
+                    onChange={(e) => handleBillingFieldChange("billing_address_country", e.target.value)}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    placeholder="United States"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <button
+                    type="submit"
+                    disabled={savingBilling}
+                    className="rounded-xl bg-primary px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {savingBilling ? "Saving..." : "Save Billing Address"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
