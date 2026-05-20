@@ -29,26 +29,15 @@ function normalizeTextField(value: unknown) {
   return normalized.length > 0 ? normalized : null;
 }
 
-export async function GET() {
+function isMissingBillingColumnError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  return /column .*billing_(address_line1|address_line2|city|state|postal_code|country).* does not exist/i.test(
+    error.message
+  );
+}
+
+async function getClientProfile(clientId: string) {
   try {
-    const session = await auth();
-    const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
-
-    if (!session?.user?.id || userType !== "client") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const clientId = parseClientId(session.user.id as string);
-    if (!clientId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    try {
-      await syncClientInvoicesFromQuickBooks(clientId);
-    } catch {
-      // Fall back to local client data when QuickBooks sync is unavailable.
-    }
-
     const result = await sql`
       SELECT
         id,
@@ -71,12 +60,70 @@ export async function GET() {
       WHERE id = ${clientId}
       LIMIT 1
     `;
+    return result.rows[0] ?? null;
+  } catch (error) {
+    if (!isMissingBillingColumnError(error)) {
+      throw error;
+    }
 
-    if (result.rows.length === 0) {
+    const fallback = await sql`
+      SELECT
+        id,
+        email,
+        company_name,
+        first_name,
+        last_name,
+        domain_name,
+        plan,
+        service_status,
+        next_invoice_due,
+        qbo_customer_id
+      FROM clients
+      WHERE id = ${clientId}
+      LIMIT 1
+    `;
+
+    const row = fallback.rows[0];
+    if (!row) return null;
+
+    return {
+      ...row,
+      billing_address_line1: null,
+      billing_address_line2: null,
+      billing_city: null,
+      billing_state: null,
+      billing_postal_code: null,
+      billing_country: null,
+    };
+  }
+}
+
+export async function GET() {
+  try {
+    const session = await auth();
+    const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
+
+    if (!session?.user?.id || userType !== "client") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const clientId = parseClientId(session.user.id as string);
+    if (!clientId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      await syncClientInvoicesFromQuickBooks(clientId);
+    } catch {
+      // Fall back to local client data when QuickBooks sync is unavailable.
+    }
+
+    const clientProfile = await getClientProfile(clientId);
+    if (!clientProfile) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
-    return NextResponse.json(result.rows[0], {
+    return NextResponse.json(clientProfile, {
       headers: {
         "Cache-Control": "no-store, max-age=0",
       },

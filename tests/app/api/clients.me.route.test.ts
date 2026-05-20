@@ -61,6 +61,33 @@ describe("/api/clients/me", () => {
     expect(syncClientInvoicesFromQuickBooksMock).toHaveBeenCalledWith("1");
   });
 
+  it("falls back to legacy clients schema when billing columns are missing", async () => {
+    sqlMock
+      .mockRejectedValueOnce(new Error('column "billing_address_line1" does not exist'))
+      .mockResolvedValueOnce({
+        rows: [{
+          id: "1",
+          email: "client@example.com",
+          company_name: "Acme",
+          first_name: "Alex",
+          last_name: "Client",
+          domain_name: "acme.com",
+          plan: "Growth",
+          service_status: "Active",
+          next_invoice_due: "2026-06-01",
+          qbo_customer_id: null,
+        }],
+      });
+
+    const response = await GET();
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.id).toBe("1");
+    expect(payload.billing_address_line1).toBeNull();
+    expect(payload.billing_city).toBeNull();
+  });
+
   it("saves billing address and syncs to QuickBooks when customer is linked", async () => {
     updateClientBillingAddressMock.mockResolvedValue({
       id: "1",
