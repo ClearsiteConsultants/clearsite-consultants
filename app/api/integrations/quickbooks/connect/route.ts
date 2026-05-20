@@ -10,6 +10,6 @@ export async function GET() {
   }
 
   const state = createQuickBooksOAuthState(session.user.id);
-  const url = buildQuickBooksAuthorizeUrl(state);
+  const url = await buildQuickBooksAuthorizeUrl(state);
   return NextResponse.redirect(url);
 }
