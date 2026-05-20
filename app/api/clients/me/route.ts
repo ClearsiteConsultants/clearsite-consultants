@@ -36,6 +36,33 @@ function isMissingBillingColumnError(error: unknown) {
   );
 }
 
+async function ensureBillingAddressColumns() {
+  await sql`
+    ALTER TABLE clients
+    ADD COLUMN IF NOT EXISTS billing_address_line1 VARCHAR(255)
+  `;
+  await sql`
+    ALTER TABLE clients
+    ADD COLUMN IF NOT EXISTS billing_address_line2 VARCHAR(255)
+  `;
+  await sql`
+    ALTER TABLE clients
+    ADD COLUMN IF NOT EXISTS billing_city VARCHAR(255)
+  `;
+  await sql`
+    ALTER TABLE clients
+    ADD COLUMN IF NOT EXISTS billing_state VARCHAR(255)
+  `;
+  await sql`
+    ALTER TABLE clients
+    ADD COLUMN IF NOT EXISTS billing_postal_code VARCHAR(50)
+  `;
+  await sql`
+    ALTER TABLE clients
+    ADD COLUMN IF NOT EXISTS billing_country VARCHAR(255)
+  `;
+}
+
 async function getClientProfile(clientId: string) {
   try {
     const result = await sql`
@@ -150,14 +177,26 @@ async function updateBillingAddress(request: Request) {
   try {
     const payload = await request.json() as BillingAddressPayload;
 
-    const updatedClient = await updateClientBillingAddress(clientId, {
+    const normalizedPayload = {
       billing_address_line1: normalizeTextField(payload.billing_address_line1),
       billing_address_line2: normalizeTextField(payload.billing_address_line2),
       billing_city: normalizeTextField(payload.billing_city),
       billing_state: normalizeTextField(payload.billing_state),
       billing_postal_code: normalizeTextField(payload.billing_postal_code),
       billing_country: normalizeTextField(payload.billing_country),
-    });
+    };
+
+    let updatedClient;
+    try {
+      updatedClient = await updateClientBillingAddress(clientId, normalizedPayload);
+    } catch (error) {
+      if (!isMissingBillingColumnError(error)) {
+        throw error;
+      }
+
+      await ensureBillingAddressColumns();
+      updatedClient = await updateClientBillingAddress(clientId, normalizedPayload);
+    }
 
     if (!updatedClient) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });

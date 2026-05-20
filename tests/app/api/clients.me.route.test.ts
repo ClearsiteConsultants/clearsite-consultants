@@ -156,4 +156,38 @@ describe("/api/clients/me", () => {
     expect(response.status).toBe(200);
     expect(payload.warning).toBe("Billing address was saved, but QuickBooks sync could not be completed.");
   });
+
+  it("creates missing billing columns and retries save when schema is outdated", async () => {
+    updateClientBillingAddressMock
+      .mockRejectedValueOnce(new Error('column "billing_address_line1" does not exist'))
+      .mockResolvedValueOnce({
+        id: "1",
+        qbo_customer_id: null,
+        billing_address_line1: "123 Main",
+        billing_address_line2: null,
+        billing_city: "Austin",
+        billing_state: "TX",
+        billing_postal_code: "78701",
+        billing_country: "US",
+      });
+    sqlMock.mockResolvedValue({ rows: [] });
+
+    const response = await PUT(new Request("http://localhost:3000/api/clients/me", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        billing_address_line1: "123 Main",
+        billing_city: "Austin",
+        billing_state: "TX",
+        billing_postal_code: "78701",
+        billing_country: "US",
+      }),
+    }));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.billing_address_line1).toBe("123 Main");
+    expect(updateClientBillingAddressMock).toHaveBeenCalledTimes(2);
+    expect(sqlMock).toHaveBeenCalledTimes(6);
+  });
 });
