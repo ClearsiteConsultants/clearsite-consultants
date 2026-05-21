@@ -106,7 +106,6 @@ describe("lib/quickbooks-sync", () => {
       billing_city: "Austin",
       billing_state: "TX",
       billing_postal_code: "78701",
-      billing_country: "US",
     });
     findQuickBooksCustomerByDisplayNameMock.mockResolvedValue(null);
     createQuickBooksCustomerMock.mockResolvedValue({ Id: "qbo-customer-1" });
@@ -133,7 +132,6 @@ describe("lib/quickbooks-sync", () => {
         city: "Austin",
         countrySubDivisionCode: "TX",
         postalCode: "78701",
-        country: "US",
       },
     }));
     expect(createQuickBooksInvoiceMock).toHaveBeenCalledWith("123", expect.objectContaining({

@@ -185,6 +185,6 @@ describe("/api/clients/me", () => {
     expect(response.status).toBe(200);
     expect(payload.billing_address_line1).toBe("123 Main");
     expect(updateClientBillingAddressMock).toHaveBeenCalledTimes(2);
-    expect(sqlMock).toHaveBeenCalledTimes(6);
+    expect(sqlMock).toHaveBeenCalledTimes(5);
   });
 });
