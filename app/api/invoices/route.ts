@@ -12,10 +12,13 @@ import { syncClientInvoicesFromQuickBooks, syncInvoiceToQuickBooks, linkInvoiceB
 import { persistApiError } from "@/lib/error-logger";
 
 function parseClientId(sessionUserId: string) {
-  if (sessionUserId.startsWith("client:")) {
-    return sessionUserId.slice("client:".length);
+  const normalized = sessionUserId.trim();
+  for (const prefix of ["client:", "client_", "client-"]) {
+    if (normalized.startsWith(prefix)) {
+      return normalized.slice(prefix.length);
+    }
   }
-  return sessionUserId;
+  return normalized;
 }
 
 function quickBooksReconnectResponse(error: unknown) {

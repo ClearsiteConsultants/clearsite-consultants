@@ -3,10 +3,13 @@ import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { getInvoicePdfById } from "@/lib/db";
 
 function parseClientId(sessionUserId: string) {
-  if (sessionUserId.startsWith("client:")) {
-    return sessionUserId.slice("client:".length);
+  const normalized = sessionUserId.trim();
+  for (const prefix of ["client:", "client_", "client-"]) {
+    if (normalized.startsWith(prefix)) {
+      return normalized.slice(prefix.length);
+    }
   }
-  return sessionUserId;
+  return normalized;
 }
 
 export async function GET(

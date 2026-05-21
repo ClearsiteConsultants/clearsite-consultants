@@ -17,10 +17,13 @@ type BillingAddressPayload = {
 };
 
 function parseClientId(sessionUserId: string) {
-  if (sessionUserId.startsWith("client:")) {
-    return sessionUserId.slice("client:".length);
+  const normalized = sessionUserId.trim();
+  for (const prefix of ["client:", "client_", "client-"]) {
+    if (normalized.startsWith(prefix)) {
+      return normalized.slice(prefix.length);
+    }
   }
-  return sessionUserId;
+  return normalized;
 }
 
 function normalizeTextField(value: unknown) {
@@ -34,6 +37,48 @@ function isMissingBillingColumnError(error: unknown) {
   return /column .*billing_(address_line1|address_line2|city|state|postal_code|country).* does not exist/i.test(
     error.message
   );
+}
+
+function isMissingClientProfileColumnError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  return /column .*\b(domain_name|plan|service_status|next_invoice_due|qbo_customer_id|first_name|last_name)\b.* does not exist/i.test(
+    error.message
+  );
+}
+
+function isMissingClientColumnError(error: unknown) {
+  return isMissingBillingColumnError(error) || isMissingClientProfileColumnError(error);
+}
+
+async function ensureClientProfileColumns() {
+  await sql`
+    ALTER TABLE clients
+    ADD COLUMN IF NOT EXISTS first_name VARCHAR(255) NOT NULL DEFAULT ''
+  `;
+  await sql`
+    ALTER TABLE clients
+    ADD COLUMN IF NOT EXISTS last_name VARCHAR(255) NOT NULL DEFAULT ''
+  `;
+  await sql`
+    ALTER TABLE clients
+    ADD COLUMN IF NOT EXISTS domain_name VARCHAR(255)
+  `;
+  await sql`
+    ALTER TABLE clients
+    ADD COLUMN IF NOT EXISTS plan VARCHAR(100)
+  `;
+  await sql`
+    ALTER TABLE clients
+    ADD COLUMN IF NOT EXISTS service_status VARCHAR(50) DEFAULT 'Active'
+  `;
+  await sql`
+    ALTER TABLE clients
+    ADD COLUMN IF NOT EXISTS next_invoice_due DATE
+  `;
+  await sql`
+    ALTER TABLE clients
+    ADD COLUMN IF NOT EXISTS qbo_customer_id VARCHAR(64)
+  `;
 }
 
 async function ensureBillingAddressColumns() {
@@ -85,11 +130,14 @@ async function getClientProfile(clientId: string) {
     `;
     return result.rows[0] ?? null;
   } catch (error) {
-    if (!isMissingBillingColumnError(error)) {
+    if (!isMissingClientColumnError(error)) {
       throw error;
     }
 
-    const fallback = await sql`
+    await ensureClientProfileColumns();
+    await ensureBillingAddressColumns();
+
+    const retry = await sql`
       SELECT
         id,
         email,
@@ -100,24 +148,18 @@ async function getClientProfile(clientId: string) {
         plan,
         service_status,
         next_invoice_due,
-        qbo_customer_id
+        qbo_customer_id,
+        billing_address_line1,
+        billing_address_line2,
+        billing_city,
+        billing_state,
+        billing_postal_code
       FROM clients
       WHERE id = ${clientId}
       LIMIT 1
     `;
 
-    const row = fallback.rows[0];
-    if (!row) return null;
-
-    return {
-      ...row,
-      billing_address_line1: null,
-      billing_address_line2: null,
-      billing_city: null,
-      billing_state: null,
-      billing_postal_code: null,
-      // billing_country removed
-    };
+    return retry.rows[0] ?? null;
   }
 }
 
