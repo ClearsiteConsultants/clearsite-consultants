@@ -73,7 +73,8 @@ describe("/api/clients/me", () => {
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
-      // ensureBillingAddressColumns: 5 ALTER TABLE calls, all resolve with empty rows
+      // ensureBillingAddressColumns: 6 ALTER TABLE calls, all resolve with empty rows
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
@@ -206,6 +207,6 @@ describe("/api/clients/me", () => {
     expect(response.status).toBe(200);
     expect(payload.billing_address_line1).toBe("123 Main");
     expect(updateClientBillingAddressMock).toHaveBeenCalledTimes(2);
-    expect(sqlMock).toHaveBeenCalledTimes(5);
+    expect(sqlMock).toHaveBeenCalledTimes(6);
   });
 });

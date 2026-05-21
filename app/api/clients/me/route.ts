@@ -102,7 +102,10 @@ async function ensureBillingAddressColumns() {
     ALTER TABLE clients
     ADD COLUMN IF NOT EXISTS billing_postal_code VARCHAR(50)
   `;
-  // billing_country removed: US only
+  await sql`
+    ALTER TABLE clients
+    ADD COLUMN IF NOT EXISTS billing_country VARCHAR(2) DEFAULT 'US'
+  `;
 }
 
 async function getClientProfile(clientId: string) {
