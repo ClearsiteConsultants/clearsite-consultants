@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exchangeCodeForTokens, verifyQuickBooksOAuthState } from "@/lib/quickbooks";
 import { upsertQuickBooksConnection } from "@/lib/db";
+import { persistApiError } from "@/lib/error-logger";
 
 /**
  * Allowlist of reason codes that may be surfaced to the UI.
@@ -59,6 +60,13 @@ export async function GET(req: NextRequest) {
     // Log only the error category to avoid leaking OAuth payload details.
     const errSummary = error instanceof Error ? error.name : "UnknownError";
     console.error("QuickBooks token exchange failed:", errSummary);
+    await persistApiError({
+      route: "/api/integrations/quickbooks/callback",
+      method: "GET",
+      statusCode: 500,
+      error,
+      metadata: { realmId, hasCode: Boolean(code), hasState: Boolean(state) },
+    });
     return NextResponse.redirect(new URL("/admin/invoices?qbo=error&reason=token_exchange_failed", req.url));
   }
 }

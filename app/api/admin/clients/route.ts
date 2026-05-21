@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { sql } from "@/lib/db";
+import { persistApiError } from "@/lib/error-logger";
 
 // GET all client users (for admin)
 // PUT update client details (plan, service_status, next_invoice_due)
@@ -29,6 +30,12 @@ export async function GET() {
     });
   } catch (error) {
     console.error("Failed to fetch clients", error);
+    await persistApiError({
+      route: "/api/admin/clients",
+      method: "GET",
+      statusCode: 500,
+      error,
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -92,6 +99,12 @@ export async function PUT(req: NextRequest) {
     );
   } catch (error) {
     console.error("Failed to update client", error);
+    await persistApiError({
+      route: "/api/admin/clients",
+      method: "PUT",
+      statusCode: 500,
+      error,
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

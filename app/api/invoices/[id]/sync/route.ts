@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { syncInvoiceToQuickBooks } from "@/lib/quickbooks-sync";
 import { isQuickBooksReconnectRequiredError } from "@/lib/quickbooks";
+import { persistApiError } from "@/lib/error-logger";
 
 type Params = {
   params: Promise<{ id: string }>;
@@ -23,6 +24,15 @@ export async function POST(_: NextRequest, { params }: Params) {
     const invoice = await syncInvoiceToQuickBooks(id);
     return NextResponse.json(invoice);
   } catch (error: unknown) {
+    await persistApiError({
+      route: "/api/invoices/[id]/sync",
+      method: "POST",
+      statusCode: isQuickBooksReconnectRequiredError(error) ? 503 : 400,
+      userId: String(session.user.id),
+      userType,
+      error,
+      metadata: { invoiceId: id },
+    });
     if (isQuickBooksReconnectRequiredError(error)) {
       return NextResponse.json(
         {

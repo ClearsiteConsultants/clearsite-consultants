@@ -9,6 +9,7 @@ import {
 import { getQuickBooksConnection } from "@/lib/db";
 import { getQuickBooksItems, getQuickBooksCustomers, isQuickBooksReconnectRequiredError } from "@/lib/quickbooks";
 import { syncClientInvoicesFromQuickBooks, syncInvoiceToQuickBooks, linkInvoiceById } from "@/lib/quickbooks-sync";
+import { persistApiError } from "@/lib/error-logger";
 
 function parseClientId(sessionUserId: string) {
   if (sessionUserId.startsWith("client:")) {
@@ -54,12 +55,16 @@ function isValidServerDueDate(dueDateString: string): boolean {
 
 // GET /api/invoices - Get client's invoices or admin lists
 export async function GET(req: NextRequest) {
+  let sessionUserId: string | null = null;
+  let sessionUserType: string | null = null;
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const userType = (session.user as { user_type?: string }).user_type;
+    sessionUserId = String(session.user.id);
+    sessionUserType = userType ?? null;
 
     const { searchParams } = new URL(req.url);
     const action = searchParams.get("action");
@@ -164,6 +169,14 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   } catch (error: unknown) {
+      await persistApiError({
+        route: "/api/invoices",
+        method: "GET",
+        statusCode: 500,
+        userId: sessionUserId,
+        userType: sessionUserType,
+        error,
+      });
       const reconnect = quickBooksReconnectResponse(error);
       if (reconnect) {
         return NextResponse.json(
@@ -182,12 +195,16 @@ export async function GET(req: NextRequest) {
 
 // POST /api/invoices - Create invoice (admin only)
 export async function POST(req: NextRequest) {
+  let sessionUserId: string | null = null;
+  let sessionUserType: string | null = null;
   try {
     const session = await auth();
     const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
     if (!session?.user?.id || userType !== "admin") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    sessionUserId = String(session.user.id);
+    sessionUserType = userType ?? null;
 
     const body = await req.json();
     const {
@@ -266,6 +283,19 @@ export async function POST(req: NextRequest) {
         if (code === "DUPLICATE") {
           return NextResponse.json({ error: err.message }, { status: 409 });
         }
+        await persistApiError({
+          route: "/api/invoices",
+          method: "POST",
+          statusCode: 500,
+          userId: sessionUserId,
+          userType: sessionUserType,
+          error: err,
+          metadata: {
+            mode: "manual-link",
+            clientId: String(client_id),
+            qboInvoiceId: String(qbo_invoice_id || ""),
+          },
+        });
         return NextResponse.json({ error: err.message }, { status: 500 });
       }
     }
@@ -311,6 +341,19 @@ export async function POST(req: NextRequest) {
         const syncedInvoice = await syncInvoiceToQuickBooks(String(invoice.id), invoiceWithItem);
         return NextResponse.json(syncedInvoice, { status: 201 });
       } catch (syncError: unknown) {
+        await persistApiError({
+          route: "/api/invoices",
+          method: "POST",
+          statusCode: 502,
+          userId: sessionUserId,
+          userType: sessionUserType,
+          error: syncError,
+          metadata: {
+            mode: "quickbooks-sync",
+            clientId: String(client_id),
+            invoiceId: String(invoice.id),
+          },
+        });
         const reconnect = quickBooksReconnectResponse(syncError);
         if (reconnect) {
           return NextResponse.json(
@@ -339,6 +382,14 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(invoice, { status: 201 });
   } catch (error: unknown) {
+    await persistApiError({
+      route: "/api/invoices",
+      method: "POST",
+      statusCode: 500,
+      userId: sessionUserId,
+      userType: sessionUserType,
+      error,
+    });
     const message = error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }

@@ -5,10 +5,12 @@ const {
   verifyQuickBooksOAuthStateMock,
   exchangeCodeForTokensMock,
   upsertQuickBooksConnectionMock,
+  persistApiErrorMock,
 } = vi.hoisted(() => ({
   verifyQuickBooksOAuthStateMock: vi.fn(),
   exchangeCodeForTokensMock: vi.fn(),
   upsertQuickBooksConnectionMock: vi.fn(),
+  persistApiErrorMock: vi.fn(),
 }));
 
 vi.mock("@/lib/quickbooks", () => ({
@@ -18,6 +20,10 @@ vi.mock("@/lib/quickbooks", () => ({
 
 vi.mock("@/lib/db", () => ({
   upsertQuickBooksConnection: upsertQuickBooksConnectionMock,
+}));
+
+vi.mock("@/lib/error-logger", () => ({
+  persistApiError: persistApiErrorMock,
 }));
 
 import { GET } from "@/app/api/integrations/quickbooks/callback/route";
@@ -72,5 +78,6 @@ describe("GET /api/integrations/quickbooks/callback", () => {
 
     expect(res.headers.get("location")).toContain("reason=token_exchange_failed");
     expect(res.headers.get("location")).not.toContain("raw_intuit_payload_here");
+    expect(persistApiErrorMock).toHaveBeenCalled();
   });
 });

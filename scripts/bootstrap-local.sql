@@ -148,9 +148,42 @@ ADD COLUMN IF NOT EXISTS last_auth_error_code VARCHAR(64);
 ALTER TABLE quickbooks_connections
 ADD COLUMN IF NOT EXISTS last_auth_error_at TIMESTAMP;
 
+CREATE TABLE IF NOT EXISTS error_logs (
+  id BIGSERIAL PRIMARY KEY,
+  level VARCHAR(16) NOT NULL DEFAULT 'error',
+  route VARCHAR(255) NOT NULL,
+  method VARCHAR(16) NOT NULL,
+  status_code INTEGER,
+  error_name VARCHAR(255),
+  error_message TEXT NOT NULL,
+  error_stack TEXT,
+  user_id VARCHAR(255),
+  user_type VARCHAR(64),
+  metadata JSONB,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE OR REPLACE FUNCTION cleanup_error_logs_30_days()
+RETURNS TRIGGER AS $$
+BEGIN
+  DELETE FROM error_logs
+  WHERE created_at < NOW() - INTERVAL '30 days';
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_cleanup_error_logs_30_days ON error_logs;
+CREATE TRIGGER trg_cleanup_error_logs_30_days
+BEFORE INSERT ON error_logs
+FOR EACH STATEMENT
+EXECUTE FUNCTION cleanup_error_logs_30_days();
+
 CREATE INDEX IF NOT EXISTS idx_invoices_client_id ON invoices(client_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_client_id ON subscriptions(client_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_qbo_invoice_id ON invoices(qbo_invoice_id);
 CREATE INDEX IF NOT EXISTS idx_clients_qbo_customer_id ON clients(qbo_customer_id);
+CREATE INDEX IF NOT EXISTS idx_error_logs_created_at ON error_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_error_logs_level ON error_logs(level);
+CREATE INDEX IF NOT EXISTS idx_error_logs_route ON error_logs(route);
 
 COMMIT;

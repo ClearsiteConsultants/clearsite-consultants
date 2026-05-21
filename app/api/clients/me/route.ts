@@ -3,6 +3,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { getQuickBooksConnection, sql, updateClientBillingAddress } from "@/lib/db";
 import { updateQuickBooksCustomerBillingAddress } from "@/lib/quickbooks";
 import { syncClientInvoicesFromQuickBooks } from "@/lib/quickbooks-sync";
+import { persistApiError } from "@/lib/error-logger";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -121,6 +122,8 @@ async function getClientProfile(clientId: string) {
 }
 
 export async function GET() {
+  let sessionUserId: string | null = null;
+  let sessionUserType: string | null = null;
   try {
     const session = await auth();
     const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
@@ -130,6 +133,8 @@ export async function GET() {
     }
 
     const clientId = parseClientId(session.user.id as string);
+    sessionUserId = String(session.user.id);
+    sessionUserType = userType ?? null;
     if (!clientId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -151,6 +156,14 @@ export async function GET() {
       },
     });
   } catch (error: unknown) {
+    await persistApiError({
+      route: "/api/clients/me",
+      method: "GET",
+      statusCode: 500,
+      userId: sessionUserId,
+      userType: sessionUserType,
+      error,
+    });
     const message = error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -224,6 +237,15 @@ async function updateBillingAddress(request: Request) {
       warning,
     });
   } catch (error: unknown) {
+    await persistApiError({
+      route: "/api/clients/me",
+      method: request.method,
+      statusCode: 500,
+      userId: String(session.user.id),
+      userType: userType ?? null,
+      error,
+      metadata: { clientId },
+    });
     const message = error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }

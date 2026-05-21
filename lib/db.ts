@@ -28,11 +28,70 @@ export type QuickBooksConnectionRow = {
   updated_at: string;
 };
 
+export type ErrorLogRow = {
+  id: number;
+  level: string;
+  route: string;
+  method: string;
+  status_code: number | null;
+  error_name: string | null;
+  error_message: string;
+  error_stack: string | null;
+  user_id: string | null;
+  user_type: string | null;
+  metadata: unknown;
+  created_at: string;
+};
+
 function isMissingQuickBooksConnectionColumnError(error: unknown) {
   if (!(error instanceof Error)) return false;
   return /column .*reconnect_required|reconnect_reason|last_auth_error_code|last_auth_error_at.* does not exist/i.test(
     error.message
   );
+}
+
+function isMissingErrorLogsTableError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  return /relation "error_logs" does not exist/i.test(error.message);
+}
+
+async function ensureErrorLogsTable() {
+  await sql`
+    CREATE TABLE IF NOT EXISTS error_logs (
+      id BIGSERIAL PRIMARY KEY,
+      level VARCHAR(16) NOT NULL DEFAULT 'error',
+      route VARCHAR(255) NOT NULL,
+      method VARCHAR(16) NOT NULL,
+      status_code INTEGER,
+      error_name VARCHAR(255),
+      error_message TEXT NOT NULL,
+      error_stack TEXT,
+      user_id VARCHAR(255),
+      user_type VARCHAR(64),
+      metadata JSONB,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE OR REPLACE FUNCTION cleanup_error_logs_30_days()
+    RETURNS TRIGGER AS $$
+    BEGIN
+      DELETE FROM error_logs
+      WHERE created_at < NOW() - INTERVAL '30 days';
+      RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql
+  `;
+  await sql`DROP TRIGGER IF EXISTS trg_cleanup_error_logs_30_days ON error_logs`;
+  await sql`
+    CREATE TRIGGER trg_cleanup_error_logs_30_days
+    BEFORE INSERT ON error_logs
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION cleanup_error_logs_30_days()
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_error_logs_created_at ON error_logs(created_at DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_error_logs_level ON error_logs(level)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_error_logs_route ON error_logs(route)`;
 }
 
 async function ensureQuickBooksConnectionColumns() {
@@ -722,4 +781,211 @@ export async function checkDuplicateByQboInvoiceId(clientId: string, qboInvoiceI
     LIMIT 1
   `;
   return result.rows.length > 0;
+}
+
+export async function createErrorLog(data: {
+  level?: string;
+  route: string;
+  method: string;
+  statusCode?: number | null;
+  errorName?: string | null;
+  errorMessage: string;
+  errorStack?: string | null;
+  userId?: string | null;
+  userType?: string | null;
+  metadata?: unknown;
+}) {
+  const level = (data.level || "error").toLowerCase();
+  const metadata = data.metadata === undefined ? null : JSON.stringify(data.metadata);
+
+  let result;
+  try {
+    result = await sql`
+      INSERT INTO error_logs (
+        level,
+        route,
+        method,
+        status_code,
+        error_name,
+        error_message,
+        error_stack,
+        user_id,
+        user_type,
+        metadata
+      )
+      VALUES (
+        ${level},
+        ${data.route},
+        ${data.method},
+        ${data.statusCode ?? null},
+        ${data.errorName ?? null},
+        ${data.errorMessage},
+        ${data.errorStack ?? null},
+        ${data.userId ?? null},
+        ${data.userType ?? null},
+        ${metadata}
+      )
+      RETURNING *
+    `;
+  } catch (error) {
+    if (!isMissingErrorLogsTableError(error)) {
+      throw error;
+    }
+    await ensureErrorLogsTable();
+    result = await sql`
+      INSERT INTO error_logs (
+        level,
+        route,
+        method,
+        status_code,
+        error_name,
+        error_message,
+        error_stack,
+        user_id,
+        user_type,
+        metadata
+      )
+      VALUES (
+        ${level},
+        ${data.route},
+        ${data.method},
+        ${data.statusCode ?? null},
+        ${data.errorName ?? null},
+        ${data.errorMessage},
+        ${data.errorStack ?? null},
+        ${data.userId ?? null},
+        ${data.userType ?? null},
+        ${metadata}
+      )
+      RETURNING *
+    `;
+  }
+
+  return result.rows[0] as ErrorLogRow;
+}
+
+export async function listErrorLogs(options?: {
+  page?: number;
+  pageSize?: number;
+  level?: string;
+  query?: string;
+}) {
+  const page = Math.max(1, options?.page ?? 1);
+  const pageSize = Math.max(1, Math.min(200, options?.pageSize ?? 50));
+  const offset = (page - 1) * pageSize;
+  const level = options?.level?.trim().toLowerCase() || null;
+  const query = options?.query?.trim() ? `%${options.query.trim()}%` : null;
+
+  let totalResult;
+  let rowsResult;
+  try {
+    totalResult = await sql`
+      SELECT COUNT(*)::INT AS count
+      FROM error_logs
+      WHERE (${level}::TEXT IS NULL OR level = ${level})
+        AND (
+          ${query}::TEXT IS NULL
+          OR route ILIKE ${query}
+          OR method ILIKE ${query}
+          OR error_message ILIKE ${query}
+          OR COALESCE(user_id, '') ILIKE ${query}
+        )
+    `;
+    rowsResult = await sql`
+      SELECT *
+      FROM error_logs
+      WHERE (${level}::TEXT IS NULL OR level = ${level})
+        AND (
+          ${query}::TEXT IS NULL
+          OR route ILIKE ${query}
+          OR method ILIKE ${query}
+          OR error_message ILIKE ${query}
+          OR COALESCE(user_id, '') ILIKE ${query}
+        )
+      ORDER BY created_at DESC
+      LIMIT ${pageSize}
+      OFFSET ${offset}
+    `;
+  } catch (error) {
+    if (!isMissingErrorLogsTableError(error)) {
+      throw error;
+    }
+    await ensureErrorLogsTable();
+    totalResult = await sql`
+      SELECT COUNT(*)::INT AS count
+      FROM error_logs
+      WHERE (${level}::TEXT IS NULL OR level = ${level})
+        AND (
+          ${query}::TEXT IS NULL
+          OR route ILIKE ${query}
+          OR method ILIKE ${query}
+          OR error_message ILIKE ${query}
+          OR COALESCE(user_id, '') ILIKE ${query}
+        )
+    `;
+    rowsResult = await sql`
+      SELECT *
+      FROM error_logs
+      WHERE (${level}::TEXT IS NULL OR level = ${level})
+        AND (
+          ${query}::TEXT IS NULL
+          OR route ILIKE ${query}
+          OR method ILIKE ${query}
+          OR error_message ILIKE ${query}
+          OR COALESCE(user_id, '') ILIKE ${query}
+        )
+      ORDER BY created_at DESC
+      LIMIT ${pageSize}
+      OFFSET ${offset}
+    `;
+  }
+
+  return {
+    rows: rowsResult.rows as ErrorLogRow[],
+    total: Number(totalResult.rows[0]?.count ?? 0),
+    page,
+    pageSize,
+  };
+}
+
+export async function deleteErrorLogsByIds(ids: number[]) {
+  if (!ids.length) return 0;
+
+  let result;
+  try {
+    result = await sql`
+      DELETE FROM error_logs
+      WHERE id = ANY(${ids}::BIGINT[])
+      RETURNING id
+    `;
+  } catch (error) {
+    if (!isMissingErrorLogsTableError(error)) {
+      throw error;
+    }
+    await ensureErrorLogsTable();
+    return 0;
+  }
+
+  return result.rows.length;
+}
+
+export async function deleteErrorLogsOlderThanDays(days: number) {
+  const safeDays = Math.max(1, Math.floor(days));
+
+  let result;
+  try {
+    result = await sql`
+      DELETE FROM error_logs
+      WHERE created_at < NOW() - (${safeDays} * INTERVAL '1 day')
+      RETURNING id
+    `;
+  } catch (error) {
+    if (!isMissingErrorLogsTableError(error)) {
+      throw error;
+    }
+    await ensureErrorLogsTable();
+    return 0;
+  }
+
+  return result.rows.length;
 }

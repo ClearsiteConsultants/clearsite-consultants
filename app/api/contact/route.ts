@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { persistApiError } from "@/lib/error-logger";
 
 const resendApiKey = process.env.RESEND_API_KEY;
 const contactToEmail = process.env.CONTACT_TO_EMAIL;
@@ -29,6 +30,12 @@ export async function POST(req: NextRequest) {
 
     if (!resend) {
       console.error("Missing RESEND_API_KEY in environment.");
+      await persistApiError({
+        route: "/api/contact",
+        method: "POST",
+        statusCode: 500,
+        error: new Error("Missing RESEND_API_KEY in environment."),
+      });
       return NextResponse.json(
         { error: "Contact form email is not configured" },
         { status: 500 }
@@ -37,6 +44,12 @@ export async function POST(req: NextRequest) {
 
     if (!contactToEmail || !contactFromEmail) {
       console.error("Missing CONTACT_TO_EMAIL or CONTACT_FROM_EMAIL in environment.");
+      await persistApiError({
+        route: "/api/contact",
+        method: "POST",
+        statusCode: 500,
+        error: new Error("Missing CONTACT_TO_EMAIL or CONTACT_FROM_EMAIL in environment."),
+      });
       return NextResponse.json(
         { error: "Contact form email is not fully configured" },
         { status: 500 }
@@ -71,6 +84,12 @@ export async function POST(req: NextRequest) {
       const errorName = typeof error.name === "string" ? error.name : "UnknownResendError";
       const errorMessage = typeof error.message === "string" ? error.message : "No message returned by Resend";
       console.error(`Resend error: ${errorName}: ${errorMessage}`);
+      await persistApiError({
+        route: "/api/contact",
+        method: "POST",
+        statusCode: 502,
+        error: new Error(`${errorName}: ${errorMessage}`),
+      });
       return NextResponse.json(
         { error: "Failed to send message" },
         { status: 502 }
@@ -91,6 +110,12 @@ export async function POST(req: NextRequest) {
     );
   } catch (error: unknown) {
     console.error("Contact form error:", error);
+    await persistApiError({
+      route: "/api/contact",
+      method: "POST",
+      statusCode: 500,
+      error,
+    });
     const message = error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json(
       { error: message },

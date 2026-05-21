@@ -8,6 +8,7 @@ const {
   getClientBillingAddressMock,
   syncInvoiceToQuickBooksMock,
   getQuickBooksItemsMock,
+  persistApiErrorMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn(),
   getQuickBooksConnectionMock: vi.fn(),
@@ -15,6 +16,7 @@ const {
   getClientBillingAddressMock: vi.fn(),
   syncInvoiceToQuickBooksMock: vi.fn(),
   getQuickBooksItemsMock: vi.fn(),
+  persistApiErrorMock: vi.fn(),
 }));
 
 vi.mock("@/app/api/auth/[...nextauth]/route", () => ({ auth: authMock }));
@@ -39,6 +41,10 @@ vi.mock("@/lib/quickbooks-sync", () => ({
   syncClientInvoicesFromQuickBooks: vi.fn(),
   syncInvoiceToQuickBooks: syncInvoiceToQuickBooksMock,
   linkInvoiceById: vi.fn(),
+}));
+
+vi.mock("@/lib/error-logger", () => ({
+  persistApiError: persistApiErrorMock,
 }));
 
 import { GET, POST } from "@/app/api/invoices/route";
@@ -101,6 +107,7 @@ describe("/api/invoices reconnect-required responses", () => {
     expect(res.status).toBe(201);
     expect(payload.reconnectRequired).toBe(true);
     expect(payload.reconnectReason).toBe("invalid_grant");
+    expect(persistApiErrorMock).toHaveBeenCalled();
   });
 
   it("blocks invoice creation when required billing address fields are missing", async () => {

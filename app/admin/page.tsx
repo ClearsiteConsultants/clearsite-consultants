@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Edit2, Settings, Upload } from "lucide-react";
+import { Edit2, Settings, Upload, Bug } from "lucide-react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -231,6 +231,21 @@ export default function AdminDashboard() {
               <p className="text-gray-600 mb-4">Review and update your account settings.</p>
               <a href="/account-settings" className="text-blue-600 hover:underline font-medium">
                 Open Account Setting
+              </a>
+            </CardContent>
+          </Card>
+
+          <Card className="transition-shadow hover:shadow-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bug className="h-5 w-5" />
+                Developer Logs
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600 mb-4">Review and manage persisted API error logs.</p>
+              <a href="/admin/developer" className="text-blue-600 hover:underline font-medium">
+                Open Developer Logs
               </a>
             </CardContent>
           </Card>
