@@ -941,7 +941,7 @@ export async function listErrorLogs(options?: {
   }
 
   return {
-    rows: rowsResult.rows as ErrorLogRow[],
+    rows: rowsResult.rows as unknown as ErrorLogRow[],
     total: Number(totalResult.rows[0]?.count ?? 0),
     page,
     pageSize,
