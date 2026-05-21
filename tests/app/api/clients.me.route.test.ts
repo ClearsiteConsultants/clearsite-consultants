@@ -63,7 +63,23 @@ describe("/api/clients/me", () => {
 
   it("falls back to legacy clients schema when billing columns are missing", async () => {
     sqlMock
+      // Initial SELECT fails due to missing billing column
       .mockRejectedValueOnce(new Error('column "billing_address_line1" does not exist'))
+      // ensureClientProfileColumns: 7 ALTER TABLE calls, all resolve with empty rows
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      // ensureBillingAddressColumns: 5 ALTER TABLE calls, all resolve with empty rows
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      // Final SELECT retry
       .mockResolvedValueOnce({
         rows: [{
           id: "1",
@@ -76,6 +92,11 @@ describe("/api/clients/me", () => {
           service_status: "Active",
           next_invoice_due: "2026-06-01",
           qbo_customer_id: null,
+          billing_address_line1: null,
+          billing_address_line2: null,
+          billing_city: null,
+          billing_state: null,
+          billing_postal_code: null,
         }],
       });
 
