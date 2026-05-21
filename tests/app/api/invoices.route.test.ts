@@ -89,7 +89,7 @@ describe("/api/invoices reconnect-required responses", () => {
       body: JSON.stringify({
         client_id: "1",
         invoice_total: 100,
-        due_date: "2026-01-01",
+        due_date: "2026-07-01",
         sync_to_qbo: true,
       }),
       headers: { "content-type": "application/json" },
@@ -118,7 +118,7 @@ describe("/api/invoices reconnect-required responses", () => {
       body: JSON.stringify({
         client_id: "1",
         invoice_total: 100,
-        due_date: "2026-01-01",
+        due_date: "2026-07-01",
       }),
       headers: { "content-type": "application/json" },
     });
@@ -129,5 +129,58 @@ describe("/api/invoices reconnect-required responses", () => {
     expect(res.status).toBe(400);
     expect(payload.error).toContain("Billing address is incomplete");
     expect(createInvoiceMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects due dates earlier than 30 days from today", async () => {
+    const req = new NextRequest("http://localhost:3000/api/invoices", {
+      method: "POST",
+      body: JSON.stringify({
+        client_id: "1",
+        invoice_total: 100,
+        due_date: "2026-06-15",
+      }),
+      headers: { "content-type": "application/json" },
+    });
+
+    const res = await POST(req);
+    const payload = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(payload.error).toContain("Due date must be at least 30 days from today");
+    expect(createInvoiceMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts due dates that are exactly 30 days or more in the future", async () => {
+    createInvoiceMock.mockResolvedValue({
+      id: "inv-1",
+      client_id: "1",
+      qbo_sync_status: "pending",
+      qbo_invoice_id: "qbo-inv-1",
+      qbo_doc_number: "1001",
+    });
+    syncInvoiceToQuickBooksMock.mockResolvedValue({
+      id: "inv-1",
+      client_id: "1",
+      qbo_invoice_id: "qbo-inv-1",
+      qbo_doc_number: "1001",
+      qbo_sync_status: "sent",
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/invoices", {
+      method: "POST",
+      body: JSON.stringify({
+        client_id: "1",
+        invoice_total: 100,
+        due_date: "2026-07-01",
+        sync_to_qbo: true,
+      }),
+      headers: { "content-type": "application/json" },
+    });
+
+    const res = await POST(req);
+    const payload = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(createInvoiceMock).toHaveBeenCalled();
   });
 });

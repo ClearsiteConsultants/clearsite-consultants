@@ -11,6 +11,32 @@ import {
   sanitizeCurrencyDigits,
 } from "@/lib/utils";
 
+// Helper: get today's date in YYYY-MM-DD format (local browser timezone)
+function getLocalDateString(): string {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+// Helper: get today + 30 days in YYYY-MM-DD format (local browser timezone)
+function getLocalDatePlus30Days(): string {
+  const date = new Date();
+  date.setDate(date.getDate() + 30);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+// Helper: check if due date is at least 30 days from today
+function isValidDueDate(dueDateString: string): boolean {
+  if (!dueDateString) return false;
+  const minDate = getLocalDatePlus30Days();
+  return dueDateString >= minDate;
+}
+
 interface Client {
   id: string;
   company_name: string;
@@ -49,8 +75,8 @@ export default function AdminInvoices() {
   // QuickBooks-first mode fields
   const [selectedClientId, setSelectedClientId] = useState("");
   const [amountDueDigits, setAmountDueDigits] = useState("");
-  const [invoiceDate, setInvoiceDate] = useState("");
-  const [dueDate, setDueDate] = useState("");
+  const [invoiceDate, setInvoiceDate] = useState(() => getLocalDateString());
+  const [dueDate, setDueDate] = useState(() => getLocalDatePlus30Days());
   const [selectedItemId, setSelectedItemId] = useState("");
 
   // Manual-link mode fields
@@ -195,8 +221,8 @@ export default function AdminInvoices() {
   const resetQboForm = () => {
     setSelectedClientId("");
     setAmountDueDigits("");
-    setInvoiceDate("");
-    setDueDate("");
+    setInvoiceDate(getLocalDateString());
+    setDueDate(getLocalDatePlus30Days());
     setSelectedItemId("");
   };
 
@@ -252,6 +278,12 @@ export default function AdminInvoices() {
       return;
     }
 
+    if (!isValidDueDate(dueDate)) {
+      const minDate = getLocalDatePlus30Days();
+      setMessage({ type: "error", text: `Due date must be at least 30 days from today (minimum: ${minDate}).` });
+      return;
+    }
+
     setSubmitting(true);
     try {
       const res = await fetch("/api/invoices", {
@@ -282,7 +314,11 @@ export default function AdminInvoices() {
         setMessage({ type: "success", text: "Invoice created successfully." });
       }
 
-      resetQboForm();
+      setInvoiceDate(getLocalDateString());
+      setDueDate(getLocalDatePlus30Days());
+      setSelectedClientId("");
+      setAmountDueDigits("");
+      setSelectedItemId("");
     } catch (error: unknown) {
       setMessage({
         type: "error",
@@ -506,9 +542,7 @@ export default function AdminInvoices() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Invoice Date <span className="text-gray-400 font-normal">(optional)</span>
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Invoice Date</label>
                 <input
                   type="date"
                   value={invoiceDate}
@@ -518,11 +552,12 @@ export default function AdminInvoices() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Due Date</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Due Date *</label>
                 <input
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
+                  min={getLocalDatePlus30Days()}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
                   required
                 />

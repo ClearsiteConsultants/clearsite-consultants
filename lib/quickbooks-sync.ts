@@ -91,6 +91,24 @@ function getQuickBooksInvoiceCustomerId(invoice: Record<string, unknown>) {
   return customerRef?.value ? String(customerRef.value) : null;
 }
 
+function toYyyyMmDd(value: unknown) {
+  if (!value) return undefined;
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? undefined : value.toISOString().slice(0, 10);
+  }
+
+  if (typeof value === "string") {
+    const match = value.trim().match(/^(\d{4}-\d{2}-\d{2})/);
+    if (match) return match[1];
+
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString().slice(0, 10);
+  }
+
+  return undefined;
+}
+
 export async function syncInvoiceToQuickBooks(localInvoiceId: string, invoiceOverride?: Record<string, unknown>) {
   const invoice = invoiceOverride || await getInvoiceById(localInvoiceId);
   if (!invoice) {
@@ -109,8 +127,8 @@ export async function syncInvoiceToQuickBooks(localInvoiceId: string, invoiceOve
       customerId,
       invoiceNumber: invoice.invoice_number ? String(invoice.invoice_number) : undefined,
       amountDue: toNumber(invoice.invoice_total),
-      invoiceDate: invoice.invoice_date ? String(invoice.invoice_date).slice(0, 10) : undefined,
-      dueDate: String(invoice.due_date).slice(0, 10),
+      invoiceDate: toYyyyMmDd(invoice.invoice_date),
+      dueDate: toYyyyMmDd(invoice.due_date) || String(invoice.due_date).slice(0, 10),
       description: `Portal invoice${invoice.invoice_number ? ` ${invoice.invoice_number}` : ""}`,
       itemId: invoice.qbo_item_id ? String(invoice.qbo_item_id) : undefined,
     });

@@ -28,6 +28,32 @@ export type QuickBooksConnectionRow = {
   updated_at: string;
 };
 
+function isMissingQuickBooksConnectionColumnError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  return /column .*reconnect_required|reconnect_reason|last_auth_error_code|last_auth_error_at.* does not exist/i.test(
+    error.message
+  );
+}
+
+async function ensureQuickBooksConnectionColumns() {
+  await sql`
+    ALTER TABLE quickbooks_connections
+    ADD COLUMN IF NOT EXISTS reconnect_required BOOLEAN NOT NULL DEFAULT FALSE
+  `;
+  await sql`
+    ALTER TABLE quickbooks_connections
+    ADD COLUMN IF NOT EXISTS reconnect_reason VARCHAR(100)
+  `;
+  await sql`
+    ALTER TABLE quickbooks_connections
+    ADD COLUMN IF NOT EXISTS last_auth_error_code VARCHAR(100)
+  `;
+  await sql`
+    ALTER TABLE quickbooks_connections
+    ADD COLUMN IF NOT EXISTS last_auth_error_at TIMESTAMP
+  `;
+}
+
 export async function getClientByEmail(email: string) {
   const result = await sql`
     SELECT * FROM clients WHERE email = ${email}
@@ -74,8 +100,7 @@ export async function getClientQuickBooksProfile(clientId: string) {
       billing_address_line2,
       billing_city,
       billing_state,
-      billing_postal_code,
-      -- billing_country removed
+      billing_postal_code
     FROM clients
     WHERE id = ${clientId}
     LIMIT 1
@@ -318,12 +343,26 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
 }
 
 export async function getQuickBooksConnection(): Promise<QuickBooksConnectionRow | undefined> {
-  const result = await sql`
-    SELECT *
-    FROM quickbooks_connections
-    ORDER BY id DESC
-    LIMIT 1
-  `;
+  let result;
+  try {
+    result = await sql`
+      SELECT *
+      FROM quickbooks_connections
+      ORDER BY id DESC
+      LIMIT 1
+    `;
+  } catch (error) {
+    if (!isMissingQuickBooksConnectionColumnError(error)) {
+      throw error;
+    }
+    await ensureQuickBooksConnectionColumns();
+    result = await sql`
+      SELECT *
+      FROM quickbooks_connections
+      ORDER BY id DESC
+      LIMIT 1
+    `;
+  }
   const row = result.rows[0] as QuickBooksConnectionRow | undefined;
   if (!row) return row;
   return {
@@ -353,44 +392,90 @@ export async function upsertQuickBooksConnection(data: {
     ? (data.lastAuthErrorAt ?? new Date()).toISOString()
     : null;
 
-  const result = await sql`
-    INSERT INTO quickbooks_connections (
-      realm_id,
-      access_token,
-      refresh_token,
-      token_expires_at,
-      connected_by_user_id,
-      reconnect_required,
-      reconnect_reason,
-      last_auth_error_code,
-      last_auth_error_at,
-      updated_at
-    )
-    VALUES (
-      ${data.realmId},
-      ${encryptedAccessToken},
-      ${encryptedRefreshToken},
-      ${data.tokenExpiresAt.toISOString()},
-      ${data.connectedByUserId || null},
-      ${reconnectRequired},
-      ${reconnectReason},
-      ${lastAuthErrorCode},
-      ${lastAuthErrorAt},
-      NOW()
-    )
-    ON CONFLICT (realm_id)
-    DO UPDATE SET
-      access_token = EXCLUDED.access_token,
-      refresh_token = EXCLUDED.refresh_token,
-      token_expires_at = EXCLUDED.token_expires_at,
-      connected_by_user_id = EXCLUDED.connected_by_user_id,
-      reconnect_required = EXCLUDED.reconnect_required,
-      reconnect_reason = EXCLUDED.reconnect_reason,
-      last_auth_error_code = EXCLUDED.last_auth_error_code,
-      last_auth_error_at = EXCLUDED.last_auth_error_at,
-      updated_at = NOW()
-    RETURNING *
-  `;
+  let result;
+  try {
+    result = await sql`
+      INSERT INTO quickbooks_connections (
+        realm_id,
+        access_token,
+        refresh_token,
+        token_expires_at,
+        connected_by_user_id,
+        reconnect_required,
+        reconnect_reason,
+        last_auth_error_code,
+        last_auth_error_at,
+        updated_at
+      )
+      VALUES (
+        ${data.realmId},
+        ${encryptedAccessToken},
+        ${encryptedRefreshToken},
+        ${data.tokenExpiresAt.toISOString()},
+        ${data.connectedByUserId || null},
+        ${reconnectRequired},
+        ${reconnectReason},
+        ${lastAuthErrorCode},
+        ${lastAuthErrorAt},
+        NOW()
+      )
+      ON CONFLICT (realm_id)
+      DO UPDATE SET
+        access_token = EXCLUDED.access_token,
+        refresh_token = EXCLUDED.refresh_token,
+        token_expires_at = EXCLUDED.token_expires_at,
+        connected_by_user_id = EXCLUDED.connected_by_user_id,
+        reconnect_required = EXCLUDED.reconnect_required,
+        reconnect_reason = EXCLUDED.reconnect_reason,
+        last_auth_error_code = EXCLUDED.last_auth_error_code,
+        last_auth_error_at = EXCLUDED.last_auth_error_at,
+        updated_at = NOW()
+      RETURNING *
+    `;
+  } catch (error) {
+    if (!isMissingQuickBooksConnectionColumnError(error)) {
+      throw error;
+    }
+    await ensureQuickBooksConnectionColumns();
+    result = await sql`
+      INSERT INTO quickbooks_connections (
+        realm_id,
+        access_token,
+        refresh_token,
+        token_expires_at,
+        connected_by_user_id,
+        reconnect_required,
+        reconnect_reason,
+        last_auth_error_code,
+        last_auth_error_at,
+        updated_at
+      )
+      VALUES (
+        ${data.realmId},
+        ${encryptedAccessToken},
+        ${encryptedRefreshToken},
+        ${data.tokenExpiresAt.toISOString()},
+        ${data.connectedByUserId || null},
+        ${reconnectRequired},
+        ${reconnectReason},
+        ${lastAuthErrorCode},
+        ${lastAuthErrorAt},
+        NOW()
+      )
+      ON CONFLICT (realm_id)
+      DO UPDATE SET
+        access_token = EXCLUDED.access_token,
+        refresh_token = EXCLUDED.refresh_token,
+        token_expires_at = EXCLUDED.token_expires_at,
+        connected_by_user_id = EXCLUDED.connected_by_user_id,
+        reconnect_required = EXCLUDED.reconnect_required,
+        reconnect_reason = EXCLUDED.reconnect_reason,
+        last_auth_error_code = EXCLUDED.last_auth_error_code,
+        last_auth_error_at = EXCLUDED.last_auth_error_at,
+        updated_at = NOW()
+      RETURNING *
+    `;
+  }
   const row = result.rows[0] as QuickBooksConnectionRow | undefined;
   if (!row) return row;
   // Decrypt the stored ciphertext to confirm what was persisted and return plaintext.
@@ -409,34 +494,70 @@ export async function setQuickBooksConnectionAuthState(data: {
 }) {
   const reconnectReason = data.reconnectRequired ? (data.reconnectReason ?? null) : null;
   const lastAuthErrorCode = data.reconnectRequired ? (data.lastAuthErrorCode ?? null) : null;
-  const result = data.realmId
-    ? await sql`
-        UPDATE quickbooks_connections
-        SET
-          reconnect_required = ${data.reconnectRequired},
-          reconnect_reason = ${reconnectReason},
-          last_auth_error_code = ${lastAuthErrorCode},
-          last_auth_error_at = ${data.reconnectRequired ? new Date().toISOString() : null},
-          updated_at = NOW()
-        WHERE realm_id = ${data.realmId}
-        RETURNING *
-      `
-    : await sql`
-        UPDATE quickbooks_connections
-        SET
-          reconnect_required = ${data.reconnectRequired},
-          reconnect_reason = ${reconnectReason},
-          last_auth_error_code = ${lastAuthErrorCode},
-          last_auth_error_at = ${data.reconnectRequired ? new Date().toISOString() : null},
-          updated_at = NOW()
-        WHERE id = (
-          SELECT id
-          FROM quickbooks_connections
-          ORDER BY id DESC
-          LIMIT 1
-        )
-        RETURNING *
-      `;
+  let result;
+  try {
+    result = data.realmId
+      ? await sql`
+          UPDATE quickbooks_connections
+          SET
+            reconnect_required = ${data.reconnectRequired},
+            reconnect_reason = ${reconnectReason},
+            last_auth_error_code = ${lastAuthErrorCode},
+            last_auth_error_at = ${data.reconnectRequired ? new Date().toISOString() : null},
+            updated_at = NOW()
+          WHERE realm_id = ${data.realmId}
+          RETURNING *
+        `
+      : await sql`
+          UPDATE quickbooks_connections
+          SET
+            reconnect_required = ${data.reconnectRequired},
+            reconnect_reason = ${reconnectReason},
+            last_auth_error_code = ${lastAuthErrorCode},
+            last_auth_error_at = ${data.reconnectRequired ? new Date().toISOString() : null},
+            updated_at = NOW()
+          WHERE id = (
+            SELECT id
+            FROM quickbooks_connections
+            ORDER BY id DESC
+            LIMIT 1
+          )
+          RETURNING *
+        `;
+  } catch (error) {
+    if (!isMissingQuickBooksConnectionColumnError(error)) {
+      throw error;
+    }
+    await ensureQuickBooksConnectionColumns();
+    result = data.realmId
+      ? await sql`
+          UPDATE quickbooks_connections
+          SET
+            reconnect_required = ${data.reconnectRequired},
+            reconnect_reason = ${reconnectReason},
+            last_auth_error_code = ${lastAuthErrorCode},
+            last_auth_error_at = ${data.reconnectRequired ? new Date().toISOString() : null},
+            updated_at = NOW()
+          WHERE realm_id = ${data.realmId}
+          RETURNING *
+        `
+      : await sql`
+          UPDATE quickbooks_connections
+          SET
+            reconnect_required = ${data.reconnectRequired},
+            reconnect_reason = ${reconnectReason},
+            last_auth_error_code = ${lastAuthErrorCode},
+            last_auth_error_at = ${data.reconnectRequired ? new Date().toISOString() : null},
+            updated_at = NOW()
+          WHERE id = (
+            SELECT id
+            FROM quickbooks_connections
+            ORDER BY id DESC
+            LIMIT 1
+          )
+          RETURNING *
+        `;
+  }
 
   const row = result.rows[0] as QuickBooksConnectionRow | undefined;
   if (!row) return row;

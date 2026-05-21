@@ -26,6 +26,32 @@ function quickBooksReconnectResponse(error: unknown) {
   };
 }
 
+// Helper: get today's date in YYYY-MM-DD format (server timezone)
+function getServerDateString(): string {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+// Helper: get today + 30 days in YYYY-MM-DD format (server timezone)
+function getServerDatePlus30Days(): string {
+  const date = new Date();
+  date.setDate(date.getDate() + 30);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+// Helper: validate due date is at least 30 days from today
+function isValidServerDueDate(dueDateString: string): boolean {
+  if (!dueDateString) return false;
+  const minDate = getServerDatePlus30Days();
+  return dueDateString >= minDate;
+}
+
 // GET /api/invoices - Get client's invoices or admin lists
 export async function GET(req: NextRequest) {
   try {
@@ -254,6 +280,15 @@ export async function POST(req: NextRequest) {
     if (Number(invoice_total) <= 0) {
       return NextResponse.json(
         { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    // Validate due date is at least 30 days from today
+    if (!isValidServerDueDate(String(due_date))) {
+      const minDate = getServerDatePlus30Days();
+      return NextResponse.json(
+        { error: `Due date must be at least 30 days from today. Minimum: ${minDate}.` },
         { status: 400 }
       );
     }
