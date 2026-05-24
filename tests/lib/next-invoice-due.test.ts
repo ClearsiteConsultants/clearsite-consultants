@@ -56,17 +56,27 @@ const harness = vi.hoisted(() => {
     }
 
     if (sqlText.includes("UPDATE invoices") && sqlText.includes("WHERE qbo_invoice_id =")) {
-      const qboInvoiceId = String(values[7]);
+      const qboInvoiceId = String(values[values.length - 1]);
       const invoice = state.invoices.find((row) => row.qbo_invoice_id === qboInvoiceId);
       if (!invoice) return [];
 
-      invoice.qbo_sync_status = String(values[0]);
-      if (values[1] != null) invoice.amount_paid = Number(values[1]);
-      if (values[2] != null) invoice.paid_at = String(values[2]);
-      if (values[3] != null) invoice.qbo_payment_url = String(values[3]);
-      if (values[4] != null) invoice.qbo_doc_number = String(values[4]);
-      if (values[5] != null) invoice.invoice_date = String(values[5]);
-      if (values[6] != null) invoice.invoice_total = Number(values[6]);
+      if (values.length === 8) {
+        invoice.qbo_sync_status = String(values[0]);
+        if (values[1] != null) invoice.amount_paid = Number(values[1]);
+        if (values[2] != null) invoice.paid_at = String(values[2]);
+        if (values[3] != null) invoice.qbo_payment_url = String(values[3]);
+        if (values[4] != null) invoice.qbo_doc_number = String(values[4]);
+        if (values[5] != null) invoice.invoice_date = String(values[5]);
+        if (values[6] != null) invoice.invoice_total = Number(values[6]);
+      } else {
+        invoice.qbo_sync_status = String(values[0]);
+        invoice.amount_paid = Number(values[1] ?? 0);
+        invoice.paid_at = null;
+        if (values[2] != null) invoice.qbo_payment_url = String(values[2]);
+        if (values[3] != null) invoice.qbo_doc_number = String(values[3]);
+        if (values[4] != null) invoice.invoice_date = String(values[4]);
+        if (values[5] != null) invoice.invoice_total = Number(values[5]);
+      }
 
       return [invoice];
     }
@@ -174,6 +184,38 @@ describe("lib/db next invoice due recomputation", () => {
     });
 
     expect(harness.state.clients.get("client-2")?.next_invoice_due).toBeNull();
+  });
+
+  it("reintroduces an invoice into next_invoice_due when status reverses from paid to sent", async () => {
+    await createInvoice({
+      client_id: "client-4",
+      invoice_total: 175,
+      due_date: "2026-11-12",
+      qbo_invoice_id: "qbo-4",
+      qbo_sync_status: "sent",
+      paid_at: null,
+    });
+
+    await updateInvoiceStatusByQuickBooksInvoiceId({
+      qboInvoiceId: "qbo-4",
+      qboSyncStatus: "paid",
+      amountPaid: 175,
+      paidAt: "2026-11-13",
+    });
+
+    expect(harness.state.clients.get("client-4")?.next_invoice_due).toBeNull();
+
+    await updateInvoiceStatusByQuickBooksInvoiceId({
+      qboInvoiceId: "qbo-4",
+      qboSyncStatus: "sent",
+      amountPaid: 0,
+      paidAt: null,
+    });
+
+    expect(harness.state.clients.get("client-4")?.next_invoice_due).toBe("2026-11-12");
+    const reversed = harness.state.invoices.find((row) => row.qbo_invoice_id === "qbo-4");
+    expect(reversed?.paid_at).toBeNull();
+    expect(reversed?.amount_paid).toBe(0);
   });
 
   it("refreshes next_invoice_due for manual-link creation and QBO sync/status updates", async () => {
