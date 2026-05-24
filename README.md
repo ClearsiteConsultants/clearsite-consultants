@@ -247,6 +247,23 @@ The `users` table is never written to by this app — it is read-only for admin 
 - **Pricing data**: Website pricing display values are maintained in `components/Pricing.tsx`.
 - **Contact endpoint**: `app/api/contact/route.ts` sends contact emails through Resend.
 
+## Blake Autopilot Quick Checklist
+
+Use this checklist during day-to-day autopilot sessions:
+
+- Confirm you are on the intended branch before launching autopilot tasks.
+- Keep secrets only in `.env.local`; never paste API keys, tokens, or passwords into prompts.
+- Review planned file writes and command intent before approval, especially for auth, integration, and DB areas.
+- Treat writes outside the workspace or to critical governance/security paths as stop-and-review events.
+- Require explicit approval for risky actions (`git push`, publish actions, external API calls, DB mutations).
+- Watch for exfiltration patterns (secret access + outbound call) and cancel immediately if suspected.
+- If Blake pauses an agent, read the alert, then explicitly `approve`, `investigate`, or `cancel`.
+- For a Critical incident, do not resume until the incident report and containment actions are reviewed.
+- Rotate any exposed credential immediately; consider any leaked secret compromised.
+- Remember: only the user can restart work after a full Blake shutdown.
+
+Full policy: `.github/agents/squad.agent.md` -> **Blake Autopilot Security Protections**.
+
 ## QuickBooks Setup
 
 1. Create an Intuit app and enable QuickBooks Online Accounting scope.
