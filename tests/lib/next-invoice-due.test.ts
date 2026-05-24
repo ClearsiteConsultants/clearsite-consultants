@@ -60,7 +60,15 @@ const harness = vi.hoisted(() => {
       const invoice = state.invoices.find((row) => row.qbo_invoice_id === qboInvoiceId);
       if (!invoice) return [];
 
-      if (values.length === 8) {
+      if (sqlText.includes("paid_at = NULL")) {
+        invoice.qbo_sync_status = String(values[0]);
+        if (values[1] != null) invoice.amount_paid = Number(values[1]);
+        invoice.paid_at = null;
+        if (values[2] != null) invoice.qbo_payment_url = String(values[2]);
+        if (values[3] != null) invoice.qbo_doc_number = String(values[3]);
+        if (values[4] != null) invoice.invoice_date = String(values[4]);
+        if (values[5] != null) invoice.invoice_total = Number(values[5]);
+      } else {
         invoice.qbo_sync_status = String(values[0]);
         if (values[1] != null) invoice.amount_paid = Number(values[1]);
         if (values[2] != null) invoice.paid_at = String(values[2]);
@@ -68,14 +76,6 @@ const harness = vi.hoisted(() => {
         if (values[4] != null) invoice.qbo_doc_number = String(values[4]);
         if (values[5] != null) invoice.invoice_date = String(values[5]);
         if (values[6] != null) invoice.invoice_total = Number(values[6]);
-      } else {
-        invoice.qbo_sync_status = String(values[0]);
-        invoice.amount_paid = Number(values[1] ?? 0);
-        invoice.paid_at = null;
-        if (values[2] != null) invoice.qbo_payment_url = String(values[2]);
-        if (values[3] != null) invoice.qbo_doc_number = String(values[3]);
-        if (values[4] != null) invoice.invoice_date = String(values[4]);
-        if (values[5] != null) invoice.invoice_total = Number(values[5]);
       }
 
       return [invoice];
@@ -216,6 +216,28 @@ describe("lib/db next invoice due recomputation", () => {
     const reversed = harness.state.invoices.find((row) => row.qbo_invoice_id === "qbo-4");
     expect(reversed?.paid_at).toBeNull();
     expect(reversed?.amount_paid).toBe(0);
+  });
+
+  it("preserves payment fields when non-paid status update omits amountPaid and paidAt", async () => {
+    await createInvoice({
+      client_id: "client-5",
+      invoice_total: 80,
+      due_date: "2026-12-01",
+      qbo_invoice_id: "qbo-5",
+      qbo_sync_status: "paid",
+      amount_paid: 80,
+      paid_at: "2026-12-02",
+    });
+
+    await updateInvoiceStatusByQuickBooksInvoiceId({
+      qboInvoiceId: "qbo-5",
+      qboSyncStatus: "sent",
+    });
+
+    const unchanged = harness.state.invoices.find((row) => row.qbo_invoice_id === "qbo-5");
+    expect(unchanged?.paid_at).toBe("2026-12-02");
+    expect(unchanged?.amount_paid).toBe(80);
+    expect(harness.state.clients.get("client-5")?.next_invoice_due).toBeNull();
   });
 
   it("refreshes next_invoice_due for manual-link creation and QBO sync/status updates", async () => {
