@@ -48,3 +48,7 @@ next-env.d.ts
 .squad/.scratch/
 # Squad: SubSquad activation file (local to this machine)
 .squad-workstream
+
+# Squad and Copilot local workspace artifacts
+.squad/
+.copilot/

@@ -23,7 +23,7 @@ describe("lib/quickbooks discovery document", () => {
     process.env.QUICKBOOKS_ENVIRONMENT = "sandbox";
     process.env.QUICKBOOKS_CLIENT_ID = "test-client";
     process.env.QUICKBOOKS_CLIENT_SECRET = "test-secret";
-    process.env.QUICKBOOKS_REDIRECT_URI = "http://localhost/callback";
+    process.env.QUICKBOOKS_REDIRECT_URI = "http://localhost:3000/api/integrations/quickbooks/callback";
     process.env.AUTH_SECRET = "test-secret";
     process.env.DISCOVERY_CACHE_TTL_MINUTES = "30";
     // Clear module cache to reset discovery endpoint cache

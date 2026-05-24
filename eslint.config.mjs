@@ -13,6 +13,10 @@ const eslintConfig = defineConfig([
     "build/**",
     "dist/**",
     "next-env.d.ts",
+    // Local automation/runtime artifacts not part of app source lint scope:
+    ".squad/**",
+    ".copilot/**",
+    "coverage/**",
   ]),
 ]);
 
