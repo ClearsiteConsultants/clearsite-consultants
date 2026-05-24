@@ -278,8 +278,24 @@ export async function getNextUnpaidInvoiceDueDate(clientId: string) {
 }
 
 export async function refreshClientNextInvoiceDue(clientId: string) {
-  const dueDate = await getNextUnpaidInvoiceDueDate(clientId);
-  return updateNextInvoiceDue(clientId, dueDate);
+  const result = await sql`
+    UPDATE clients
+    SET
+      next_invoice_due = (
+        SELECT due_date
+        FROM invoices
+        WHERE client_id = ${clientId}
+          AND paid_at IS NULL
+          AND LOWER(COALESCE(qbo_sync_status, 'pending')) <> 'paid'
+        ORDER BY due_date ASC, created_at ASC
+        LIMIT 1
+      ),
+      updated_at = NOW()
+    WHERE id = ${clientId}
+    RETURNING *
+  `;
+
+  return result.rows[0];
 }
 
 export async function getClientInvoices(clientId: string) {
