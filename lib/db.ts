@@ -387,8 +387,8 @@ export async function updateInvoiceQuickBooksData(data: {
 export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
   qboInvoiceId: string;
   qboSyncStatus: string;
-  amountPaid?: number;
-  paidAt?: string | Date | null;
+  amountPaid: number;
+  paidAt: string | Date | null;
   qboPaymentUrl?: string | null;
   qboDocNumber?: string | null;
   invoiceDate?: string | null;

@@ -218,7 +218,7 @@ describe("lib/db next invoice due recomputation", () => {
     expect(reversed?.amount_paid).toBe(0);
   });
 
-  it("preserves payment fields when non-paid status update omits amountPaid and paidAt", async () => {
+  it("preserves payment fields when non-paid status update provides existing amountPaid and paidAt", async () => {
     await createInvoice({
       client_id: "client-5",
       invoice_total: 80,
@@ -232,6 +232,8 @@ describe("lib/db next invoice due recomputation", () => {
     await updateInvoiceStatusByQuickBooksInvoiceId({
       qboInvoiceId: "qbo-5",
       qboSyncStatus: "sent",
+      amountPaid: 80,
+      paidAt: "2026-12-02",
     });
 
     const unchanged = harness.state.invoices.find((row) => row.qbo_invoice_id === "qbo-5");
