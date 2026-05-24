@@ -278,8 +278,24 @@ export async function getNextUnpaidInvoiceDueDate(clientId: string) {
 }
 
 export async function refreshClientNextInvoiceDue(clientId: string) {
-  const dueDate = await getNextUnpaidInvoiceDueDate(clientId);
-  return updateNextInvoiceDue(clientId, dueDate);
+  const result = await sql`
+    UPDATE clients
+    SET
+      next_invoice_due = (
+        SELECT due_date
+        FROM invoices
+        WHERE client_id = ${clientId}
+          AND paid_at IS NULL
+          AND LOWER(COALESCE(qbo_sync_status, 'pending')) <> 'paid'
+        ORDER BY due_date ASC, created_at ASC
+        LIMIT 1
+      ),
+      updated_at = NOW()
+    WHERE id = ${clientId}
+    RETURNING *
+  `;
+
+  return result.rows[0];
 }
 
 export async function getClientInvoices(clientId: string) {
@@ -371,27 +387,59 @@ export async function updateInvoiceQuickBooksData(data: {
 export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
   qboInvoiceId: string;
   qboSyncStatus: string;
-  amountPaid?: number;
-  paidAt?: string | Date | null;
+  amountPaid: number;
+  paidAt: string | Date | null;
   qboPaymentUrl?: string | null;
   qboDocNumber?: string | null;
   invoiceDate?: string | null;
   invoiceTotal?: number | null;
 }) {
-  const result = await sql`
-    UPDATE invoices
-    SET
-      qbo_sync_status = ${data.qboSyncStatus},
-      amount_paid = COALESCE(${data.amountPaid ?? null}, amount_paid),
-      paid_at = COALESCE(${data.paidAt || null}, paid_at),
-      qbo_payment_url = COALESCE(${data.qboPaymentUrl || null}, qbo_payment_url),
-      qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
-      invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
-      invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
-      last_synced_at = NOW()
-    WHERE qbo_invoice_id = ${data.qboInvoiceId}
-    RETURNING *
-  `;
+  const isPaidStatus = data.qboSyncStatus.trim().toLowerCase() === "paid";
+
+  const result = isPaidStatus
+    ? await sql`
+        UPDATE invoices
+        SET
+          qbo_sync_status = ${data.qboSyncStatus},
+          amount_paid = COALESCE(${data.amountPaid ?? null}, amount_paid),
+          paid_at = COALESCE(${data.paidAt || null}, paid_at),
+          qbo_payment_url = COALESCE(${data.qboPaymentUrl || null}, qbo_payment_url),
+          qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
+          invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
+          invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
+          last_synced_at = NOW()
+        WHERE qbo_invoice_id = ${data.qboInvoiceId}
+        RETURNING *
+      `
+    : data.paidAt === null
+      ? await sql`
+        UPDATE invoices
+        SET
+          qbo_sync_status = ${data.qboSyncStatus},
+          amount_paid = COALESCE(${data.amountPaid ?? null}, amount_paid),
+          paid_at = NULL,
+          qbo_payment_url = COALESCE(${data.qboPaymentUrl || null}, qbo_payment_url),
+          qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
+          invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
+          invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
+          last_synced_at = NOW()
+        WHERE qbo_invoice_id = ${data.qboInvoiceId}
+        RETURNING *
+      `
+      : await sql`
+        UPDATE invoices
+        SET
+          qbo_sync_status = ${data.qboSyncStatus},
+          amount_paid = COALESCE(${data.amountPaid ?? null}, amount_paid),
+          paid_at = COALESCE(${data.paidAt || null}, paid_at),
+          qbo_payment_url = COALESCE(${data.qboPaymentUrl || null}, qbo_payment_url),
+          qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
+          invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
+          invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
+          last_synced_at = NOW()
+        WHERE qbo_invoice_id = ${data.qboInvoiceId}
+        RETURNING *
+      `;
 
   const invoice = result.rows[0];
   if (invoice?.client_id) {
