@@ -26,6 +26,7 @@ Use this template when creating an implementation plan with the user for a featu
 3. Make multiple commits on each branch.
 4. Create Pull Requests to merge each branch into `main`.
 5. In every Pull Request, include a `Quality Assurance / Manual Test` section that lists the features and functionality the user should validate.
+6. In every Pull Request description, include an auto-close reference to the issue using `Closes #<issue-number>` (or `Fixes #<issue-number>`).
 
 ## What to Inspect First
 - `<primary files/modules>`
@@ -46,6 +47,7 @@ Use this template when creating an implementation plan with the user for a featu
 - Validate integration paths if external systems are involved.
 
 ## Output I Want Back
+- Issue link and PR link
 - Files changed
 - Why each change was needed
 - Test results
@@ -58,6 +60,7 @@ Use this template when creating an implementation plan with the user for a featu
 
 ## PR Checklist Reminder
 - [ ] PR includes `Quality Assurance / Manual Test` section.
+- [ ] PR description includes `Closes #<issue-number>` (or `Fixes #<issue-number>`).
 - [ ] QA section lists exact features/flows I should validate.
 - [ ] Test commands and results are included.
 - [ ] Risks and rollback notes are documented.
