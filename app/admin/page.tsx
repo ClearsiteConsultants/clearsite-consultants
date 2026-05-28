@@ -18,12 +18,26 @@ interface ClientUser {
   first_name: string;
   last_name: string;
   phone?: string;
+  action_needed?: boolean;
 }
 
 interface EditingClient {
   id: string;
   plan: string | null;
   service_status: string;
+}
+
+interface ActionNeededIssue {
+  invoiceId: string;
+  qboDocNumber: string | null;
+  qboInvoiceId: string | null;
+  qboSyncStatus: string | null;
+  dueDate: string | null;
+  invoiceDate: string | null;
+  amountTotal: number | null;
+  amountPaid: number | null;
+  updatedAt: string | null;
+  errorMessage?: string | null;
 }
 
 function formatDate(value: string | null | undefined) {
@@ -45,7 +59,12 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [editingClient, setEditingClient] = useState<EditingClient | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showActionNeededModal, setShowActionNeededModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [actionNeededClientName, setActionNeededClientName] = useState("");
+  const [actionNeededLoading, setActionNeededLoading] = useState(false);
+  const [actionNeededError, setActionNeededError] = useState("");
+  const [actionNeededIssues, setActionNeededIssues] = useState<ActionNeededIssue[]>([]);
   const [message, setMessage] = useState({ type: "", text: "" });
 
   useEffect(() => {
@@ -113,6 +132,38 @@ export default function AdminDashboard() {
     }
   };
 
+  const formatCurrency = (value: number | null | undefined) => {
+    if (typeof value !== "number") return "N/A";
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(value);
+  };
+
+  const handleOpenActionNeeded = async (client: ClientUser) => {
+    setShowActionNeededModal(true);
+    setActionNeededClientName(client.company_name);
+    setActionNeededIssues([]);
+    setActionNeededError("");
+    setActionNeededLoading(true);
+
+    try {
+      const res = await fetch(`/api/admin/clients/${client.id}/action-needed`, { cache: "no-store" });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error || "Failed to load action-needed issues");
+      }
+
+      const payload = await res.json() as { issues?: ActionNeededIssue[] };
+      setActionNeededIssues(Array.isArray(payload.issues) ? payload.issues : []);
+    } catch (error) {
+      console.error("Failed to load action-needed issues", error);
+      setActionNeededError(error instanceof Error ? error.message : "Failed to load action-needed issues");
+    } finally {
+      setActionNeededLoading(false);
+    }
+  };
+
   if (status === "loading" || loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
@@ -168,7 +219,20 @@ export default function AdminDashboard() {
                   ) : (
                     clients.map((client) => (
                       <tr key={client.id} className="border-b hover:bg-gray-50">
-                        <td className="px-6 py-4 font-medium">{client.company_name}</td>
+                        <td className="px-6 py-4 font-medium">
+                          <div className="flex items-center gap-2">
+                            <span>{client.company_name}</span>
+                            {client.action_needed && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenActionNeeded(client)}
+                                className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-800 hover:bg-amber-200"
+                              >
+                                Action needed
+                              </button>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-6 py-4 text-sm">{client.email}</td>
                         <td className="px-6 py-4 text-sm">{[client.first_name, client.last_name].filter(Boolean).join(" ") || "—"}</td>
                         <td className="px-6 py-4 text-sm">{client.plan || "—"}</td>
@@ -319,6 +383,61 @@ export default function AdminDashboard() {
               </Button>
               <Button onClick={handleSaveClient} disabled={saving}>
                 {saving ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Action Needed Modal */}
+      {showActionNeededModal && (
+        <div
+          className="fixed inset-0 bg-gray-500/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={() => setShowActionNeededModal(false)}
+        >
+          <div className="bg-white rounded-lg max-w-3xl w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b">
+              <h3 className="text-lg font-semibold">Action Needed Issues</h3>
+              <p className="text-sm text-gray-600 mt-1">{actionNeededClientName}</p>
+            </div>
+
+            <div className="px-6 py-4 max-h-[60vh] overflow-y-auto">
+              {actionNeededLoading ? (
+                <p className="text-sm text-gray-600">Loading issues...</p>
+              ) : actionNeededError ? (
+                <p className="text-sm text-red-700">{actionNeededError}</p>
+              ) : actionNeededIssues.length === 0 ? (
+                <p className="text-sm text-gray-600">No action-needed issues found.</p>
+              ) : (
+                <div className="space-y-3">
+                  {actionNeededIssues.map((issue) => (
+                    <div key={issue.invoiceId} className="rounded-md border border-gray-200 p-3">
+                      <p className="mb-2 text-sm font-medium text-red-700">
+                        {issue.errorMessage || `Missing qbo_payment_url for invoice ${issue.qboDocNumber || issue.invoiceId}.`}
+                      </p>
+                      <div className="grid gap-2 text-sm md:grid-cols-2">
+                        <p><span className="font-semibold">Invoice ID:</span> {issue.invoiceId}</p>
+                        <p><span className="font-semibold">QBO Doc #:</span> {issue.qboDocNumber || "N/A"}</p>
+                        <p><span className="font-semibold">QBO Invoice ID:</span> {issue.qboInvoiceId || "N/A"}</p>
+                        <p><span className="font-semibold">QBO Sync Status:</span> {issue.qboSyncStatus || "N/A"}</p>
+                        <p><span className="font-semibold">Invoice Date:</span> {formatDate(issue.invoiceDate)}</p>
+                        <p><span className="font-semibold">Due Date:</span> {formatDate(issue.dueDate)}</p>
+                        <p><span className="font-semibold">Amount Total:</span> {formatCurrency(issue.amountTotal)}</p>
+                        <p><span className="font-semibold">Amount Paid:</span> {formatCurrency(issue.amountPaid)}</p>
+                        <p><span className="font-semibold">Updated:</span> {formatDate(issue.updatedAt)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowActionNeededModal(false)}
+              >
+                Close
               </Button>
             </div>
           </div>

@@ -6,16 +6,20 @@ const {
   getQuickBooksConnectionMock,
   createInvoiceMock,
   getClientBillingAddressMock,
+  getClientInvoicesForPortalMock,
   syncInvoiceToQuickBooksMock,
   getQuickBooksItemsMock,
+  createMissingPaymentUrlLogIfNeededMock,
   persistApiErrorMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn(),
   getQuickBooksConnectionMock: vi.fn(),
   createInvoiceMock: vi.fn(),
   getClientBillingAddressMock: vi.fn(),
+  getClientInvoicesForPortalMock: vi.fn(),
   syncInvoiceToQuickBooksMock: vi.fn(),
   getQuickBooksItemsMock: vi.fn(),
+  createMissingPaymentUrlLogIfNeededMock: vi.fn(),
   persistApiErrorMock: vi.fn(),
 }));
 
@@ -27,7 +31,8 @@ vi.mock("@/lib/db", () => ({
   createInvoice: createInvoiceMock,
   getClientBillingAddress: getClientBillingAddressMock,
   getAllClients: vi.fn(),
-  getClientInvoicesForPortal: vi.fn(),
+  getClientInvoicesForPortal: getClientInvoicesForPortalMock,
+  createMissingPaymentUrlLogIfNeeded: createMissingPaymentUrlLogIfNeededMock,
   getQuickBooksConnection: getQuickBooksConnectionMock,
 }));
 
@@ -77,6 +82,34 @@ describe("/api/invoices reconnect-required responses", () => {
     expect(res.status).toBe(503);
     expect(payload.reconnectRequired).toBe(true);
     expect(payload.reconnectReason).toBe("api_unauthorized");
+  });
+
+  it("does not log missing qbo_payment_url warnings during client invoice fetch", async () => {
+    authMock.mockResolvedValue({ user: { id: "client:42", user_type: "client" } });
+    getClientInvoicesForPortalMock.mockResolvedValue([
+      {
+        id: "inv-1",
+        qbo_doc_number: "1001",
+        qbo_invoice_id: "2001",
+        qbo_sync_status: "sent",
+        paid_at: null,
+        qbo_payment_url: null,
+      },
+      {
+        id: "inv-2",
+        qbo_doc_number: "1002",
+        qbo_invoice_id: "2002",
+        qbo_sync_status: "paid",
+        paid_at: "2026-05-01T00:00:00.000Z",
+        qbo_payment_url: null,
+      },
+    ]);
+
+    const req = new NextRequest("http://localhost:3000/api/invoices");
+    const res = await GET(req);
+
+    expect(res.status).toBe(200);
+    expect(createMissingPaymentUrlLogIfNeededMock).not.toHaveBeenCalled();
   });
 
   it("returns reconnectRequired when create+sync hits invalid auth", async () => {
@@ -185,7 +218,6 @@ describe("/api/invoices reconnect-required responses", () => {
     });
 
     const res = await POST(req);
-    const payload = await res.json();
 
     expect(res.status).toBe(201);
     expect(createInvoiceMock).toHaveBeenCalled();

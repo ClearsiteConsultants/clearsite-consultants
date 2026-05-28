@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
-import { getInvoicePdfById } from "@/lib/db";
+import { getInvoicePdfById, getQuickBooksConnection } from "@/lib/db";
+import { getQuickBooksInvoicePdf, isQuickBooksReconnectRequiredError } from "@/lib/quickbooks";
 
 function parseClientId(sessionUserId: string) {
   const normalized = sessionUserId.trim();
@@ -10,6 +11,10 @@ function parseClientId(sessionUserId: string) {
     }
   }
   return normalized;
+}
+
+function sanitizeFilenameSegment(value: string) {
+  return value.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/^\.+/, "_");
 }
 
 export async function GET(
@@ -26,46 +31,75 @@ export async function GET(
     const row = await getInvoicePdfById(id);
 
     if (!row) {
-      return NextResponse.json({ error: "PDF not found" }, { status: 404 });
+      return NextResponse.json({ error: "Invoice PDF not available" }, { status: 404 });
     }
 
-    // Access control: clients can only access their own invoices; admins can access any.
+    // Access control: admins are blocked; clients can only access their own invoices.
     const userType = (session.user as { user_type?: string }).user_type;
+    if (userType === "admin") {
+      return NextResponse.json(
+        { error: "Admins cannot download client PDFs; view in QuickBooks Online instead" },
+        { status: 403 }
+      );
+    }
+
     if (userType === "client") {
       const clientId = parseClientId(session.user.id as string);
       if (String(row.client_id) !== clientId) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
-    } else if (userType !== "admin") {
+    } else {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const pdfData = row.pdf_data as Buffer | Uint8Array | null;
-    if (!pdfData) {
-      return NextResponse.json({ error: "PDF not found" }, { status: 404 });
+    if (!row.qbo_invoice_id) {
+      return NextResponse.json({ error: "Invoice PDF not available" }, { status: 404 });
     }
 
-    // Normalize to a proper ArrayBuffer to satisfy TypeScript's Blob/BodyInit constraints.
-    const nodeBuffer = Buffer.isBuffer(pdfData) ? pdfData : Buffer.from(pdfData);
+    const connection = await getQuickBooksConnection();
+    if (!connection?.realm_id) {
+      return NextResponse.json(
+        { error: "QuickBooks service unavailable. Please try again later." },
+        { status: 503 }
+      );
+    }
+
+    const pdfPayload = await getQuickBooksInvoicePdf(String(connection.realm_id), String(row.qbo_invoice_id));
+    const nodeBuffer = Buffer.isBuffer(pdfPayload.data) ? pdfPayload.data : Buffer.from(pdfPayload.data);
     const arrayBuffer = nodeBuffer.buffer.slice(
       nodeBuffer.byteOffset,
       nodeBuffer.byteOffset + nodeBuffer.byteLength
     ) as ArrayBuffer;
 
-    const mimeType = (row.pdf_mime_type as string | null) || "application/pdf";
-    const filename = (row.pdf_filename as string | null) || `invoice-${id}.pdf`;
+    const docNumber = typeof row.qbo_doc_number === "string" ? row.qbo_doc_number : null;
+    const sanitizedDocNumber = docNumber ? sanitizeFilenameSegment(docNumber) : null;
+    const filename = sanitizedDocNumber ? `${sanitizedDocNumber}.pdf` : `invoice-${sanitizeFilenameSegment(id)}.pdf`;
 
     return new NextResponse(arrayBuffer, {
       status: 200,
       headers: {
-        "Content-Type": mimeType,
-        "Content-Disposition": `inline; filename="${filename}"`,
+        "Content-Type": pdfPayload.mimeType || "application/pdf",
+        "Content-Disposition": `attachment; filename="${filename}"`,
         "Content-Length": String(nodeBuffer.length),
         "Cache-Control": "private, no-store",
       },
     });
   } catch (error: unknown) {
+    if (isQuickBooksReconnectRequiredError(error)) {
+      return NextResponse.json(
+        { error: "QuickBooks service unavailable. Please reconnect and try again." },
+        { status: 503 }
+      );
+    }
+
     const message = error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    if (message.includes("QuickBooks API request failed") || message.includes("QuickBooks")) {
+      return NextResponse.json(
+        { error: "QuickBooks service temporarily unavailable. Please try again." },
+        { status: 503 }
+      );
+    }
+
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

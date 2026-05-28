@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
+import { buildMissingPaymentUrlContactHref } from "@/lib/portal-contact";
 
 interface Client {
   id: string;
@@ -23,19 +24,17 @@ interface Client {
 
 interface Invoice {
   id: string;
-  invoice_number: string | null;
+  qbo_invoice_id: string | null;
   qbo_doc_number: string | null;
   invoice_total: number;
   amount_paid: number;
   invoice_date: string | null;
   due_date: string;
   qbo_payment_url: string | null;
-  file_url: string | null;
   qbo_sync_status: string | null;
   paid_at: string | null;
   created_at: string;
   is_manual_link: boolean | null;
-  has_pdf: boolean | null;
 }
 
 function formatDate(value: string | null | undefined) {
@@ -216,10 +215,14 @@ export default function Portal() {
                             ? "bg-red-100 text-red-700"
                             : "bg-amber-100 text-amber-700";
 
-                    // Prefer QuickBooks doc number; fall back to local invoice number.
-                    const displayNumber = invoice.qbo_doc_number || invoice.invoice_number || "—";
+                    // Prefer QuickBooks doc number.
+                    const displayNumber = invoice.qbo_doc_number || "—";
                     const isManualLink = invoice.is_manual_link === true;
-                    const payNowHref = invoice.qbo_payment_url || (invoice.has_pdf ? `/api/invoices/${invoice.id}/pdf` : invoice.file_url);
+                    const payNowHref = invoice.qbo_payment_url || null;
+                    const isUnpaid = status !== "paid";
+                    const invoiceNumberForMessage = invoice.qbo_doc_number || "";
+                    const isMissingPaymentUrlError = isUnpaid && !payNowHref;
+                    const contactSupportHref = buildMissingPaymentUrlContactHref(invoice.id, invoice.qbo_doc_number);
 
                     return (
                       <tr key={invoice.id} className="border-b border-gray-100">
@@ -241,40 +244,46 @@ export default function Portal() {
                         </td>
                         <td className="py-4 pr-4">
                           <div className="flex flex-wrap gap-3 text-sm">
-                            {invoice.has_pdf && (
+                            {invoice.qbo_invoice_id && (
                               <a
                                 href={`/api/invoices/${invoice.id}/pdf`}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-gray-700 font-semibold hover:text-gray-900"
                               >
-                                View PDF
-                              </a>
-                            )}
-                            {!invoice.has_pdf && invoice.file_url && (
-                              <a
-                                href={invoice.file_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-gray-700 font-semibold hover:text-gray-900"
-                              >
-                                View PDF
+                                Download PDF
                               </a>
                             )}
                           </div>
                         </td>
                         <td className="py-4 pr-4">
-                          <div className="flex flex-wrap gap-3 text-sm">
-                            {payNowHref && status !== "paid" && (
-                              <Button asChild size="sm" className="h-8 px-3 text-xs tracking-[0.12em]">
-                                <a
-                                  href={payNowHref}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                >
+                          <div className="flex flex-col gap-2 text-sm">
+                            {isUnpaid && (
+                              payNowHref ? (
+                                <Button asChild size="sm" className="h-8 w-fit px-3 text-xs tracking-[0.12em]">
+                                  <a
+                                    href={payNowHref}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    Pay Now
+                                  </a>
+                                </Button>
+                              ) : (
+                                <Button size="sm" disabled className="h-8 w-fit px-3 text-xs tracking-[0.12em]">
                                   Pay Now
-                                </a>
-                              </Button>
+                                </Button>
+                              )
+                            )}
+                            {isMissingPaymentUrlError && (
+                              <>
+                                <p className="text-xs text-red-700">
+                                  The QuickBooks Online payment link (&quot;qbo_payment_url&quot;) for invoice {invoiceNumberForMessage} does not exist. Contact customer support for assistance.
+                                </p>
+                                <Button asChild variant="outline" size="sm" className="h-8 w-fit px-3 text-xs tracking-[0.08em]">
+                                  <a href={contactSupportHref}>Contact Support</a>
+                                </Button>
+                              </>
                             )}
                           </div>
                         </td>

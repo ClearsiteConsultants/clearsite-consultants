@@ -18,8 +18,25 @@ export async function GET() {
     }
 
     const result = await sql`
-      SELECT id, email, company_name, plan, service_status, first_name, last_name, phone, next_invoice_due
-      FROM clients
+      SELECT
+        c.id,
+        c.email,
+        c.company_name,
+        c.plan,
+        c.service_status,
+        c.first_name,
+        c.last_name,
+        c.phone,
+        c.next_invoice_due,
+        EXISTS (
+          SELECT 1
+          FROM invoices i
+          WHERE i.client_id = c.id
+            AND i.paid_at IS NULL
+            AND LOWER(COALESCE(i.qbo_sync_status, 'pending')) <> 'paid'
+            AND COALESCE(BTRIM(i.qbo_payment_url), '') = ''
+        ) AS action_needed
+      FROM clients c
       ORDER BY company_name
     `;
 
@@ -92,9 +109,26 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    return NextResponse.json(
+    const client = result.rows[0];
+    const actionNeededResult = await sql`
+      SELECT EXISTS (
+        SELECT 1
+        FROM invoices i
+        WHERE i.client_id = ${id}
+          AND i.paid_at IS NULL
+          AND LOWER(COALESCE(i.qbo_sync_status, 'pending')) <> 'paid'
+          AND COALESCE(BTRIM(i.qbo_payment_url), '') = ''
+      ) AS action_needed
+    `;
 
-      { message: "Client updated successfully", client: result.rows[0] },
+    return NextResponse.json(
+      {
+        message: "Client updated successfully",
+        client: {
+          ...client,
+          action_needed: Boolean(actionNeededResult.rows[0]?.action_needed),
+        },
+      },
       { status: 200 }
     );
   } catch (error) {

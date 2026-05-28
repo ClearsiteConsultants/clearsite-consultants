@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from "react";
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import Services from "@/components/Services";
@@ -16,7 +17,9 @@ export default function Home() {
       <Services />
       <WhyUs />
       <Pricing />
-      <Contact />
+      <Suspense fallback={null}>
+        <Contact />
+      </Suspense>
       <Footer />
     </main>
   );

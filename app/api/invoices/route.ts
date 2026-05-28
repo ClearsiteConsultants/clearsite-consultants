@@ -30,15 +30,6 @@ function quickBooksReconnectResponse(error: unknown) {
   };
 }
 
-// Helper: get today's date in YYYY-MM-DD format (server timezone)
-function getServerDateString(): string {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 // Helper: get today + 30 days in YYYY-MM-DD format (server timezone)
 function getServerDatePlus30Days(): string {
   const date = new Date();
@@ -80,6 +71,7 @@ export async function GET(req: NextRequest) {
         // Fall back to local invoice data when QuickBooks sync is unavailable.
       }
       const invoices = await getClientInvoicesForPortal(clientId);
+
       return NextResponse.json(invoices, {
         headers: {
           "Cache-Control": "no-store, max-age=0",
@@ -328,7 +320,6 @@ export async function POST(req: NextRequest) {
 
     const invoice = await createInvoice({
       client_id,
-      invoice_number: null,
       invoice_total: Number(invoice_total),
       invoice_date: invoice_date || null,
       due_date,

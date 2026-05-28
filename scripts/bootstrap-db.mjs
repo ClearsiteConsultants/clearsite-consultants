@@ -115,10 +115,9 @@ async function run() {
       CREATE TABLE IF NOT EXISTS invoices (
         id SERIAL PRIMARY KEY,
         client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
-        invoice_number VARCHAR(100),
-        amount_due NUMERIC(10,2),
         due_date DATE,
         qbo_payment_url TEXT,
+        qbo_doc_number VARCHAR(100),
         created_at TIMESTAMP DEFAULT NOW()
       )
     `;
@@ -150,31 +149,6 @@ async function run() {
 
     await tx`
       ALTER TABLE invoices
-      ADD COLUMN IF NOT EXISTS qbo_doc_number VARCHAR(100)
-    `;
-
-    await tx`
-      ALTER TABLE invoices
-      ADD COLUMN IF NOT EXISTS pdf_data BYTEA
-    `;
-
-    await tx`
-      ALTER TABLE invoices
-      ADD COLUMN IF NOT EXISTS pdf_mime_type VARCHAR(64)
-    `;
-
-    await tx`
-      ALTER TABLE invoices
-      ADD COLUMN IF NOT EXISTS pdf_filename VARCHAR(255)
-    `;
-
-    await tx`
-      ALTER TABLE invoices
-      ADD COLUMN IF NOT EXISTS pdf_size INTEGER
-    `;
-
-    await tx`
-      ALTER TABLE invoices
       ADD COLUMN IF NOT EXISTS is_manual_link BOOLEAN DEFAULT FALSE
     `;
 
@@ -194,9 +168,28 @@ async function run() {
     `;
 
     await tx`
-      UPDATE invoices
-      SET invoice_total = COALESCE(invoice_total, amount_due)
-      WHERE invoice_total IS NULL
+      ALTER TABLE invoices
+      DROP COLUMN IF EXISTS amount_due
+    `;
+
+    await tx`
+      ALTER TABLE invoices
+      DROP COLUMN IF EXISTS pdf_data
+    `;
+
+    await tx`
+      ALTER TABLE invoices
+      DROP COLUMN IF EXISTS pdf_mime_type
+    `;
+
+    await tx`
+      ALTER TABLE invoices
+      DROP COLUMN IF EXISTS pdf_filename
+    `;
+
+    await tx`
+      ALTER TABLE invoices
+      DROP COLUMN IF EXISTS pdf_size
     `;
 
     await tx`

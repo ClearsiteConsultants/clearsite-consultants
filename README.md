@@ -16,7 +16,7 @@ This branch is a Next.js App Router implementation that includes:
 - **shadcn/ui + Radix UI primitives**
 - **NextAuth (credentials provider)**
 - **PostgreSQL** via `postgres` npm package (Neon in production, local PostgreSQL in dev)
-- **QuickBooks Online API** for invoice creation, payment links, PDF storage, and webhook status sync
+- **QuickBooks Online API** for invoice creation, payment links, on-demand PDF download, and webhook status sync
 
 ## Invoice Workflow
 
@@ -26,20 +26,24 @@ Admin enters **client**, optional **product/service** (dropdown), **amount**, op
 2. Creates the invoice in QuickBooks — QuickBooks auto-generates the invoice/doc number.
    - If a product/service is selected, its item ID is passed to QBO and its unit price auto-fills the amount field.
    - If an invoice date is provided, it is passed as `TxnDate` to QBO.
-3. Downloads the invoice PDF from QuickBooks and stores it in the database.
+3. Stores QuickBooks invoice metadata locally (invoice ID, doc number, payment URL, dates, totals) and defers PDF retrieval to download time.
 4. Persists the QuickBooks invoice ID, doc number, payment URL, invoice date, and invoice total (`invoice_total`).
-5. Returns all of this in the API response; the portal immediately shows Pay Now and View PDF.
+5. Returns all of this in the API response; the portal shows Pay Now and Download PDF.
 
 ### Manual-link mode (for pre-existing QuickBooks invoices)
 Admin can link an already-existing QuickBooks invoice without creating a new one:
 - Required: **client** and **QuickBooks invoice number** (the `DocNumber` / `qbo_doc_number`).
 - The server looks up the invoice in QuickBooks constrained to the client's QBO customer ID.
-- All invoice fields (date, due date, amount, payment URL, PDF) are synced automatically.
+- All invoice fields (date, due date, amount, payment URL) are synced automatically.
 - Returns 404 if no matching invoice found, 409 if already linked.
 - Saved invoices are tagged as **"Manually linked"** in the portal.
 
 ### Portal
-Clients see the QuickBooks-generated doc number, **Invoice Date**, **Due Date**, **TOTAL** (`invoice_total`), a **Pay Now** button, and a **View PDF** button. PDF is served from `/api/invoices/[id]/pdf` when `pdf_data` is stored, or falls back to `file_url` for legacy invoices.
+Clients see the QuickBooks-generated doc number, **Invoice Date**, **Due Date**, **TOTAL** (`invoice_total`), a **Pay Now** button, and a **Download PDF** link.
+
+- `/api/invoices/[id]/pdf` now downloads the PDF from QuickBooks on demand using `qbo_invoice_id`; PDF bytes are not stored in the database.
+- For unpaid invoices where `qbo_payment_url` is missing, Pay Now is disabled and the portal shows a Contact Support call-to-action with a deep link that prefills contact context.
+- Admin users are blocked from downloading client invoice PDFs from this endpoint and are instructed to use QuickBooks Online directly.
 
 ## Getting Started
 
@@ -105,9 +109,8 @@ QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN=YOUR_INTUIT_WEBHOOK_TOKEN
 > **Password with special characters**: Next.js expands `$` in `.env` files as a variable reference.
 > Escape any literal `$` in your DB password with a backslash: `admin\$123`
 >
-> **`BLOB_READ_WRITE_TOKEN` is no longer required.** The new QuickBooks-native flow downloads invoice
-> PDFs from QuickBooks and stores them in the database (`pdf_data` column). The legacy `/api/upload`
-> endpoint is still present for backward compatibility but is no longer used by the admin UI.
+> **`BLOB_READ_WRITE_TOKEN` is no longer required.** Invoice PDFs are fetched from QuickBooks on demand
+> by `/api/invoices/[id]/pdf`.
 
 ### 2. Create local tables
 
@@ -129,10 +132,10 @@ This creates (or updates) the required tables and columns:
 - `clients` (with `qbo_customer_id`)
 - `subscriptions`
 - `invoices` (with `qbo_invoice_id`, `qbo_doc_number`, `qbo_sync_status`, `qbo_payment_url`,
-  `invoice_date`, `invoice_total`, `file_url`, `pdf_data`, `pdf_mime_type`, `pdf_filename`,
-  `pdf_size`, `is_manual_link`, `notes`)
+  `invoice_date`, `invoice_total`, `amount_paid`, `paid_at`, `last_synced_at`, `is_manual_link`, `notes`)
 - `quickbooks_connections`
   - includes reconnect state columns: `reconnect_required`, `reconnect_reason`, `last_auth_error_code`, `last_auth_error_at`
+- `error_logs` (used for API diagnostics and action-needed issue context)
 
 ## QuickBooks reconnect-required schema notes
 
@@ -185,8 +188,8 @@ WHERE table_name = 'invoices'
 ORDER BY ordinal_position;
 ```
 
-Expected columns include: `qbo_doc_number`, `invoice_date`, `invoice_total`, `pdf_data`,
-`pdf_mime_type`, `pdf_filename`, `pdf_size`, `is_manual_link`, `notes`.
+Expected columns include: `qbo_doc_number`, `invoice_date`, `invoice_total`, `amount_paid`,
+`paid_at`, `last_synced_at`, `is_manual_link`, `notes`.
 
 ## Project Structure
 
@@ -197,16 +200,17 @@ app/
   login/page.tsx                 # Client sign in / sign up
   portal/page.tsx                # Client portal (redirects admins to /admin)
   admin/
-    clients/page.tsx             # Admin dashboard — manage all client accounts
+    page.tsx                     # Admin dashboard — manage client accounts
     invoices/page.tsx            # Admin invoice UI (QBO-create + manual-link modes)
   api/
     auth/[...nextauth]/route.ts  # NextAuth handlers (dual-table auth)
     auth/register/route.ts       # Client registration endpoint
     admin/clients/route.ts       # Admin API — list and update clients
+    admin/clients/[clientId]/action-needed/route.ts # Admin API — issue detail feed for action-needed clients
     contact/route.ts             # Contact form endpoint (sends email via Resend)
     integrations/quickbooks/     # QuickBooks OAuth connect/callback/status
     invoices/route.ts            # Invoice + plan management endpoints
-    invoices/[id]/pdf/route.ts   # Authenticated PDF delivery endpoint
+    invoices/[id]/pdf/route.ts   # Authenticated client-only PDF download endpoint (fetched live from QBO)
     webhooks/quickbooks/route.ts # QuickBooks webhook receiver
     upload/route.ts              # Legacy invoice file upload endpoint (kept for backward compatibility)
 
@@ -217,7 +221,9 @@ components/
 lib/
   db.ts                          # Postgres connection + data access helpers
   quickbooks.ts                  # QuickBooks API helpers (OAuth, invoices, PDF download)
-  quickbooks-sync.ts             # Sync orchestration (customer match/create, invoice sync, PDF store)
+  quickbooks-sync.ts             # Sync orchestration (customer match/create, invoice sync)
+  portal-contact.ts              # Portal helper for missing-payment-link Contact Support deep links
+  contact-prefill.ts             # Contact form prefill helpers for missing-payment-link context
 
 scripts/
   bootstrap-local.sql            # Local DB bootstrap script
@@ -243,7 +249,8 @@ The `users` table is never written to by this app — it is read-only for admin 
 - **Routing**: App Router file-system routing under `app/`.
 - **Auth**: NextAuth credential flow lives in `app/api/auth/[...nextauth]/route.ts`.
 - **Database access**: SQL helpers are centralized in `lib/db.ts`.
-- **Invoice PDF storage**: PDFs are downloaded from QuickBooks and stored as `BYTEA` in the `invoices` table. They are served to authenticated clients via `/api/invoices/[id]/pdf` with strict access control (clients can only access their own invoices).
+- **Invoice PDF delivery**: `/api/invoices/[id]/pdf` fetches from QuickBooks on demand and returns an attachment response. Clients can only download their own invoices; admins are blocked from this endpoint.
+- **Missing payment-link handling**: Admin client rows expose an **Action needed** badge when unpaid invoices are missing `qbo_payment_url`. Clicking the badge opens issue details from `/api/admin/clients/[clientId]/action-needed`, preferring `MissingQboPaymentUrl` log messages when present (client `/api/invoices` fetch does not create these warnings).
 - **Pricing data**: Website pricing display values are maintained in `components/Pricing.tsx`.
 - **Contact endpoint**: `app/api/contact/route.ts` sends contact emails through Resend.
 
@@ -280,24 +287,25 @@ Full policy: `.github/agents/squad.agent.md` -> **Blake Autopilot Security Prote
 
 - Admin creates invoices from `/admin/invoices` using only client, amount, and due date.
 - QuickBooks auto-generates the invoice/doc number; admin never enters it manually.
-- The invoice PDF is downloaded from QuickBooks and stored in the database.
-- Client portal invoices (`/portal`) show the QuickBooks doc number, a Pay Now button (from the stored QuickBooks payment URL), and a View PDF button (served from `/api/invoices/[id]/pdf`).
-- QuickBooks webhook events update local `qbo_sync_status`, `amount_paid`, and `paid_at` without overwriting the stored PDF or doc number.
+- Client portal invoices (`/portal`) show the QuickBooks doc number, a Pay Now button (when `qbo_payment_url` is present), and a Download PDF link (served from `/api/invoices/[id]/pdf`).
+- `/api/invoices/[id]/pdf` fetches the latest PDF bytes from QuickBooks at request time and does not rely on stored `pdf_*` columns.
+- QuickBooks webhook events update local `qbo_sync_status`, `amount_paid`, and `paid_at` without overwriting persisted doc metadata.
 - Manually linked invoices (via the "Link Existing Invoice" tab) are tagged as "Manually linked" in the portal.
+- If an unpaid invoice has no `qbo_payment_url`, the portal disables Pay Now and shows a Contact Support link that deep-links to `/?contactContext=missing-qbo-payment-url&invoiceId=...&qboDocNumber=...#contact`.
 
 ## Admin Invoice Modes
 
 ### Create in QuickBooks (default)
 - Fields: **Client** (dropdown), optional **Product/Service** (QBO item dropdown), **Amount Due** (auto-fills from selected item rate), optional **Invoice Date**, **Due Date**
 - QuickBooks auto-generates the invoice number
-- PDF is downloaded from QuickBooks and stored in the database with filename `invoice_date-qbo_doc_number.pdf`
+- PDF is delivered on demand from QuickBooks via `/api/invoices/[id]/pdf` (no DB blob storage)
 - Success message includes the QuickBooks-generated doc number
 
 ### Link Existing Invoice (manual-link)
 Use this mode to attach a pre-existing QuickBooks invoice to a local client account without creating a new QuickBooks invoice.
 - Required fields: **Client**, **QuickBooks Invoice Number** (the `DocNumber` / `qbo_doc_number`)
 - Server performs a QBO lookup by invoice number constrained to the client's QBO customer ID
-- All invoice data (date, due date, amount, total, payment URL, PDF) is synced automatically
+- All invoice data (date, due date, amount, total, payment URL) is synced automatically
 - Returns 404 if the invoice number does not match any QBO invoice for that client
 - Returns 409 if the invoice is already linked to this client
 
@@ -326,28 +334,23 @@ Use this mode to attach a pre-existing QuickBooks invoice to a local client acco
 
 ### Rollout order
 
-1. **Run the DB bootstrap** (`npm run db:bootstrap` targeting production) **before** deploying the new code.
-   This adds `invoice_date`, `invoice_total`, and all prior columns safely without breaking existing rows.
+1. **Run the DB bootstrap from `scripts/bootstrap-db.mjs`** (`npm run db:bootstrap` targeting production) **before** deploying the new code.
+  This applies the current schema updates needed by the app.
 2. Deploy the new code.
 3. Reconnect QuickBooks from `/admin/invoices` if the OAuth tokens expired during the rollout.
-4. Create one test invoice in the admin UI and verify the portal shows the QBO doc number, Invoice Date, Due Date, Pay Now, and View PDF.
+4. Create one test invoice in the admin UI and verify the portal shows the QBO doc number, Invoice Date, Due Date, Pay Now, and Download PDF.
+5. Verify an unpaid invoice missing `qbo_payment_url` shows `Action needed` in `/admin`, opens issue details, and shows Contact Support guidance in `/portal`.
 
 ### Rollback
 
 If you need to roll back:
 1. Redeploy the previous code version (Vercel instant rollback).
-2. The schema changes are additive and backward-compatible — old code continues to work against the new schema.
-3. No data migration is required to roll back.
+2. Re-run local setup with `scripts/bootstrap-local.sql` only for local environments; production rollback schema changes must be handled explicitly.
 
-## Breaking Change: file_url Removal
+## PDF Delivery Notes
 
-**This section is no longer applicable.** The `file_url` column has been retained in the schema. Legacy invoices with a `file_url` continue to display a **View PDF** link in the portal when `pdf_data` is not populated.
-
-## PDF Storage Notes
-
-- PDFs are stored as `BYTEA` in the `invoices` table. For large invoice volumes, monitor database size and consider archival policy.
-- Maximum recommended PDF size: QuickBooks typically generates PDFs under 1 MB per invoice.
-- The stored PDF endpoint (`/api/invoices/[id]/pdf`) enforces per-client access control: clients can only fetch their own invoices.
+- `/api/invoices/[id]/pdf` now retrieves PDFs from QuickBooks on demand and returns them as attachments.
+- Endpoint access control is strict: authenticated clients can only fetch their own invoices; admin users receive a 403 response and must use QuickBooks Online for admin PDF access.
 
 ## Learn More
 

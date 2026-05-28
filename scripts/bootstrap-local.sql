@@ -68,10 +68,9 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 CREATE TABLE IF NOT EXISTS invoices (
   id SERIAL PRIMARY KEY,
   client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
-  invoice_number VARCHAR(100),
-  amount_due NUMERIC(10,2),
   due_date DATE,
   qbo_payment_url TEXT,
+  qbo_doc_number VARCHAR(100),
   created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -91,21 +90,6 @@ ALTER TABLE invoices
 ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMP;
 
 ALTER TABLE invoices
-ADD COLUMN IF NOT EXISTS qbo_doc_number VARCHAR(100);
-
-ALTER TABLE invoices
-ADD COLUMN IF NOT EXISTS pdf_data BYTEA;
-
-ALTER TABLE invoices
-ADD COLUMN IF NOT EXISTS pdf_mime_type VARCHAR(64);
-
-ALTER TABLE invoices
-ADD COLUMN IF NOT EXISTS pdf_filename VARCHAR(255);
-
-ALTER TABLE invoices
-ADD COLUMN IF NOT EXISTS pdf_size INTEGER;
-
-ALTER TABLE invoices
 ADD COLUMN IF NOT EXISTS is_manual_link BOOLEAN DEFAULT FALSE;
 
 ALTER TABLE invoices
@@ -117,9 +101,20 @@ ADD COLUMN IF NOT EXISTS invoice_date DATE;
 ALTER TABLE invoices
 ADD COLUMN IF NOT EXISTS invoice_total NUMERIC(10,2);
 
-UPDATE invoices
-SET invoice_total = COALESCE(invoice_total, amount_due)
-WHERE invoice_total IS NULL;
+ALTER TABLE invoices
+DROP COLUMN IF EXISTS amount_due;
+
+ALTER TABLE invoices
+DROP COLUMN IF EXISTS pdf_data;
+
+ALTER TABLE invoices
+DROP COLUMN IF EXISTS pdf_mime_type;
+
+ALTER TABLE invoices
+DROP COLUMN IF EXISTS pdf_filename;
+
+ALTER TABLE invoices
+DROP COLUMN IF EXISTS pdf_size;
 
 CREATE TABLE IF NOT EXISTS quickbooks_connections (
   id SERIAL PRIMARY KEY,

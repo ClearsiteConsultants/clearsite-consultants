@@ -12,6 +12,7 @@ const {
   createQuickBooksInvoiceMock,
   findQuickBooksCustomerByDisplayNameMock,
   getQuickBooksInvoiceMock,
+  getQuickBooksInvoicePdfMock,
   extractQuickBooksInvoiceStateMock,
 } = vi.hoisted(() => ({
   getQuickBooksConnectionMock: vi.fn(),
@@ -25,6 +26,7 @@ const {
   createQuickBooksInvoiceMock: vi.fn(),
   findQuickBooksCustomerByDisplayNameMock: vi.fn(),
   getQuickBooksInvoiceMock: vi.fn(),
+  getQuickBooksInvoicePdfMock: vi.fn(),
   extractQuickBooksInvoiceStateMock: vi.fn(),
 }));
 
@@ -47,7 +49,7 @@ vi.mock("@/lib/quickbooks", () => ({
   createQuickBooksInvoice: createQuickBooksInvoiceMock,
   findQuickBooksCustomerByDisplayName: findQuickBooksCustomerByDisplayNameMock,
   findQuickBooksInvoiceByDocNumber: vi.fn(),
-  getQuickBooksInvoicePdf: vi.fn(),
+  getQuickBooksInvoicePdf: getQuickBooksInvoicePdfMock,
 }));
 
 import { syncClientInvoicesFromQuickBooks, syncInvoiceToQuickBooks } from "@/lib/quickbooks-sync";
@@ -90,7 +92,7 @@ describe("lib/quickbooks-sync", () => {
     getInvoiceByIdMock.mockResolvedValue({
       id: "inv-1",
       client_id: "client-1",
-      invoice_number: "INV-1",
+      qbo_doc_number: "INV-1",
       invoice_total: 150,
       due_date: "2026-01-01",
       invoice_date: "2025-12-01",
@@ -135,7 +137,17 @@ describe("lib/quickbooks-sync", () => {
       },
     }));
     expect(createQuickBooksInvoiceMock).toHaveBeenCalledWith("123", expect.objectContaining({
+      invoiceNumber: "INV-1",
       amountDue: 150,
     }));
+    expect(getQuickBooksInvoicePdfMock).not.toHaveBeenCalled();
+    expect(updateInvoiceQuickBooksDataMock).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        pdfData: expect.anything(),
+        pdfMimeType: expect.anything(),
+        pdfFilename: expect.anything(),
+        pdfSize: expect.anything(),
+      })
+    );
   });
 });

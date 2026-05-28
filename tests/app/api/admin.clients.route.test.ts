@@ -9,7 +9,7 @@ const { authMock, sqlMock } = vi.hoisted(() => ({
 vi.mock("@/app/api/auth/[...nextauth]/route", () => ({ auth: authMock }));
 vi.mock("@/lib/db", () => ({ sql: sqlMock }));
 
-import { PUT } from "@/app/api/admin/clients/route";
+import { GET, PUT } from "@/app/api/admin/clients/route";
 
 describe("/api/admin/clients", () => {
   beforeEach(() => {
@@ -31,5 +31,30 @@ describe("/api/admin/clients", () => {
 
     expect(response.status).toBe(200);
     expect(payload.client.plan).toBeNull();
+  });
+
+  it("returns action_needed for clients missing payment links on unpaid invoices", async () => {
+    sqlMock.mockResolvedValue({
+      rows: [
+        {
+          id: "1",
+          company_name: "Acme",
+          email: "ops@acme.com",
+          plan: "Starter",
+          service_status: "Active",
+          first_name: "A",
+          last_name: "User",
+          phone: null,
+          next_invoice_due: "2026-06-30",
+          action_needed: true,
+        },
+      ],
+    });
+
+    const response = await GET();
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload[0].action_needed).toBe(true);
   });
 });

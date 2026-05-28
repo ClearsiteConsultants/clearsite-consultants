@@ -314,11 +314,7 @@ export default function AdminInvoices() {
         setMessage({ type: "success", text: "Invoice created successfully." });
       }
 
-      setInvoiceDate(getLocalDateString());
-      setDueDate(getLocalDatePlus30Days());
-      setSelectedClientId("");
-      setAmountDueDigits("");
-      setSelectedItemId("");
+      resetQboForm();
     } catch (error: unknown) {
       setMessage({
         type: "error",

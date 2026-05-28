@@ -82,7 +82,7 @@ const harness = vi.hoisted(() => {
     }
 
     if (sqlText.includes("UPDATE invoices") && sqlText.includes("WHERE id =")) {
-      const invoiceId = String(values[12]);
+      const invoiceId = String(values[values.length - 1]);
       const invoice = state.invoices.find((row) => row.id === invoiceId);
       if (!invoice) return [];
 

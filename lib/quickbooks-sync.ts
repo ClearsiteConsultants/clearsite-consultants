@@ -16,7 +16,6 @@ import {
   findQuickBooksCustomerByDisplayName,
   findQuickBooksInvoiceByDocNumber,
   getQuickBooksInvoice,
-  getQuickBooksInvoicePdf,
 } from "@/lib/quickbooks";
 
 function toNumber(value: unknown) {
@@ -75,17 +74,6 @@ async function ensureQuickBooksCustomer(clientId: string) {
   return customerId;
 }
 
-/**
- * Builds a sanitized PDF filename in the format `invoice_date-qbo_doc_number.pdf`.
- * Falls back to safe placeholder values if either piece is missing.
- */
-function buildPdfFilename(invoiceDate: string | null, qboDocNumber: string | null): string {
-  const date = invoiceDate ? invoiceDate.slice(0, 10) : "unknown-date";
-  const docNumber = qboDocNumber ? String(qboDocNumber) : "unknown";
-  const safe = `${date}-${docNumber}`.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/^\.+/, "_");
-  return `${safe}.pdf`;
-}
-
 function getQuickBooksInvoiceCustomerId(invoice: Record<string, unknown>) {
   const customerRef = invoice.CustomerRef as { value?: string } | undefined;
   return customerRef?.value ? String(customerRef.value) : null;
@@ -122,31 +110,18 @@ export async function syncInvoiceToQuickBooks(localInvoiceId: string, invoiceOve
 
   if (!invoice.qbo_invoice_id) {
     const customerId = await ensureQuickBooksCustomer(String(invoice.client_id));
-    // invoice_number may be null — let QuickBooks auto-generate the DocNumber
+    // qbo_doc_number may be null — let QuickBooks auto-generate the DocNumber
     const qboInvoice = await createQuickBooksInvoice(connection.realm_id, {
       customerId,
-      invoiceNumber: invoice.invoice_number ? String(invoice.invoice_number) : undefined,
+      invoiceNumber: invoice.qbo_doc_number ? String(invoice.qbo_doc_number) : undefined,
       amountDue: toNumber(invoice.invoice_total),
       invoiceDate: toYyyyMmDd(invoice.invoice_date),
       dueDate: toYyyyMmDd(invoice.due_date) || String(invoice.due_date).slice(0, 10),
-      description: `Portal invoice${invoice.invoice_number ? ` ${invoice.invoice_number}` : ""}`,
+      description: `Portal invoice${invoice.qbo_doc_number ? ` ${invoice.qbo_doc_number}` : ""}`,
       itemId: invoice.qbo_item_id ? String(invoice.qbo_item_id) : undefined,
     });
 
     const qboState = extractQuickBooksInvoiceState(qboInvoice);
-
-    // Attempt to download the invoice PDF; failures are non-fatal.
-    let pdfPayload: { data: Buffer; mimeType: string; filename: string; size: number } | null = null;
-    try {
-      pdfPayload = await getQuickBooksInvoicePdf(connection.realm_id, qboState.qboInvoiceId);
-      // Override the filename to use invoice_date-qbo_doc_number format.
-      pdfPayload = {
-        ...pdfPayload,
-        filename: buildPdfFilename(qboState.invoiceDate, qboState.qboDocNumber),
-      };
-    } catch {
-      // PDF download failure should not block invoice creation.
-    }
 
     return updateInvoiceQuickBooksData({
       invoiceId: String(invoice.id),
@@ -158,10 +133,6 @@ export async function syncInvoiceToQuickBooks(localInvoiceId: string, invoiceOve
       paidAt: qboState.paidAt,
       invoiceDate: qboState.invoiceDate,
       invoiceTotal: qboState.invoiceTotal,
-      pdfData: pdfPayload?.data ?? null,
-      pdfMimeType: pdfPayload?.mimeType ?? null,
-      pdfFilename: pdfPayload?.filename ?? null,
-      pdfSize: pdfPayload?.size ?? null,
     });
   }
 
@@ -270,36 +241,6 @@ export async function linkInvoiceByDocNumber(clientId: string, qboDocNumber: str
     is_manual_link: true,
   });
 
-  // Attempt to download the invoice PDF; failures are non-fatal.
-  let pdfPayload: { data: Buffer; mimeType: string; filename: string; size: number } | null = null;
-  try {
-    pdfPayload = await getQuickBooksInvoicePdf(connection.realm_id, qboState.qboInvoiceId);
-    pdfPayload = {
-      ...pdfPayload,
-      filename: buildPdfFilename(qboState.invoiceDate, qboState.qboDocNumber),
-    };
-  } catch {
-    // PDF download failure should not block invoice linking.
-  }
-
-  if (pdfPayload) {
-    return updateInvoiceQuickBooksData({
-      invoiceId: String(invoice.id),
-      qboInvoiceId: qboState.qboInvoiceId,
-      qboDocNumber: qboState.qboDocNumber,
-      qboPaymentUrl: qboState.paymentUrl,
-      qboSyncStatus: qboState.qboSyncStatus,
-      amountPaid: qboState.amountPaid,
-      paidAt: qboState.paidAt,
-      invoiceDate: qboState.invoiceDate,
-      invoiceTotal: qboState.invoiceTotal,
-      pdfData: pdfPayload.data,
-      pdfMimeType: pdfPayload.mimeType,
-      pdfFilename: pdfPayload.filename,
-      pdfSize: pdfPayload.size,
-    });
-  }
-
   return invoice;
 }
 
@@ -384,35 +325,6 @@ export async function linkInvoiceById(options: {
     paid_at: qboState.paidAt,
     is_manual_link: true,
   });
-
-  let pdfPayload: { data: Buffer; mimeType: string; filename: string; size: number } | null = null;
-  try {
-    pdfPayload = await getQuickBooksInvoicePdf(connection.realm_id, qboState.qboInvoiceId);
-    pdfPayload = {
-      ...pdfPayload,
-      filename: buildPdfFilename(qboState.invoiceDate, qboState.qboDocNumber),
-    };
-  } catch {
-    // PDF download failure should not block invoice linking.
-  }
-
-  if (pdfPayload) {
-    return updateInvoiceQuickBooksData({
-      invoiceId: String(invoice.id),
-      qboInvoiceId: qboState.qboInvoiceId,
-      qboDocNumber: qboState.qboDocNumber,
-      qboPaymentUrl: qboState.paymentUrl,
-      qboSyncStatus: qboState.qboSyncStatus,
-      amountPaid: qboState.amountPaid,
-      paidAt: qboState.paidAt,
-      invoiceDate: qboState.invoiceDate,
-      invoiceTotal: qboState.invoiceTotal,
-      pdfData: pdfPayload.data,
-      pdfMimeType: pdfPayload.mimeType,
-      pdfFilename: pdfPayload.filename,
-      pdfSize: pdfPayload.size,
-    });
-  }
 
   return invoice;
 }

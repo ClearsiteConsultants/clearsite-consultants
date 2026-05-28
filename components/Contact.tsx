@@ -4,8 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Clock, Mail, MapPin, Phone } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useSearchParams } from "next/navigation";
+import {
+  applyClientProfilePrefill,
+  applyMessagePrefill,
+  buildMissingPaymentUrlMessage,
+  type ContactFieldValues,
+  type ContactTouchedState,
+} from "@/lib/contact-prefill";
 
 const contactInfo = [
   {
@@ -33,16 +41,88 @@ const contactInfo = [
 ];
 
 export default function Contact() {
+  const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [formValues, setFormValues] = useState<ContactFieldValues>({
+    name: "",
+    email: "",
+    business_name: "",
+    message: "",
+  });
+  const [touched, setTouched] = useState<ContactTouchedState>({
+    name: false,
+    email: false,
+    business_name: false,
+    message: false,
+  });
+  const touchedRef = useRef(touched);
   const { toast } = useToast();
+
+  const contactContext = searchParams.get("contactContext");
+  const invoiceId = searchParams.get("invoiceId");
+  const qboDocNumber = searchParams.get("qboDocNumber");
+
+  const missingPaymentUrlMessage = useMemo(() => {
+    return buildMissingPaymentUrlMessage({
+      contactContext,
+      invoiceId,
+      qboDocNumber,
+    });
+  }, [contactContext, invoiceId, qboDocNumber]);
+
+  useEffect(() => {
+    touchedRef.current = touched;
+  }, [touched]);
+
+  useEffect(() => {
+    if (!missingPaymentUrlMessage) return;
+
+    setFormValues((previous) => applyMessagePrefill(previous, touchedRef.current, missingPaymentUrlMessage));
+  }, [missingPaymentUrlMessage]);
+
+  useEffect(() => {
+    if (contactContext !== "missing-qbo-payment-url") return;
+
+    let isCancelled = false;
+
+    const hydrateClientProfile = async () => {
+      try {
+        const response = await fetch("/api/clients/me", { cache: "no-store" });
+        if (!response.ok) return;
+
+        const data = (await response.json()) as {
+          email?: string | null;
+          company_name?: string | null;
+          first_name?: string | null;
+          last_name?: string | null;
+        };
+
+        if (isCancelled) return;
+
+        setFormValues((previous) => applyClientProfilePrefill(previous, touchedRef.current, data));
+      } catch {
+        // Fail silently for public/unauthenticated users.
+      }
+    };
+
+    hydrateClientProfile();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [contactContext]);
+
+  const handleFieldChange = (field: "name" | "email" | "business_name" | "message", value: string) => {
+    setTouched((previous) => ({ ...previous, [field]: true }));
+    setFormValues((previous) => ({ ...previous, [field]: value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const form = e.currentTarget;
-    const formData = new FormData(form);
+    const formData = new FormData(e.currentTarget);
     const data = {
       name: formData.get('name'),
       email: formData.get('email'),
@@ -68,7 +148,18 @@ export default function Contact() {
         description: "We'll get back to you within 24 hours.",
       });
 
-      form.reset();
+      setFormValues({
+        name: "",
+        email: "",
+        business_name: "",
+        message: "",
+      });
+      setTouched({
+        name: false,
+        email: false,
+        business_name: false,
+        message: false,
+      });
       setIsSubmitted(true);
     } catch {
       toast({
@@ -103,16 +194,37 @@ export default function Contact() {
               <div className="grid min-w-0 sm:grid-cols-2 gap-4">
                 <div className="min-w-0">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-                  <Input name="name" placeholder="Your name" className="bg-white border-gray-300" required />
+                  <Input
+                    name="name"
+                    placeholder="Your name"
+                    className="bg-white border-gray-300"
+                    value={formValues.name}
+                    onChange={(event) => handleFieldChange("name", event.target.value)}
+                    required
+                  />
                 </div>
                 <div className="min-w-0">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                  <Input name="email" type="email" placeholder="your@email.com" className="bg-white border-gray-300" required />
+                  <Input
+                    name="email"
+                    type="email"
+                    placeholder="your@email.com"
+                    className="bg-white border-gray-300"
+                    value={formValues.email}
+                    onChange={(event) => handleFieldChange("email", event.target.value)}
+                    required
+                  />
                 </div>
               </div>
               <div className="min-w-0">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Business Name</label>
-                <Input name="business_name" placeholder="Your company name" className="bg-white border-gray-300" />
+                <Input
+                  name="business_name"
+                  placeholder="Your company name"
+                  className="bg-white border-gray-300"
+                  value={formValues.business_name}
+                  onChange={(event) => handleFieldChange("business_name", event.target.value)}
+                />
               </div>
               <div className="min-w-0">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
@@ -121,6 +233,8 @@ export default function Contact() {
                   placeholder="Tell us about your business and website goals..."
                   rows={4}
                   className="bg-white border-gray-300"
+                  value={formValues.message}
+                  onChange={(event) => handleFieldChange("message", event.target.value)}
                   required
                 />
               </div>

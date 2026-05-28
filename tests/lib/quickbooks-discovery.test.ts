@@ -196,8 +196,6 @@ describe("lib/quickbooks discovery document", () => {
   });
 
   it("validates that discovered endpoints are whitelisted domains", async () => {
-    const { buildQuickBooksAuthorizeUrl } = await import("@/lib/quickbooks");
-    
     const testCases = [
       {
         name: "accepts appcenter.intuit.com",
