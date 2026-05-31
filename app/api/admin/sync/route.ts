@@ -35,6 +35,20 @@ export async function POST() {
 
     const errors: SyncErrorSummary[] = [];
 
+    let startedErrorLogMaxId = 0;
+    try {
+      const startedLogsResult = await sql`
+        SELECT COALESCE(MAX(id), 0)::INT AS max_id
+        FROM error_logs
+      `;
+      startedErrorLogMaxId = Number(startedLogsResult.rows[0]?.max_id ?? 0);
+    } catch (error) {
+      errors.push({
+        scope: "developer-logs",
+        message: error instanceof Error ? error.message : "Failed to read developer log baseline",
+      });
+    }
+
     const clients = await getAllClients();
     let syncedInvoices = 0;
     let failedInvoices = 0;
@@ -84,16 +98,14 @@ export async function POST() {
       });
     }
 
-    let newMissingPaymentUrlLogs = 0;
+    let newErrorLogs = 0;
     try {
       const logsResult = await sql`
         SELECT COUNT(*)::INT AS count
         FROM error_logs
-        WHERE error_name = 'MissingQboPaymentUrl'
-          AND metadata->>'origin' = 'admin-sync'
-          AND created_at >= ${startedAt.toISOString()}::timestamp
+        WHERE id > ${startedErrorLogMaxId}
       `;
-      newMissingPaymentUrlLogs = Number(logsResult.rows[0]?.count ?? 0);
+      newErrorLogs = Number(logsResult.rows[0]?.count ?? 0);
     } catch (error) {
       errors.push({
         scope: "developer-logs",
@@ -116,8 +128,10 @@ export async function POST() {
         customersCount,
       },
       developerLogs: {
-        newMissingPaymentUrlLogs,
-        created: newMissingPaymentUrlLogs > 0,
+        newLogs: newErrorLogs,
+        // Backward compatibility for existing clients still reading this field.
+        newMissingPaymentUrlLogs: newErrorLogs,
+        created: newErrorLogs > 0,
       },
       errors,
     });

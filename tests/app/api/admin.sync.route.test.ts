@@ -55,7 +55,9 @@ describe("POST /api/admin/sync", () => {
       .mockResolvedValueOnce({ synced: 3, failed: 0 });
     getQuickBooksItemsMock.mockResolvedValue([{ Id: "1" }, { Id: "2" }]);
     getQuickBooksCustomersMock.mockResolvedValue([{ Id: "1" }]);
-    sqlMock.mockResolvedValue({ rows: [{ count: 1 }] });
+    sqlMock
+      .mockResolvedValueOnce({ rows: [{ max_id: 0 }] })
+      .mockResolvedValueOnce({ rows: [{ count: 1 }] });
   });
 
   it("enforces admin auth", async () => {

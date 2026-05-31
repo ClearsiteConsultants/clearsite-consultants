@@ -195,6 +195,7 @@ export default function AdminDashboard() {
           customersCount?: number | null;
         };
         developerLogs?: {
+          newLogs?: number;
           newMissingPaymentUrlLogs?: number;
         };
         errors?: Array<{ scope?: string; message?: string }>;
@@ -220,7 +221,7 @@ export default function AdminDashboard() {
       const failedInvoices = payload?.invoiceSync?.failedInvoices ?? 0;
       const itemsCount = payload?.qboData?.productsServicesCount ?? 0;
       const customersCount = payload?.qboData?.customersCount ?? 0;
-      const newLogs = payload?.developerLogs?.newMissingPaymentUrlLogs ?? 0;
+      const newLogs = payload?.developerLogs?.newLogs ?? payload?.developerLogs?.newMissingPaymentUrlLogs ?? 0;
       const errorCount = Array.isArray(payload?.errors) ? payload?.errors.length : 0;
 
       const errorDetails = (payload?.errors ?? []).map(
@@ -229,7 +230,7 @@ export default function AdminDashboard() {
 
       setMessage({
         type: errorCount > 0 ? "error" : "success",
-        text: `Manual sync completed: ${clientsProcessed} clients refreshed, ${syncedInvoices} invoices synced, ${failedInvoices} invoice sync failures, ${itemsCount} products/services, ${customersCount} customers, ${newLogs} API errors logged.${
+        text: `Manual sync completed: ${clientsProcessed} clients refreshed, ${syncedInvoices} invoices synced, ${failedInvoices} invoice sync failures, ${itemsCount} products/services, ${customersCount} customers, ${newLogs} errors logged.${
           errorCount > 0 ? ` ${errorCount} refresh operation${errorCount === 1 ? "" : "s"} returned errors:` : ""
         }`,
         details: errorCount > 0 ? errorDetails : undefined,

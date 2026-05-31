@@ -47,6 +47,7 @@ export default function DeveloperLogsPage() {
   const [total, setTotal] = useState(0);
   const [query, setQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [retention, setRetention] = useState<ErrorLogRetention>(DEFAULT_RETENTION);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -109,11 +110,10 @@ export default function DeveloperLogsPage() {
 
   const deleteSelected = async () => {
     if (!selectedIds.length) return;
-    const confirmed = window.confirm(`Delete ${selectedIds.length} selected log entries?`);
-    if (!confirmed) return;
 
     try {
       setBusy(true);
+      setConfirmDeleteOpen(false);
       const res = await fetch("/api/admin/logs", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -139,6 +139,30 @@ export default function DeveloperLogsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {confirmDeleteOpen && (
+        <div
+          className="fixed inset-0 bg-gray-500/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={() => !busy && setConfirmDeleteOpen(false)}
+        >
+          <div className="bg-white rounded-lg max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b">
+              <h3 className="text-lg font-semibold">Delete selected log entries?</h3>
+              <p className="mt-1 text-sm text-gray-600">
+                This will permanently delete {selectedIds.length} selected log entr{selectedIds.length === 1 ? "y" : "ies"}.
+              </p>
+            </div>
+            <div className="px-6 py-4 border-t flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setConfirmDeleteOpen(false)} disabled={busy}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={() => void deleteSelected()} disabled={busy || !selectedIds.length}>
+                {busy ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Header />
       <div className="bg-white shadow">
         <div className="mx-auto max-w-7xl px-4 py-6">
@@ -180,7 +204,7 @@ export default function DeveloperLogsPage() {
           >
             Search
           </Button>
-          <Button variant="destructive" onClick={deleteSelected} disabled={!selectedIds.length || loading || busy}>
+          <Button variant="destructive" onClick={() => setConfirmDeleteOpen(true)} disabled={!selectedIds.length || loading || busy}>
             Delete Selected
           </Button>
         </div>
