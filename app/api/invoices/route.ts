@@ -8,7 +8,7 @@ import {
 } from "@/lib/db";
 import { getQuickBooksConnection } from "@/lib/db";
 import { getQuickBooksItems, getQuickBooksCustomers, isQuickBooksReconnectRequiredError } from "@/lib/quickbooks";
-import { syncClientInvoicesFromQuickBooks, syncInvoiceToQuickBooks, linkInvoiceById } from "@/lib/quickbooks-sync";
+import { syncClientInvoicesFromQuickBooks, syncInvoiceToQuickBooks, linkInvoiceByDocNumber } from "@/lib/quickbooks-sync";
 import { persistApiError } from "@/lib/error-logger";
 
 function parseClientId(sessionUserId: string) {
@@ -66,7 +66,11 @@ export async function GET(req: NextRequest) {
     if (userType === "client") {
       const clientId = parseClientId(session.user.id as string);
       try {
-        await syncClientInvoicesFromQuickBooks(clientId);
+        await syncClientInvoicesFromQuickBooks(clientId, {
+          origin: "portal-read",
+          route: "/api/invoices",
+          method: "GET",
+        });
       } catch {
         // Fall back to local invoice data when QuickBooks sync is unavailable.
       }
@@ -212,7 +216,7 @@ export async function POST(req: NextRequest) {
       // Manual-link mode fields
       mode,
       manual_link_mode,
-      qbo_invoice_id,
+      qbo_doc_number,
       qbo_customer_id,
     } = body;
 
@@ -251,11 +255,11 @@ export async function POST(req: NextRequest) {
 
     // ── Manual-link mode ──────────────────────────────────────────────
     if (mode === "manual-link") {
-      if (!qbo_invoice_id || !String(qbo_invoice_id).trim()) {
-        return NextResponse.json({ error: "QuickBooks Invoice ID is required." }, { status: 400 });
+      if (!qbo_doc_number || !String(qbo_doc_number).trim()) {
+        return NextResponse.json({ error: "QuickBooks Invoice Number is required." }, { status: 400 });
       }
 
-      const invoiceId = String(qbo_invoice_id).trim();
+      const invoiceNumber = String(qbo_doc_number).trim();
       const linkMode = manual_link_mode === "new-client" ? "new-client" : "existing-client";
 
       if (linkMode === "new-client" && !qbo_customer_id) {
@@ -263,10 +267,14 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        const invoice = await linkInvoiceById({
+        const invoice = await linkInvoiceByDocNumber({
           clientId: String(client_id),
           qboCustomerId: linkMode === "new-client" ? String(qbo_customer_id) : undefined,
-          qboInvoiceId: invoiceId,
+          qboDocNumber: invoiceNumber,
+        }, {
+          origin: "admin-link",
+          route: "/api/invoices",
+          method: "POST",
         });
         return NextResponse.json(invoice, { status: 201 });
       } catch (linkError: unknown) {
@@ -288,7 +296,7 @@ export async function POST(req: NextRequest) {
           metadata: {
             mode: "manual-link",
             clientId: String(client_id),
-            qboInvoiceId: String(qbo_invoice_id || ""),
+            qboDocNumber: String(qbo_doc_number || ""),
           },
         });
         return NextResponse.json({ error: err.message }, { status: 500 });
@@ -332,7 +340,11 @@ export async function POST(req: NextRequest) {
       try {
         // Attach the selected item id to the in-memory invoice for syncInvoiceToQuickBooks.
         const invoiceWithItem = { ...invoice, qbo_item_id: qbo_item_id || null };
-        const syncedInvoice = await syncInvoiceToQuickBooks(String(invoice.id), invoiceWithItem);
+        const syncedInvoice = await syncInvoiceToQuickBooks(String(invoice.id), invoiceWithItem, {
+          origin: "admin-create",
+          route: "/api/invoices",
+          method: "POST",
+        });
         return NextResponse.json(syncedInvoice, { status: 201 });
       } catch (syncError: unknown) {
         await persistApiError({

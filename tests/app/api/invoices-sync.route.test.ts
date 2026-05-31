@@ -35,6 +35,11 @@ describe("POST /api/invoices/[id]/sync", () => {
     expect(res.status).toBe(503);
     expect(payload.reconnectRequired).toBe(true);
     expect(payload.reconnectReason).toBe("api_unauthorized");
+    expect(syncInvoiceToQuickBooksMock).toHaveBeenCalledWith("1", undefined, {
+      origin: "admin-sync",
+      route: "/api/invoices/[id]/sync",
+      method: "POST",
+    });
     expect(persistApiErrorMock).toHaveBeenCalled();
   });
 

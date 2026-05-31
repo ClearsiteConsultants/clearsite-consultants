@@ -5,9 +5,11 @@ const {
   getClientQboInvoiceIdsMock,
   getClientQuickBooksProfileMock,
   getInvoiceByIdMock,
+  getInvoiceByQuickBooksInvoiceIdMock,
   setClientQuickBooksCustomerIdMock,
   updateInvoiceQuickBooksDataMock,
   updateInvoiceStatusByQuickBooksInvoiceIdMock,
+  createMissingPaymentUrlLogIfNeededMock,
   createQuickBooksCustomerMock,
   createQuickBooksInvoiceMock,
   findQuickBooksCustomerByDisplayNameMock,
@@ -19,9 +21,11 @@ const {
   getClientQboInvoiceIdsMock: vi.fn(),
   getClientQuickBooksProfileMock: vi.fn(),
   getInvoiceByIdMock: vi.fn(),
+  getInvoiceByQuickBooksInvoiceIdMock: vi.fn(),
   setClientQuickBooksCustomerIdMock: vi.fn(),
   updateInvoiceQuickBooksDataMock: vi.fn(),
   updateInvoiceStatusByQuickBooksInvoiceIdMock: vi.fn(),
+  createMissingPaymentUrlLogIfNeededMock: vi.fn(),
   createQuickBooksCustomerMock: vi.fn(),
   createQuickBooksInvoiceMock: vi.fn(),
   findQuickBooksCustomerByDisplayNameMock: vi.fn(),
@@ -34,10 +38,12 @@ vi.mock("@/lib/db", () => ({
   getClientQboInvoiceIds: getClientQboInvoiceIdsMock,
   getClientQuickBooksProfile: getClientQuickBooksProfileMock,
   getInvoiceById: getInvoiceByIdMock,
+  getInvoiceByQuickBooksInvoiceId: getInvoiceByQuickBooksInvoiceIdMock,
   setClientQuickBooksCustomerId: setClientQuickBooksCustomerIdMock,
   updateInvoiceQuickBooksData: updateInvoiceQuickBooksDataMock,
   getQuickBooksConnection: getQuickBooksConnectionMock,
   updateInvoiceStatusByQuickBooksInvoiceId: updateInvoiceStatusByQuickBooksInvoiceIdMock,
+  createMissingPaymentUrlLogIfNeeded: createMissingPaymentUrlLogIfNeededMock,
   createInvoice: vi.fn(),
   checkDuplicateByQboInvoiceId: vi.fn(),
 }));
@@ -52,7 +58,7 @@ vi.mock("@/lib/quickbooks", () => ({
   getQuickBooksInvoicePdf: getQuickBooksInvoicePdfMock,
 }));
 
-import { syncClientInvoicesFromQuickBooks, syncInvoiceToQuickBooks } from "@/lib/quickbooks-sync";
+import { syncClientInvoicesFromQuickBooks, syncInvoiceByQuickBooksInvoiceId, syncInvoiceToQuickBooks } from "@/lib/quickbooks-sync";
 
 describe("lib/quickbooks-sync", () => {
   beforeEach(() => {
@@ -149,5 +155,120 @@ describe("lib/quickbooks-sync", () => {
         pdfSize: expect.anything(),
       })
     );
+  });
+
+  it("logs MissingQboPaymentUrl with admin-sync origin when sync results in missing payment URL", async () => {
+    getQuickBooksConnectionMock.mockResolvedValue({ realm_id: "123" });
+    getInvoiceByIdMock.mockResolvedValue({
+      id: "inv-2",
+      client_id: "client-2",
+      qbo_invoice_id: "qbo-inv-2",
+      qbo_payment_url: "https://pay.example/abc",
+    });
+    getQuickBooksInvoiceMock.mockResolvedValue({ Id: "qbo-inv-2", TotalAmt: 150, Balance: 150 });
+    extractQuickBooksInvoiceStateMock.mockReturnValue({
+      qboInvoiceId: "qbo-inv-2",
+      qboDocNumber: "INV-2",
+      qboSyncStatus: "sent",
+      amountPaid: 0,
+      paidAt: null,
+      paymentUrl: null,
+      invoiceDate: "2026-01-01",
+      invoiceTotal: 150,
+    });
+    updateInvoiceStatusByQuickBooksInvoiceIdMock.mockResolvedValue({
+      id: "inv-2",
+      client_id: "client-2",
+      qbo_invoice_id: "qbo-inv-2",
+      qbo_doc_number: "INV-2",
+      qbo_sync_status: "sent",
+    });
+
+    await syncInvoiceToQuickBooks("inv-2", undefined, {
+      origin: "admin-sync",
+      route: "/api/invoices/[id]/sync",
+      method: "POST",
+    });
+
+    expect(createMissingPaymentUrlLogIfNeededMock).toHaveBeenCalledWith(expect.objectContaining({
+      origin: "admin-sync",
+      invoiceId: "inv-2",
+      clientId: "client-2",
+    }));
+  });
+
+  it("logs for qbo-webhook only on non-null to null qbo_payment_url transition", async () => {
+    getQuickBooksConnectionMock.mockResolvedValue({ realm_id: "123" });
+    getQuickBooksInvoiceMock.mockResolvedValue({ Id: "qbo-inv-3", TotalAmt: 100, Balance: 100 });
+    extractQuickBooksInvoiceStateMock.mockReturnValue({
+      qboInvoiceId: "qbo-inv-3",
+      qboDocNumber: "INV-3",
+      qboSyncStatus: "sent",
+      amountPaid: 0,
+      paidAt: null,
+      paymentUrl: null,
+      invoiceDate: "2026-01-05",
+      invoiceTotal: 100,
+    });
+    getInvoiceByQuickBooksInvoiceIdMock.mockResolvedValue({
+      id: "inv-3",
+      client_id: "client-3",
+      qbo_invoice_id: "qbo-inv-3",
+      qbo_payment_url: "https://pay.example/old",
+    });
+    updateInvoiceStatusByQuickBooksInvoiceIdMock.mockResolvedValue({
+      id: "inv-3",
+      client_id: "client-3",
+      qbo_invoice_id: "qbo-inv-3",
+      qbo_doc_number: "INV-3",
+      qbo_sync_status: "sent",
+    });
+
+    await syncInvoiceByQuickBooksInvoiceId("qbo-inv-3", {
+      origin: "qbo-webhook",
+      route: "/api/webhooks/quickbooks",
+      method: "POST",
+    });
+
+    expect(createMissingPaymentUrlLogIfNeededMock).toHaveBeenCalledTimes(1);
+    expect(updateInvoiceStatusByQuickBooksInvoiceIdMock).toHaveBeenCalledWith(expect.objectContaining({
+      allowPaymentUrlClear: true,
+    }));
+  });
+
+  it("does not log for qbo-webhook when qbo_payment_url is already null and remains null", async () => {
+    getQuickBooksConnectionMock.mockResolvedValue({ realm_id: "123" });
+    getQuickBooksInvoiceMock.mockResolvedValue({ Id: "qbo-inv-4", TotalAmt: 100, Balance: 100 });
+    extractQuickBooksInvoiceStateMock.mockReturnValue({
+      qboInvoiceId: "qbo-inv-4",
+      qboDocNumber: "INV-4",
+      qboSyncStatus: "sent",
+      amountPaid: 0,
+      paidAt: null,
+      paymentUrl: null,
+      invoiceDate: "2026-01-06",
+      invoiceTotal: 100,
+    });
+    getInvoiceByQuickBooksInvoiceIdMock.mockResolvedValue({
+      id: "inv-4",
+      client_id: "client-4",
+      qbo_invoice_id: "qbo-inv-4",
+      qbo_payment_url: null,
+    });
+    updateInvoiceStatusByQuickBooksInvoiceIdMock.mockResolvedValue({
+      id: "inv-4",
+      client_id: "client-4",
+      qbo_invoice_id: "qbo-inv-4",
+      qbo_doc_number: "INV-4",
+      qbo_sync_status: "sent",
+    });
+
+    await syncInvoiceByQuickBooksInvoiceId("qbo-inv-4", {
+      origin: "qbo-webhook",
+      route: "/api/webhooks/quickbooks",
+      method: "POST",
+    });
+
+    expect(createMissingPaymentUrlLogIfNeededMock).not.toHaveBeenCalled();
   });
 });

@@ -185,7 +185,11 @@ export async function GET() {
     }
 
     try {
-      await syncClientInvoicesFromQuickBooks(clientId);
+      await syncClientInvoicesFromQuickBooks(clientId, {
+        origin: "portal-read",
+        route: "/api/clients/me",
+        method: "GET",
+      });
     } catch {
       // Fall back to local client data when QuickBooks sync is unavailable.
     }

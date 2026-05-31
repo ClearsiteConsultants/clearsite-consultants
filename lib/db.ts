@@ -337,6 +337,16 @@ export async function getInvoiceById(invoiceId: string) {
   return result.rows[0];
 }
 
+export async function getInvoiceByQuickBooksInvoiceId(qboInvoiceId: string) {
+  const result = await sql`
+    SELECT *
+    FROM invoices
+    WHERE qbo_invoice_id = ${qboInvoiceId}
+    LIMIT 1
+  `;
+  return result.rows[0] ?? null;
+}
+
 export async function updateInvoiceQuickBooksData(data: {
   invoiceId: string;
   qboInvoiceId: string;
@@ -383,11 +393,30 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
   qboDocNumber?: string | null;
   invoiceDate?: string | null;
   invoiceTotal?: number | null;
+  allowPaymentUrlClear?: boolean;
 }) {
   const isPaidStatus = data.qboSyncStatus.trim().toLowerCase() === "paid";
 
   const result = isPaidStatus
-    ? await sql`
+    ? data.allowPaymentUrlClear
+      ? await sql`
+        UPDATE invoices
+        SET
+          qbo_sync_status = ${data.qboSyncStatus},
+          amount_paid = COALESCE(${data.amountPaid ?? null}, amount_paid),
+          paid_at = COALESCE(${data.paidAt || null}, paid_at),
+          qbo_payment_url = CASE
+            WHEN ${data.qboPaymentUrl === undefined} THEN qbo_payment_url
+            ELSE NULLIF(BTRIM(${data.qboPaymentUrl ?? null}), '')
+          END,
+          qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
+          invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
+          invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
+          last_synced_at = NOW()
+        WHERE qbo_invoice_id = ${data.qboInvoiceId}
+        RETURNING *
+      `
+      : await sql`
         UPDATE invoices
         SET
           qbo_sync_status = ${data.qboSyncStatus},
@@ -402,7 +431,25 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
         RETURNING *
       `
     : data.paidAt === null
-      ? await sql`
+      ? data.allowPaymentUrlClear
+        ? await sql`
+        UPDATE invoices
+        SET
+          qbo_sync_status = ${data.qboSyncStatus},
+          amount_paid = COALESCE(${data.amountPaid ?? null}, amount_paid),
+          paid_at = NULL,
+          qbo_payment_url = CASE
+            WHEN ${data.qboPaymentUrl === undefined} THEN qbo_payment_url
+            ELSE NULLIF(BTRIM(${data.qboPaymentUrl ?? null}), '')
+          END,
+          qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
+          invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
+          invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
+          last_synced_at = NOW()
+        WHERE qbo_invoice_id = ${data.qboInvoiceId}
+        RETURNING *
+      `
+        : await sql`
         UPDATE invoices
         SET
           qbo_sync_status = ${data.qboSyncStatus},
@@ -416,7 +463,25 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
         WHERE qbo_invoice_id = ${data.qboInvoiceId}
         RETURNING *
       `
-      : await sql`
+      : data.allowPaymentUrlClear
+        ? await sql`
+        UPDATE invoices
+        SET
+          qbo_sync_status = ${data.qboSyncStatus},
+          amount_paid = COALESCE(${data.amountPaid ?? null}, amount_paid),
+          paid_at = COALESCE(${data.paidAt || null}, paid_at),
+          qbo_payment_url = CASE
+            WHEN ${data.qboPaymentUrl === undefined} THEN qbo_payment_url
+            ELSE NULLIF(BTRIM(${data.qboPaymentUrl ?? null}), '')
+          END,
+          qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
+          invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
+          invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
+          last_synced_at = NOW()
+        WHERE qbo_invoice_id = ${data.qboInvoiceId}
+        RETURNING *
+      `
+        : await sql`
         UPDATE invoices
         SET
           qbo_sync_status = ${data.qboSyncStatus},
@@ -438,6 +503,13 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
 
   return invoice;
 }
+
+export type MissingPaymentUrlLogOrigin =
+  | "admin-create"
+  | "admin-link"
+  | "admin-sync"
+  | "portal-read"
+  | "qbo-webhook";
 
 export async function getQuickBooksConnection(): Promise<QuickBooksConnectionRow | undefined> {
   let result;
@@ -1030,6 +1102,7 @@ export async function createMissingPaymentUrlLogIfNeeded(input: {
   method: string;
   invoiceId: string;
   clientId: string;
+  origin: MissingPaymentUrlLogOrigin;
   qboDocNumber?: string | null;
   qboInvoiceId?: string | null;
   qboSyncStatus?: string | null;
@@ -1073,7 +1146,7 @@ export async function createMissingPaymentUrlLogIfNeeded(input: {
   }
 
   const docOrId = input.qboDocNumber?.trim() || input.qboInvoiceId?.trim() || input.invoiceId;
-  const msg = `MISSING_QBO_PAY_URL inv:${docOrId} cli:${input.clientId}`;
+  const msg = `MISSING_QBO_PAY_URL inv:${docOrId} cli:${input.clientId} origin:${input.origin}`;
 
   return createErrorLog({
     level: "warn",
@@ -1088,6 +1161,7 @@ export async function createMissingPaymentUrlLogIfNeeded(input: {
       qboDocNumber: input.qboDocNumber ?? null,
       qboInvoiceId: input.qboInvoiceId ?? null,
       qboSyncStatus: input.qboSyncStatus ?? null,
+      origin: input.origin,
       event: "missing_qbo_payment_url",
     },
   });

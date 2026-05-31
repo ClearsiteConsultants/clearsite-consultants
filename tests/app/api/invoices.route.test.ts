@@ -8,6 +8,7 @@ const {
   getClientBillingAddressMock,
   getClientInvoicesForPortalMock,
   syncInvoiceToQuickBooksMock,
+  linkInvoiceByDocNumberMock,
   getQuickBooksItemsMock,
   createMissingPaymentUrlLogIfNeededMock,
   persistApiErrorMock,
@@ -18,6 +19,7 @@ const {
   getClientBillingAddressMock: vi.fn(),
   getClientInvoicesForPortalMock: vi.fn(),
   syncInvoiceToQuickBooksMock: vi.fn(),
+  linkInvoiceByDocNumberMock: vi.fn(),
   getQuickBooksItemsMock: vi.fn(),
   createMissingPaymentUrlLogIfNeededMock: vi.fn(),
   persistApiErrorMock: vi.fn(),
@@ -45,7 +47,7 @@ vi.mock("@/lib/quickbooks", () => ({
 vi.mock("@/lib/quickbooks-sync", () => ({
   syncClientInvoicesFromQuickBooks: vi.fn(),
   syncInvoiceToQuickBooks: syncInvoiceToQuickBooksMock,
-  linkInvoiceById: vi.fn(),
+  linkInvoiceByDocNumber: linkInvoiceByDocNumberMock,
 }));
 
 vi.mock("@/lib/error-logger", () => ({
@@ -82,6 +84,42 @@ describe("/api/invoices reconnect-required responses", () => {
     expect(res.status).toBe(503);
     expect(payload.reconnectRequired).toBe(true);
     expect(payload.reconnectReason).toBe("api_unauthorized");
+  });
+
+  it("links manual-link invoices by qbo_doc_number", async () => {
+    linkInvoiceByDocNumberMock.mockResolvedValue({
+      id: "inv-link-1",
+      client_id: "1",
+      qbo_doc_number: "1007",
+      qbo_invoice_id: "215",
+      is_manual_link: true,
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/invoices", {
+      method: "POST",
+      body: JSON.stringify({
+        mode: "manual-link",
+        manual_link_mode: "existing-client",
+        client_id: "1",
+        qbo_doc_number: "1007",
+      }),
+      headers: { "content-type": "application/json" },
+    });
+
+    const res = await POST(req);
+    const payload = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(payload.qbo_doc_number).toBe("1007");
+    expect(linkInvoiceByDocNumberMock).toHaveBeenCalledWith({
+      clientId: "1",
+      qboCustomerId: undefined,
+      qboDocNumber: "1007",
+    }, {
+      origin: "admin-link",
+      route: "/api/invoices",
+      method: "POST",
+    });
   });
 
   it("does not log missing qbo_payment_url warnings during client invoice fetch", async () => {

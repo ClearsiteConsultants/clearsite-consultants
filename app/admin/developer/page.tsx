@@ -127,7 +127,7 @@ export default function DeveloperLogsPage() {
       <div className="bg-white shadow">
         <div className="mx-auto max-w-7xl px-4 py-6">
           <h1 className="text-3xl font-bold text-gray-900">Developer Logs</h1>
-          <p className="mt-1 text-sm text-gray-600">Persistent API server errors retained for 30 days.</p>
+          <p className="mt-1 text-sm text-gray-600">Persistent API server errors retained for 30 days up to 50 entries.</p>
         </div>
       </div>
 

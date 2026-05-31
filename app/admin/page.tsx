@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Edit2, Settings, Upload, Bug } from "lucide-react";
+import { Edit2, Settings, Upload, Bug, RefreshCw } from "lucide-react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,6 +65,7 @@ export default function AdminDashboard() {
   const [actionNeededLoading, setActionNeededLoading] = useState(false);
   const [actionNeededError, setActionNeededError] = useState("");
   const [actionNeededIssues, setActionNeededIssues] = useState<ActionNeededIssue[]>([]);
+  const [manualSyncLoading, setManualSyncLoading] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
 
   useEffect(() => {
@@ -164,6 +165,64 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleManualSync = async () => {
+    setManualSyncLoading(true);
+    setMessage({ type: "", text: "" });
+
+    try {
+      const response = await fetch("/api/admin/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const payload = await response.json().catch(() => null) as {
+        error?: string;
+        invoiceSync?: {
+          clientsProcessed?: number;
+          syncedInvoices?: number;
+          failedInvoices?: number;
+        };
+        qboData?: {
+          productsServicesCount?: number | null;
+          customersCount?: number | null;
+        };
+        developerLogs?: {
+          newMissingPaymentUrlLogs?: number;
+        };
+        errors?: Array<{ message?: string }>;
+      } | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "Manual sync failed");
+      }
+
+      const clientsProcessed = payload?.invoiceSync?.clientsProcessed ?? 0;
+      const syncedInvoices = payload?.invoiceSync?.syncedInvoices ?? 0;
+      const failedInvoices = payload?.invoiceSync?.failedInvoices ?? 0;
+      const itemsCount = payload?.qboData?.productsServicesCount ?? 0;
+      const customersCount = payload?.qboData?.customersCount ?? 0;
+      const newLogs = payload?.developerLogs?.newMissingPaymentUrlLogs ?? 0;
+      const errorCount = Array.isArray(payload?.errors) ? payload?.errors.length : 0;
+
+      setMessage({
+        type: errorCount > 0 ? "error" : "success",
+        text: `Manual sync completed: ${clientsProcessed} clients refreshed, ${syncedInvoices} invoices synced, ${failedInvoices} invoice sync failures, ${itemsCount} products/services, ${customersCount} customers, ${newLogs} new missing payment-link logs.${
+          errorCount > 0 ? " Some refresh operations returned errors." : ""
+        }`,
+      });
+
+      await loadClients();
+    } catch (error) {
+      console.error("Failed manual sync", error);
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Manual sync failed",
+      });
+    } finally {
+      setManualSyncLoading(false);
+    }
+  };
+
   if (status === "loading" || loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
@@ -173,8 +232,12 @@ export default function AdminDashboard() {
       <Header />
       {/* Header */}
       <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="max-w-7xl mx-auto px-4 py-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+          <Button onClick={handleManualSync} disabled={manualSyncLoading} className="w-full md:w-auto">
+            <RefreshCw className={`mr-2 h-4 w-4 ${manualSyncLoading ? "animate-spin" : ""}`} />
+            {manualSyncLoading ? "Running Manual Sync..." : "Manual Sync"}
+          </Button>
         </div>
       </div>
 
