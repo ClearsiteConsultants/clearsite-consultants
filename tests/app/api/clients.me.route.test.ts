@@ -58,7 +58,11 @@ describe("/api/clients/me", () => {
 
     expect(response.status).toBe(200);
     expect(payload.billing_address_line1).toBe("123 Main");
-    expect(syncClientInvoicesFromQuickBooksMock).toHaveBeenCalledWith("1");
+    expect(syncClientInvoicesFromQuickBooksMock).toHaveBeenCalledWith("1", {
+      origin: "portal-read",
+      route: "/api/clients/me",
+      method: "GET",
+    });
   });
 
   it("falls back to legacy clients schema when billing columns are missing", async () => {

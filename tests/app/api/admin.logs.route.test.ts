@@ -6,11 +6,13 @@ const {
   listErrorLogsMock,
   deleteErrorLogsByIdsMock,
   deleteErrorLogsOlderThanDaysMock,
+  getErrorLogRetentionConfigMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn(),
   listErrorLogsMock: vi.fn(),
   deleteErrorLogsByIdsMock: vi.fn(),
   deleteErrorLogsOlderThanDaysMock: vi.fn(),
+  getErrorLogRetentionConfigMock: vi.fn(),
 }));
 
 vi.mock("@/app/api/auth/[...nextauth]/route", () => ({ auth: authMock }));
@@ -18,6 +20,7 @@ vi.mock("@/lib/db", () => ({
   listErrorLogs: listErrorLogsMock,
   deleteErrorLogsByIds: deleteErrorLogsByIdsMock,
   deleteErrorLogsOlderThanDays: deleteErrorLogsOlderThanDaysMock,
+  getErrorLogRetentionConfig: getErrorLogRetentionConfigMock,
 }));
 
 import { DELETE, GET } from "@/app/api/admin/logs/route";
@@ -26,6 +29,7 @@ describe("/api/admin/logs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     authMock.mockResolvedValue({ user: { id: "admin:1", user_type: "admin" } });
+    getErrorLogRetentionConfigMock.mockReturnValue({ days: 30, maxRetained: 150 });
   });
 
   it("rejects non-admin access", async () => {
@@ -49,6 +53,7 @@ describe("/api/admin/logs", () => {
 
     expect(res.status).toBe(200);
     expect(payload.total).toBe(1);
+    expect(payload.retention).toEqual({ days: 30, maxRetained: 150 });
     expect(listErrorLogsMock).toHaveBeenCalledWith(expect.objectContaining({ page: 1, pageSize: 50 }));
   });
 

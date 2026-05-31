@@ -21,7 +21,11 @@ export async function POST(_: NextRequest, { params }: Params) {
   }
 
   try {
-    const invoice = await syncInvoiceToQuickBooks(id);
+    const invoice = await syncInvoiceToQuickBooks(id, undefined, {
+      origin: "admin-sync",
+      route: "/api/invoices/[id]/sync",
+      method: "POST",
+    });
     return NextResponse.json(invoice);
   } catch (error: unknown) {
     await persistApiError({

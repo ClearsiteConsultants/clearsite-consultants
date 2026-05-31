@@ -19,6 +19,16 @@ type ErrorLogRow = {
   created_at: string;
 };
 
+type ErrorLogRetention = {
+  days: number;
+  maxRetained: number;
+};
+
+const DEFAULT_RETENTION: ErrorLogRetention = {
+  days: 30,
+  maxRetained: 150,
+};
+
 function formatDateTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -37,6 +47,8 @@ export default function DeveloperLogsPage() {
   const [total, setTotal] = useState(0);
   const [query, setQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [retention, setRetention] = useState<ErrorLogRetention>(DEFAULT_RETENTION);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
@@ -68,6 +80,11 @@ export default function DeveloperLogsPage() {
 
       setRows(Array.isArray(payload.rows) ? payload.rows : []);
       setTotal(Number(payload.total || 0));
+      const retentionPayload = payload.retention as Partial<ErrorLogRetention> | undefined;
+      setRetention({
+        days: Number(retentionPayload?.days) || DEFAULT_RETENTION.days,
+        maxRetained: Number(retentionPayload?.maxRetained) || DEFAULT_RETENTION.maxRetained,
+      });
       setSelectedIds([]);
     } catch (error) {
       const text = error instanceof Error ? error.message : "Failed to load logs";
@@ -93,11 +110,10 @@ export default function DeveloperLogsPage() {
 
   const deleteSelected = async () => {
     if (!selectedIds.length) return;
-    const confirmed = window.confirm(`Delete ${selectedIds.length} selected log entries?`);
-    if (!confirmed) return;
 
     try {
       setBusy(true);
+      setConfirmDeleteOpen(false);
       const res = await fetch("/api/admin/logs", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -123,11 +139,37 @@ export default function DeveloperLogsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {confirmDeleteOpen && (
+        <div
+          className="fixed inset-0 bg-gray-500/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={() => !busy && setConfirmDeleteOpen(false)}
+        >
+          <div className="bg-white rounded-lg max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b">
+              <h3 className="text-lg font-semibold">Delete selected log entries?</h3>
+              <p className="mt-1 text-sm text-gray-600">
+                This will permanently delete {selectedIds.length} selected log entr{selectedIds.length === 1 ? "y" : "ies"}.
+              </p>
+            </div>
+            <div className="px-6 py-4 border-t flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setConfirmDeleteOpen(false)} disabled={busy}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={() => void deleteSelected()} disabled={busy || !selectedIds.length}>
+                {busy ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Header />
       <div className="bg-white shadow">
         <div className="mx-auto max-w-7xl px-4 py-6">
           <h1 className="text-3xl font-bold text-gray-900">Developer Logs</h1>
-          <p className="mt-1 text-sm text-gray-600">Persistent API server errors retained for 30 days.</p>
+          <p className="mt-1 text-sm text-gray-600">
+            Persistent API server errors retained for {retention.days} days up to {retention.maxRetained} entries.
+          </p>
         </div>
       </div>
 
@@ -162,7 +204,7 @@ export default function DeveloperLogsPage() {
           >
             Search
           </Button>
-          <Button variant="destructive" onClick={deleteSelected} disabled={!selectedIds.length || loading || busy}>
+          <Button variant="destructive" onClick={() => setConfirmDeleteOpen(true)} disabled={!selectedIds.length || loading || busy}>
             Delete Selected
           </Button>
         </div>

@@ -29,7 +29,11 @@ export async function POST(req: NextRequest) {
       const entities = notification.dataChangeEvent?.entities || [];
       for (const entity of entities) {
         if (entity.name === "Invoice" && entity.id) {
-          await syncInvoiceByQuickBooksInvoiceId(entity.id);
+          await syncInvoiceByQuickBooksInvoiceId(entity.id, {
+            origin: "qbo-webhook",
+            route: "/api/webhooks/quickbooks",
+            method: "POST",
+          });
         }
       }
     }

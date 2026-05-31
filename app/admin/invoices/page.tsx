@@ -61,6 +61,12 @@ type ManualLinkMode = "existing-client" | "new-client";
 const MAX_AMOUNT_DUE = 10_000;
 const MAX_AMOUNT_DUE_DIGITS = MAX_AMOUNT_DUE * 100;
 const MAX_AMOUNT_DUE_MESSAGE = "Max Limit is $10,000.00";
+const QUICKBOOKS_CONNECT_PATH = "/api/integrations/quickbooks/connect";
+const QUICKBOOKS_API_FAILED_MESSAGE = "QuickBooks API request failed";
+
+function isQuickBooksApiFailureMessage(message: unknown) {
+  return typeof message === "string" && message.toLowerCase().includes(QUICKBOOKS_API_FAILED_MESSAGE.toLowerCase());
+}
 
 export default function AdminInvoices() {
   const { data: session, status } = useSession();
@@ -83,7 +89,7 @@ export default function AdminInvoices() {
   const [manualLinkMode, setManualLinkMode] = useState<ManualLinkMode>("existing-client");
   const [mlClientId, setMlClientId] = useState("");
   const [mlQboCustomerId, setMlQboCustomerId] = useState("");
-  const [mlQboInvoiceId, setMlQboInvoiceId] = useState("");
+  const [mlQboDocNumber, setMlQboDocNumber] = useState("");
   const [mlErrors, setMlErrors] = useState<Record<string, string>>({});
 
   const [submitting, setSubmitting] = useState(false);
@@ -179,9 +185,10 @@ export default function AdminInvoices() {
       setQboItemsLoading(true);
       const res = await fetch("/api/invoices?action=qbo-items", { cache: "no-store" });
       const payload = await res.json().catch(() => null);
-      if (payload?.reconnectRequired) {
+      if (payload?.reconnectRequired || isQuickBooksApiFailureMessage(payload?.error)) {
         setQboStatus((prev) => ({ ...prev, reconnectRequired: true, reconnectReason: payload.reconnectReason || null }));
         setMessage({ type: "error", text: payload.error || "QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue." });
+        window.location.href = QUICKBOOKS_CONNECT_PATH;
         return;
       }
       if (res.ok) {
@@ -199,9 +206,10 @@ export default function AdminInvoices() {
       setQboCustomersLoading(true);
       const res = await fetch("/api/invoices?action=qbo-customers", { cache: "no-store" });
       const payload = await res.json().catch(() => null);
-      if (payload?.reconnectRequired) {
+      if (payload?.reconnectRequired || isQuickBooksApiFailureMessage(payload?.error)) {
         setQboStatus((prev) => ({ ...prev, reconnectRequired: true, reconnectReason: payload.reconnectReason || null }));
         setMessage({ type: "error", text: payload.error || "QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue." });
+        window.location.href = QUICKBOOKS_CONNECT_PATH;
         return;
       }
       if (res.ok) {
@@ -215,7 +223,7 @@ export default function AdminInvoices() {
   };
 
   const handleConnectQuickBooks = () => {
-    window.location.href = "/api/integrations/quickbooks/connect";
+    window.location.href = QUICKBOOKS_CONNECT_PATH;
   };
 
   const resetQboForm = () => {
@@ -230,7 +238,7 @@ export default function AdminInvoices() {
     setManualLinkMode("existing-client");
     setMlClientId("");
     setMlQboCustomerId("");
-    setMlQboInvoiceId("");
+    setMlQboDocNumber("");
     setMlErrors({});
   };
 
@@ -238,7 +246,7 @@ export default function AdminInvoices() {
     setManualLinkMode(nextMode);
     setMlClientId("");
     setMlQboCustomerId("");
-    setMlQboInvoiceId("");
+    setMlQboDocNumber("");
     setMlErrors({});
   };
 
@@ -270,6 +278,7 @@ export default function AdminInvoices() {
 
     if (qboReconnectRequired) {
       setMessage({ type: "error", text: "QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue." });
+      window.location.href = QUICKBOOKS_CONNECT_PATH;
       return;
     }
 
@@ -302,9 +311,11 @@ export default function AdminInvoices() {
       const payload = await res.json();
       if (!res.ok) throw new Error(payload?.error || "Failed to create invoice");
 
-      if (payload?.reconnectRequired) {
+      if (payload?.reconnectRequired || isQuickBooksApiFailureMessage(payload?.sync_error) || isQuickBooksApiFailureMessage(payload?.error)) {
         setQboStatus((prev) => ({ ...prev, reconnectRequired: true, reconnectReason: payload.reconnectReason || null }));
         setMessage({ type: "error", text: payload?.sync_error || "QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue." });
+        window.location.href = QUICKBOOKS_CONNECT_PATH;
+        return;
       } else if (payload?.sync_error) {
         setMessage({ type: "error", text: `Invoice created, but QuickBooks sync failed: ${payload.sync_error}` });
       } else if (payload?.qbo_invoice_id) {
@@ -333,7 +344,7 @@ export default function AdminInvoices() {
     if (manualLinkMode === "new-client" && !mlQboCustomerId) {
       errors.customer = "QuickBooks customer is required.";
     }
-    if (!mlQboInvoiceId || !mlQboInvoiceId.trim()) errors.invoiceId = "QuickBooks Invoice ID is required.";
+    if (!mlQboDocNumber || !mlQboDocNumber.trim()) errors.invoiceId = "QuickBooks Invoice Number is required.";
     return errors;
   };
 
@@ -352,6 +363,7 @@ export default function AdminInvoices() {
     try {
       if (qboReconnectRequired) {
         setMessage({ type: "error", text: "QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue." });
+        window.location.href = QUICKBOOKS_CONNECT_PATH;
         return;
       }
       const res = await fetch("/api/invoices", {
@@ -362,14 +374,15 @@ export default function AdminInvoices() {
           manual_link_mode: manualLinkMode,
           client_id: mlClientId,
           qbo_customer_id: manualLinkMode === "new-client" ? mlQboCustomerId : undefined,
-          qbo_invoice_id: mlQboInvoiceId.trim(),
+          qbo_doc_number: mlQboDocNumber.trim(),
         }),
       });
 
       const payload = await res.json();
-      if (payload?.reconnectRequired) {
+      if (payload?.reconnectRequired || isQuickBooksApiFailureMessage(payload?.error)) {
         setQboStatus((prev) => ({ ...prev, reconnectRequired: true, reconnectReason: payload.reconnectReason || null }));
         setMessage({ type: "error", text: payload?.error || "QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue." });
+        window.location.href = QUICKBOOKS_CONNECT_PATH;
         return;
       }
       if (!res.ok) {
@@ -654,17 +667,17 @@ export default function AdminInvoices() {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">QuickBooks Invoice ID</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">QuickBooks Invoice Number</label>
                 <input
                   type="text"
-                  value={mlQboInvoiceId}
-                  onChange={(e) => setMlQboInvoiceId(e.target.value)}
-                  placeholder="e.g. 215"
+                  value={mlQboDocNumber}
+                  onChange={(e) => setMlQboDocNumber(e.target.value)}
+                  placeholder="e.g. 1007"
                   className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 ${mlErrors.invoiceId ? "border-red-400" : "border-gray-300"}`}
                 />
                 {mlErrors.invoiceId && <p className="mt-1 text-sm text-red-600">{mlErrors.invoiceId}</p>}
                 <p className="mt-1 text-xs text-gray-500">
-                  Find the QuickBooks invoice ID in the invoice URL or on the QuickBooks invoice details page.
+                  Find the QuickBooks invoice number (Doc Number) on the invoice in QuickBooks.
                 </p>
               </div>
 

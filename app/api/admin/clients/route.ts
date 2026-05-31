@@ -32,9 +32,20 @@ export async function GET() {
           SELECT 1
           FROM invoices i
           WHERE i.client_id = c.id
-            AND i.paid_at IS NULL
-            AND LOWER(COALESCE(i.qbo_sync_status, 'pending')) <> 'paid'
-            AND COALESCE(BTRIM(i.qbo_payment_url), '') = ''
+            AND (
+              (
+                i.paid_at IS NULL
+                AND LOWER(COALESCE(i.qbo_sync_status, 'pending')) <> 'paid'
+                AND COALESCE(BTRIM(i.qbo_payment_url), '') = ''
+              )
+              OR EXISTS (
+                SELECT 1
+                FROM error_logs e
+                WHERE e.error_name = 'MissingQboPaymentUrl'
+                  AND e.metadata->>'clientId' = i.client_id::text
+                  AND e.metadata->>'invoiceId' = i.id::text
+              )
+            )
         ) AS action_needed
       FROM clients c
       ORDER BY company_name
@@ -115,9 +126,20 @@ export async function PUT(req: NextRequest) {
         SELECT 1
         FROM invoices i
         WHERE i.client_id = ${id}
-          AND i.paid_at IS NULL
-          AND LOWER(COALESCE(i.qbo_sync_status, 'pending')) <> 'paid'
-          AND COALESCE(BTRIM(i.qbo_payment_url), '') = ''
+          AND (
+            (
+              i.paid_at IS NULL
+              AND LOWER(COALESCE(i.qbo_sync_status, 'pending')) <> 'paid'
+              AND COALESCE(BTRIM(i.qbo_payment_url), '') = ''
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM error_logs e
+              WHERE e.error_name = 'MissingQboPaymentUrl'
+                AND e.metadata->>'clientId' = i.client_id::text
+                AND e.metadata->>'invoiceId' = i.id::text
+            )
+          )
       ) AS action_needed
     `;
 

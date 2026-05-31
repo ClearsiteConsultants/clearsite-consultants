@@ -3,10 +3,17 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Edit2, Settings, Upload, Bug } from "lucide-react";
+import { Edit2, Settings, Upload, Bug, RefreshCw } from "lucide-react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+const QUICKBOOKS_CONNECT_PATH = "/api/integrations/quickbooks/connect";
+const QUICKBOOKS_API_FAILED_MESSAGE = "QuickBooks API request failed";
+
+function isQuickBooksApiFailureMessage(message: unknown) {
+  return typeof message === "string" && message.toLowerCase().includes(QUICKBOOKS_API_FAILED_MESSAGE.toLowerCase());
+}
 
 interface ClientUser {
   id: string;
@@ -43,7 +50,7 @@ interface ActionNeededIssue {
 function formatDate(value: string | null | undefined) {
   if (!value) return "N/A";
 
-  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
   const date = dateOnlyMatch
     ? new Date(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3]))
     : new Date(value);
@@ -65,7 +72,8 @@ export default function AdminDashboard() {
   const [actionNeededLoading, setActionNeededLoading] = useState(false);
   const [actionNeededError, setActionNeededError] = useState("");
   const [actionNeededIssues, setActionNeededIssues] = useState<ActionNeededIssue[]>([]);
-  const [message, setMessage] = useState({ type: "", text: "" });
+  const [manualSyncLoading, setManualSyncLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: string; text: string; details?: string[] }>({ type: "", text: "" });
 
   useEffect(() => {
     const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
@@ -164,6 +172,82 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleManualSync = async () => {
+    setManualSyncLoading(true);
+    setMessage({ type: "", text: "" });
+
+    try {
+      const response = await fetch("/api/admin/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const payload = await response.json().catch(() => null) as {
+        error?: string;
+        reconnectRequired?: boolean;
+        invoiceSync?: {
+          clientsProcessed?: number;
+          syncedInvoices?: number;
+          failedInvoices?: number;
+        };
+        qboData?: {
+          productsServicesCount?: number | null;
+          customersCount?: number | null;
+        };
+        developerLogs?: {
+          newLogs?: number;
+          newMissingPaymentUrlLogs?: number;
+        };
+        errors?: Array<{ scope?: string; message?: string }>;
+      } | null;
+
+      if (payload?.reconnectRequired) {
+        router.push(QUICKBOOKS_CONNECT_PATH);
+        return;
+      }
+
+      const hasQuickBooksApiFailure = (payload?.errors ?? []).some((e) => isQuickBooksApiFailureMessage(e?.message));
+      if (hasQuickBooksApiFailure || isQuickBooksApiFailureMessage(payload?.error)) {
+        router.push(QUICKBOOKS_CONNECT_PATH);
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "Manual sync failed");
+      }
+
+      const clientsProcessed = payload?.invoiceSync?.clientsProcessed ?? 0;
+      const syncedInvoices = payload?.invoiceSync?.syncedInvoices ?? 0;
+      const failedInvoices = payload?.invoiceSync?.failedInvoices ?? 0;
+      const itemsCount = payload?.qboData?.productsServicesCount ?? 0;
+      const customersCount = payload?.qboData?.customersCount ?? 0;
+      const newLogs = payload?.developerLogs?.newLogs ?? payload?.developerLogs?.newMissingPaymentUrlLogs ?? 0;
+      const errorCount = Array.isArray(payload?.errors) ? payload?.errors.length : 0;
+
+      const errorDetails = (payload?.errors ?? []).map(
+        (e) => `[${e.scope ?? "unknown"}] ${e.message ?? "Unknown error"}`
+      );
+
+      setMessage({
+        type: errorCount > 0 ? "error" : "success",
+        text: `Manual sync completed: ${clientsProcessed} clients refreshed, ${syncedInvoices} invoices synced, ${failedInvoices} invoice sync failures, ${itemsCount} products/services, ${customersCount} customers, ${newLogs} errors logged.${
+          errorCount > 0 ? ` ${errorCount} refresh operation${errorCount === 1 ? "" : "s"} returned errors:` : ""
+        }`,
+        details: errorCount > 0 ? errorDetails : undefined,
+      });
+
+      await loadClients();
+    } catch (error) {
+      console.error("Failed manual sync", error);
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Manual sync failed",
+      });
+    } finally {
+      setManualSyncLoading(false);
+    }
+  };
+
   if (status === "loading" || loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
@@ -173,8 +257,12 @@ export default function AdminDashboard() {
       <Header />
       {/* Header */}
       <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="max-w-7xl mx-auto px-4 py-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+          <Button onClick={handleManualSync} disabled={manualSyncLoading} className="w-full md:w-auto">
+            <RefreshCw className={`mr-2 h-4 w-4 ${manualSyncLoading ? "animate-spin" : ""}`} />
+            {manualSyncLoading ? "Running Manual Sync..." : "Manual Sync"}
+          </Button>
         </div>
       </div>
 
@@ -187,7 +275,14 @@ export default function AdminDashboard() {
               : "bg-green-50 text-green-800 border border-green-200"
           }`}
         >
-          {message.text}
+          <p>{message.text}</p>
+          {message.details && message.details.length > 0 && (
+            <ul className="mt-2 list-disc list-inside space-y-1 text-sm">
+              {message.details.map((d, i) => (
+                <li key={i}>{d}</li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 

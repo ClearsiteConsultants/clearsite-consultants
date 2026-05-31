@@ -73,6 +73,17 @@ Open [http://localhost:3000](http://localhost:3000) with your browser.
 | `npm run test:coverage` | Run Vitest with coverage reporting |
 | `npm run db:bootstrap` | Create required tables in the database targeted by `POSTGRES_URL` or `DATABASE_URL` |
 
+## Implementation Workflow
+
+Use this workflow for each end-to-end implementation effort:
+
+1. Create one GitHub issue for the entire implementation scope.
+2. Set the issue description to the full implementation plan (for example, use `plan.md` as the issue body).
+3. Create one dedicated branch linked to that issue.
+4. Make one commit per major implementation cycle on that branch.
+5. Open a pull request after all work is complete.
+6. Include `Closes #<issue-number>` in the pull request description so the issue closes automatically when the PR is merged.
+
 ## Local Database Setup (Windows + PostgreSQL)
 
 This project uses the `postgres` npm package in app code, so local development should provide
@@ -251,6 +262,10 @@ The `users` table is never written to by this app — it is read-only for admin 
 - **Database access**: SQL helpers are centralized in `lib/db.ts`.
 - **Invoice PDF delivery**: `/api/invoices/[id]/pdf` fetches from QuickBooks on demand and returns an attachment response. Clients can only download their own invoices; admins are blocked from this endpoint.
 - **Missing payment-link handling**: Admin client rows expose an **Action needed** badge when unpaid invoices are missing `qbo_payment_url`. Clicking the badge opens issue details from `/api/admin/clients/[clientId]/action-needed`, preferring `MissingQboPaymentUrl` log messages when present (client `/api/invoices` fetch does not create these warnings).
+- **Missing payment-link developer log origins**: `MissingQboPaymentUrl` warnings include `metadata.origin` values of `admin-create`, `admin-link`, `admin-sync`, `portal-read`, or `qbo-webhook`.
+- **Developer log retention behavior**: The retention window and max retained entry count are soft-coded from code-configured values rather than fixed UI strings. The current configured defaults are 30 days and 150 retained error-log entries.
+- **Developer log duplicate cleanup**: Manual Sync can re-log `MissingQboPaymentUrl` warnings. When retaining a new row would exceed the max entry count, cleanup first deletes older exact duplicates and keeps only the newest exact duplicate. An exact duplicate means the same Route, Method, Status, Error, and User values, even if the timestamp differs. If the log count is still over the configured max after duplicate cleanup, oldest-log pruning runs next.
+- **Webhook anti-spam rule**: `qbo-webhook` logging only writes `MissingQboPaymentUrl` when an invoice transitions from non-empty `qbo_payment_url` to empty/null; null->null webhook updates do not log.
 - **Pricing data**: Website pricing display values are maintained in `components/Pricing.tsx`.
 - **Contact endpoint**: `app/api/contact/route.ts` sends contact emails through Resend.
 
@@ -290,8 +305,20 @@ Full policy: `.github/agents/squad.agent.md` -> **Blake Autopilot Security Prote
 - Client portal invoices (`/portal`) show the QuickBooks doc number, a Pay Now button (when `qbo_payment_url` is present), and a Download PDF link (served from `/api/invoices/[id]/pdf`).
 - `/api/invoices/[id]/pdf` fetches the latest PDF bytes from QuickBooks at request time and does not rely on stored `pdf_*` columns.
 - QuickBooks webhook events update local `qbo_sync_status`, `amount_paid`, and `paid_at` without overwriting persisted doc metadata.
+- QuickBooks webhook events can clear stored `qbo_payment_url` values when QuickBooks now reports no payment link; transition logging is deduped and origin-tagged.
 - Manually linked invoices (via the "Link Existing Invoice" tab) are tagged as "Manually linked" in the portal.
 - If an unpaid invoice has no `qbo_payment_url`, the portal disables Pay Now and shows a Contact Support link that deep-links to `/?contactContext=missing-qbo-payment-url&invoiceId=...&qboDocNumber=...#contact`.
+
+## Admin Manual Sync
+
+- `/admin` includes a **Manual Sync** button that calls `POST /api/admin/sync`.
+- This endpoint runs an admin-triggered refresh for:
+  - Invoice sync state used by the Admin Dashboard Client Accounts and Action Needed freshness.
+  - QuickBooks Products/Services used by `/admin/invoices` create flow.
+  - QuickBooks Customers used by `/admin/invoices` manual-link "New QBO Client" flow.
+- The response returns structured summary counts (`invoiceSync`, `qboData`), an `errors` array, and `developerLogs` metadata indicating whether new `MissingQboPaymentUrl` logs were created during this run.
+- Manual sync-triggered missing payment-link warnings are tagged with origin `admin-sync` and still use cooldown dedupe behavior.
+- A later Manual Sync run can re-log the same `MissingQboPaymentUrl` warning if the missing-link condition still exists. If that insert would push retained logs past the configured max, older exact duplicates are deleted first so only the newest exact duplicate remains before oldest-log pruning is applied.
 
 ## Admin Invoice Modes
 

@@ -43,6 +43,67 @@ export type ErrorLogRow = {
   created_at: string;
 };
 
+export type ErrorLogRetentionConfig = {
+  days: number;
+  maxRetained: number;
+};
+
+const ERROR_LOG_RETENTION: ErrorLogRetentionConfig = Object.freeze({
+  days: 30,
+  maxRetained: 150,
+});
+
+const ERROR_LOG_DEFAULT_PAGE_SIZE = 50;
+const ERROR_LOG_MAX_PAGE_SIZE = 200;
+
+export function getErrorLogRetentionConfig(): ErrorLogRetentionConfig {
+  return { ...ERROR_LOG_RETENTION };
+}
+
+async function cleanupErrorLogsForRetention() {
+  const retention = getErrorLogRetentionConfig();
+
+  await sql`
+    DELETE FROM error_logs
+    WHERE created_at < NOW() - (${retention.days} * INTERVAL '1 day')
+  `;
+
+  await sql`
+    WITH ranked_duplicates AS (
+      SELECT
+        id,
+        ROW_NUMBER() OVER (
+          PARTITION BY
+            route,
+            method,
+            status_code,
+            error_name,
+            error_message,
+            user_id,
+            user_type
+          ORDER BY created_at DESC, id DESC
+        ) AS duplicate_rank
+      FROM error_logs
+    )
+    DELETE FROM error_logs
+    WHERE id IN (
+      SELECT id
+      FROM ranked_duplicates
+      WHERE duplicate_rank > 1
+    )
+  `;
+
+  await sql`
+    DELETE FROM error_logs
+    WHERE id IN (
+      SELECT id
+      FROM error_logs
+      ORDER BY created_at DESC, id DESC
+      OFFSET ${retention.maxRetained}
+    )
+  `;
+}
+
 function isMissingQuickBooksConnectionColumnError(error: unknown) {
   if (!(error instanceof Error)) return false;
   return /column .*reconnect_required|reconnect_reason|last_auth_error_code|last_auth_error_at.* does not exist/i.test(
@@ -72,23 +133,10 @@ async function ensureErrorLogsTable() {
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     )
   `;
-  await sql`
-    CREATE OR REPLACE FUNCTION cleanup_error_logs_30_days()
-    RETURNS TRIGGER AS $$
-    BEGIN
-      DELETE FROM error_logs
-      WHERE created_at < NOW() - INTERVAL '30 days';
-      RETURN NEW;
-    END;
-    $$ LANGUAGE plpgsql
-  `;
   await sql`DROP TRIGGER IF EXISTS trg_cleanup_error_logs_30_days ON error_logs`;
-  await sql`
-    CREATE TRIGGER trg_cleanup_error_logs_30_days
-    BEFORE INSERT ON error_logs
-    FOR EACH STATEMENT
-    EXECUTE FUNCTION cleanup_error_logs_30_days()
-  `;
+  await sql`DROP TRIGGER IF EXISTS trg_cleanup_error_logs_retention ON error_logs`;
+  await sql`DROP FUNCTION IF EXISTS cleanup_error_logs_30_days()`;
+  await sql`DROP FUNCTION IF EXISTS cleanup_error_logs_retention()`;
   await sql`CREATE INDEX IF NOT EXISTS idx_error_logs_created_at ON error_logs(created_at DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_error_logs_level ON error_logs(level)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_error_logs_route ON error_logs(route)`;
@@ -337,6 +385,16 @@ export async function getInvoiceById(invoiceId: string) {
   return result.rows[0];
 }
 
+export async function getInvoiceByQuickBooksInvoiceId(qboInvoiceId: string) {
+  const result = await sql`
+    SELECT *
+    FROM invoices
+    WHERE qbo_invoice_id = ${qboInvoiceId}
+    LIMIT 1
+  `;
+  return result.rows[0] ?? null;
+}
+
 export async function updateInvoiceQuickBooksData(data: {
   invoiceId: string;
   qboInvoiceId: string;
@@ -383,11 +441,30 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
   qboDocNumber?: string | null;
   invoiceDate?: string | null;
   invoiceTotal?: number | null;
+  allowPaymentUrlClear?: boolean;
 }) {
   const isPaidStatus = data.qboSyncStatus.trim().toLowerCase() === "paid";
 
   const result = isPaidStatus
-    ? await sql`
+    ? data.allowPaymentUrlClear
+      ? await sql`
+        UPDATE invoices
+        SET
+          qbo_sync_status = ${data.qboSyncStatus},
+          amount_paid = COALESCE(${data.amountPaid ?? null}, amount_paid),
+          paid_at = COALESCE(${data.paidAt || null}, paid_at),
+          qbo_payment_url = CASE
+            WHEN ${data.qboPaymentUrl === undefined} THEN qbo_payment_url
+            ELSE NULLIF(BTRIM(${data.qboPaymentUrl ?? null}), '')
+          END,
+          qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
+          invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
+          invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
+          last_synced_at = NOW()
+        WHERE qbo_invoice_id = ${data.qboInvoiceId}
+        RETURNING *
+      `
+      : await sql`
         UPDATE invoices
         SET
           qbo_sync_status = ${data.qboSyncStatus},
@@ -402,7 +479,25 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
         RETURNING *
       `
     : data.paidAt === null
-      ? await sql`
+      ? data.allowPaymentUrlClear
+        ? await sql`
+        UPDATE invoices
+        SET
+          qbo_sync_status = ${data.qboSyncStatus},
+          amount_paid = COALESCE(${data.amountPaid ?? null}, amount_paid),
+          paid_at = NULL,
+          qbo_payment_url = CASE
+            WHEN ${data.qboPaymentUrl === undefined} THEN qbo_payment_url
+            ELSE NULLIF(BTRIM(${data.qboPaymentUrl ?? null}), '')
+          END,
+          qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
+          invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
+          invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
+          last_synced_at = NOW()
+        WHERE qbo_invoice_id = ${data.qboInvoiceId}
+        RETURNING *
+      `
+        : await sql`
         UPDATE invoices
         SET
           qbo_sync_status = ${data.qboSyncStatus},
@@ -416,7 +511,25 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
         WHERE qbo_invoice_id = ${data.qboInvoiceId}
         RETURNING *
       `
-      : await sql`
+      : data.allowPaymentUrlClear
+        ? await sql`
+        UPDATE invoices
+        SET
+          qbo_sync_status = ${data.qboSyncStatus},
+          amount_paid = COALESCE(${data.amountPaid ?? null}, amount_paid),
+          paid_at = COALESCE(${data.paidAt || null}, paid_at),
+          qbo_payment_url = CASE
+            WHEN ${data.qboPaymentUrl === undefined} THEN qbo_payment_url
+            ELSE NULLIF(BTRIM(${data.qboPaymentUrl ?? null}), '')
+          END,
+          qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
+          invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
+          invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
+          last_synced_at = NOW()
+        WHERE qbo_invoice_id = ${data.qboInvoiceId}
+        RETURNING *
+      `
+        : await sql`
         UPDATE invoices
         SET
           qbo_sync_status = ${data.qboSyncStatus},
@@ -438,6 +551,13 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
 
   return invoice;
 }
+
+export type MissingPaymentUrlLogOrigin =
+  | "admin-create"
+  | "admin-link"
+  | "admin-sync"
+  | "portal-read"
+  | "qbo-webhook";
 
 export async function getQuickBooksConnection(): Promise<QuickBooksConnectionRow | undefined> {
   let result;
@@ -862,6 +982,7 @@ export async function createErrorLog(data: {
       )
       RETURNING *
     `;
+    await cleanupErrorLogsForRetention();
   } catch (error) {
     if (!isMissingErrorLogsTableError(error)) {
       throw error;
@@ -894,6 +1015,7 @@ export async function createErrorLog(data: {
       )
       RETURNING *
     `;
+    await cleanupErrorLogsForRetention();
   }
 
   return result.rows[0] as ErrorLogRow;
@@ -906,7 +1028,7 @@ export async function listErrorLogs(options?: {
   query?: string;
 }) {
   const page = Math.max(1, options?.page ?? 1);
-  const pageSize = Math.max(1, Math.min(200, options?.pageSize ?? 50));
+  const pageSize = Math.max(1, Math.min(ERROR_LOG_MAX_PAGE_SIZE, options?.pageSize ?? ERROR_LOG_DEFAULT_PAGE_SIZE));
   const offset = (page - 1) * pageSize;
   const level = options?.level?.trim().toLowerCase() || null;
   const query = options?.query?.trim() ? `%${options.query.trim()}%` : null;
@@ -1030,6 +1152,7 @@ export async function createMissingPaymentUrlLogIfNeeded(input: {
   method: string;
   invoiceId: string;
   clientId: string;
+  origin: MissingPaymentUrlLogOrigin;
   qboDocNumber?: string | null;
   qboInvoiceId?: string | null;
   qboSyncStatus?: string | null;
@@ -1073,7 +1196,7 @@ export async function createMissingPaymentUrlLogIfNeeded(input: {
   }
 
   const docOrId = input.qboDocNumber?.trim() || input.qboInvoiceId?.trim() || input.invoiceId;
-  const msg = `MISSING_QBO_PAY_URL inv:${docOrId} cli:${input.clientId}`;
+  const msg = `MISSING_QBO_PAY_URL inv:${docOrId} cli:${input.clientId} origin:${input.origin}`;
 
   return createErrorLog({
     level: "warn",
@@ -1088,6 +1211,7 @@ export async function createMissingPaymentUrlLogIfNeeded(input: {
       qboDocNumber: input.qboDocNumber ?? null,
       qboInvoiceId: input.qboInvoiceId ?? null,
       qboSyncStatus: input.qboSyncStatus ?? null,
+      origin: input.origin,
       event: "missing_qbo_payment_url",
     },
   });

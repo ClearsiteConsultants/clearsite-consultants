@@ -1,8 +1,11 @@
 import {
+  createMissingPaymentUrlLogIfNeeded,
   getClientQboInvoiceIds,
   getClientQuickBooksProfile,
   getInvoiceById,
+  getInvoiceByQuickBooksInvoiceId,
   getQuickBooksConnection,
+  type MissingPaymentUrlLogOrigin,
   setClientQuickBooksCustomerId,
   updateInvoiceQuickBooksData,
   updateInvoiceStatusByQuickBooksInvoiceId,
@@ -97,7 +100,74 @@ function toYyyyMmDd(value: unknown) {
   return undefined;
 }
 
-export async function syncInvoiceToQuickBooks(localInvoiceId: string, invoiceOverride?: Record<string, unknown>) {
+type SyncContext = {
+  origin: MissingPaymentUrlLogOrigin;
+  route: string;
+  method: string;
+};
+
+const DEFAULT_CONTEXT_BY_ORIGIN: Record<MissingPaymentUrlLogOrigin, { route: string; method: string }> = {
+  "admin-create": { route: "/api/invoices", method: "POST" },
+  "admin-link": { route: "/api/invoices", method: "POST" },
+  "admin-sync": { route: "/api/invoices/[id]/sync", method: "POST" },
+  "portal-read": { route: "/api/invoices", method: "GET" },
+  "qbo-webhook": { route: "/api/webhooks/quickbooks", method: "POST" },
+};
+
+function isBlank(value: unknown) {
+  return typeof value !== "string" || value.trim().length === 0;
+}
+
+function resolveSyncContext(context: Partial<SyncContext> | undefined, fallbackOrigin: MissingPaymentUrlLogOrigin): SyncContext {
+  const origin = context?.origin ?? fallbackOrigin;
+  const defaults = DEFAULT_CONTEXT_BY_ORIGIN[origin];
+  return {
+    origin,
+    route: context?.route || defaults.route,
+    method: context?.method || defaults.method,
+  };
+}
+
+async function maybeLogMissingPaymentUrl(input: {
+  invoice: Record<string, unknown> | null;
+  paymentUrl: string | null | undefined;
+  previousPaymentUrl?: string | null;
+  context: SyncContext;
+}) {
+  const invoice = input.invoice;
+  if (!invoice) return null;
+
+  const hasMissingPaymentUrl = isBlank(input.paymentUrl);
+  if (!hasMissingPaymentUrl) return null;
+
+  const webhookTransitionToMissing =
+    input.context.origin === "qbo-webhook"
+      ? !isBlank(input.previousPaymentUrl) && hasMissingPaymentUrl
+      : true;
+
+  if (!webhookTransitionToMissing) {
+    return null;
+  }
+
+  return createMissingPaymentUrlLogIfNeeded({
+    route: input.context.route,
+    method: input.context.method,
+    origin: input.context.origin,
+    invoiceId: String(invoice.id ?? ""),
+    clientId: String(invoice.client_id ?? ""),
+    qboDocNumber: typeof invoice.qbo_doc_number === "string" ? invoice.qbo_doc_number : null,
+    qboInvoiceId: typeof invoice.qbo_invoice_id === "string" ? invoice.qbo_invoice_id : null,
+    qboSyncStatus: typeof invoice.qbo_sync_status === "string" ? invoice.qbo_sync_status : null,
+    cooldownMinutes: input.context.origin === "portal-read" ? 720 : 60,
+  });
+}
+
+export async function syncInvoiceToQuickBooks(
+  localInvoiceId: string,
+  invoiceOverride?: Record<string, unknown>,
+  context?: Partial<SyncContext>
+) {
+  const syncContext = resolveSyncContext(context, "admin-sync");
   const invoice = invoiceOverride || await getInvoiceById(localInvoiceId);
   if (!invoice) {
     throw new Error("Invoice not found");
@@ -123,7 +193,7 @@ export async function syncInvoiceToQuickBooks(localInvoiceId: string, invoiceOve
 
     const qboState = extractQuickBooksInvoiceState(qboInvoice);
 
-    return updateInvoiceQuickBooksData({
+    const updatedInvoice = await updateInvoiceQuickBooksData({
       invoiceId: String(invoice.id),
       qboInvoiceId: qboState.qboInvoiceId,
       qboDocNumber: qboState.qboDocNumber,
@@ -134,12 +204,20 @@ export async function syncInvoiceToQuickBooks(localInvoiceId: string, invoiceOve
       invoiceDate: qboState.invoiceDate,
       invoiceTotal: qboState.invoiceTotal,
     });
+
+    await maybeLogMissingPaymentUrl({
+      invoice: updatedInvoice,
+      paymentUrl: qboState.paymentUrl,
+      context: syncContext,
+    });
+
+    return updatedInvoice;
   }
 
   const qboInvoice = await getQuickBooksInvoice(connection.realm_id, String(invoice.qbo_invoice_id));
   const qboState = extractQuickBooksInvoiceState(qboInvoice);
 
-  await updateInvoiceStatusByQuickBooksInvoiceId({
+  const updatedInvoice = await updateInvoiceStatusByQuickBooksInvoiceId({
     qboInvoiceId: qboState.qboInvoiceId,
     qboDocNumber: qboState.qboDocNumber,
     qboSyncStatus: qboState.qboSyncStatus,
@@ -148,12 +226,21 @@ export async function syncInvoiceToQuickBooks(localInvoiceId: string, invoiceOve
     qboPaymentUrl: qboState.paymentUrl,
     invoiceDate: qboState.invoiceDate,
     invoiceTotal: qboState.invoiceTotal,
+    allowPaymentUrlClear: syncContext.origin === "qbo-webhook",
   });
 
-  return getInvoiceById(String(invoice.id));
+  await maybeLogMissingPaymentUrl({
+    invoice: updatedInvoice,
+    paymentUrl: qboState.paymentUrl,
+    previousPaymentUrl: typeof invoice.qbo_payment_url === "string" ? invoice.qbo_payment_url : null,
+    context: syncContext,
+  });
+
+  return updatedInvoice ?? getInvoiceById(String(invoice.id));
 }
 
-export async function syncInvoiceByQuickBooksInvoiceId(qboInvoiceId: string) {
+export async function syncInvoiceByQuickBooksInvoiceId(qboInvoiceId: string, context?: Partial<SyncContext>) {
+  const syncContext = resolveSyncContext(context, "qbo-webhook");
   const connection = await getQuickBooksConnection();
   if (!connection) {
     return null;
@@ -162,7 +249,11 @@ export async function syncInvoiceByQuickBooksInvoiceId(qboInvoiceId: string) {
   const qboInvoice = await getQuickBooksInvoice(connection.realm_id, qboInvoiceId);
   const qboState = extractQuickBooksInvoiceState(qboInvoice);
 
-  return updateInvoiceStatusByQuickBooksInvoiceId({
+  const previousInvoice = await getInvoiceByQuickBooksInvoiceId(qboState.qboInvoiceId);
+  const previousPaymentUrl =
+    typeof previousInvoice?.qbo_payment_url === "string" ? previousInvoice.qbo_payment_url : null;
+
+  const updatedInvoice = await updateInvoiceStatusByQuickBooksInvoiceId({
     qboInvoiceId: qboState.qboInvoiceId,
     qboDocNumber: qboState.qboDocNumber,
     qboSyncStatus: qboState.qboSyncStatus,
@@ -171,15 +262,31 @@ export async function syncInvoiceByQuickBooksInvoiceId(qboInvoiceId: string) {
     qboPaymentUrl: qboState.paymentUrl,
     invoiceDate: qboState.invoiceDate,
     invoiceTotal: qboState.invoiceTotal,
+    allowPaymentUrlClear: syncContext.origin === "qbo-webhook",
   });
+
+  await maybeLogMissingPaymentUrl({
+    invoice: updatedInvoice,
+    paymentUrl: qboState.paymentUrl,
+    previousPaymentUrl,
+    context: syncContext,
+  });
+
+  return updatedInvoice;
 }
 
 /**
  * Links an existing QuickBooks invoice to a local client account by performing a
  * server-side QBO lookup constrained to the client's QBO customer identity.
  */
-export async function linkInvoiceByDocNumber(clientId: string, qboDocNumber: string) {
-  const client = await getClientQuickBooksProfile(clientId);
+export async function linkInvoiceByDocNumber(options: {
+  clientId: string;
+  qboDocNumber: string;
+  qboCustomerId?: string;
+}, context?: Partial<SyncContext>) {
+  const syncContext = resolveSyncContext(context, "admin-link");
+  const resolvedClientId = String(options.clientId);
+  const client = await getClientQuickBooksProfile(resolvedClientId);
   if (!client) {
     throw new Error("Client not found");
   }
@@ -189,23 +296,35 @@ export async function linkInvoiceByDocNumber(clientId: string, qboDocNumber: str
     throw new Error("QuickBooks is not connected yet");
   }
 
-  // Require the client to already have a QBO customer ID; we will not create one here.
-  if (!client.qbo_customer_id) {
-    throw new Error(
-      "This client does not have a QuickBooks customer ID. Create an invoice for this client using the QuickBooks mode first."
-    );
+  let customerId: string;
+  if (options.qboCustomerId) {
+    customerId = String(options.qboCustomerId);
+    if (client.qbo_customer_id && String(client.qbo_customer_id) !== customerId) {
+      throw new Error(
+        `This client is already linked to QuickBooks customer ${String(client.qbo_customer_id)} and cannot be linked to ${customerId}.`
+      );
+    }
+    if (!client.qbo_customer_id) {
+      await setClientQuickBooksCustomerId(resolvedClientId, customerId);
+    }
+  } else {
+    if (!client.qbo_customer_id) {
+      throw new Error(
+        "This client does not have a QuickBooks customer ID. Please ensure this client has been linked to a QuickBooks customer first."
+      );
+    }
+    customerId = String(client.qbo_customer_id);
   }
 
-  const customerId = String(client.qbo_customer_id);
   const qboInvoice = await findQuickBooksInvoiceByDocNumber(
     connection.realm_id,
-    qboDocNumber,
+    String(options.qboDocNumber).trim(),
     customerId
   );
 
   if (!qboInvoice) {
     throw Object.assign(
-      new Error(`No QuickBooks invoice found with invoice number "${qboDocNumber}" for this client.`),
+      new Error(`No QuickBooks invoice found with invoice number "${String(options.qboDocNumber).trim()}" for this client.`),
       { code: "NOT_FOUND" }
     );
   }
@@ -213,7 +332,7 @@ export async function linkInvoiceByDocNumber(clientId: string, qboDocNumber: str
   const qboState = extractQuickBooksInvoiceState(qboInvoice);
 
   // Duplicate check: has this QBO invoice already been linked for this client?
-  const isDuplicate = await checkDuplicateByQboInvoiceId(clientId, qboState.qboInvoiceId);
+  const isDuplicate = await checkDuplicateByQboInvoiceId(resolvedClientId, qboState.qboInvoiceId);
   if (isDuplicate) {
     throw Object.assign(
       new Error("This QuickBooks invoice is already linked to this client."),
@@ -228,7 +347,7 @@ export async function linkInvoiceByDocNumber(clientId: string, qboDocNumber: str
       : new Date().toISOString().slice(0, 10);
 
   const invoice = await createInvoice({
-    client_id: clientId,
+    client_id: resolvedClientId,
     invoice_total: qboState.invoiceTotal,
     invoice_date: qboState.invoiceDate,
     due_date: dueDate,
@@ -241,6 +360,12 @@ export async function linkInvoiceByDocNumber(clientId: string, qboDocNumber: str
     is_manual_link: true,
   });
 
+  await maybeLogMissingPaymentUrl({
+    invoice,
+    paymentUrl: qboState.paymentUrl,
+    context: syncContext,
+  });
+
   return invoice;
 }
 
@@ -248,7 +373,8 @@ export async function linkInvoiceById(options: {
   clientId: string;
   qboCustomerId?: string;
   qboInvoiceId: string;
-}) {
+}, context?: Partial<SyncContext>) {
+  const syncContext = resolveSyncContext(context, "admin-link");
   const connection = await getQuickBooksConnection();
   if (!connection) {
     throw new Error("QuickBooks is not connected yet");
@@ -326,10 +452,17 @@ export async function linkInvoiceById(options: {
     is_manual_link: true,
   });
 
+  await maybeLogMissingPaymentUrl({
+    invoice,
+    paymentUrl: qboState.paymentUrl,
+    context: syncContext,
+  });
+
   return invoice;
 }
 
-export async function syncClientInvoicesFromQuickBooks(clientId: string) {
+export async function syncClientInvoicesFromQuickBooks(clientId: string, context?: Partial<SyncContext>) {
+  const syncContext = resolveSyncContext(context, "portal-read");
   const connection = await getQuickBooksConnection();
   if (!connection) {
     return { synced: 0, failed: 0 };
@@ -341,7 +474,7 @@ export async function syncClientInvoicesFromQuickBooks(clientId: string) {
 
   for (const qboInvoiceId of qboInvoiceIds) {
     try {
-      await syncInvoiceByQuickBooksInvoiceId(qboInvoiceId);
+      await syncInvoiceByQuickBooksInvoiceId(qboInvoiceId, syncContext);
       synced += 1;
     } catch {
       failed += 1;
