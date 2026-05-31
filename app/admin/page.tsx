@@ -206,7 +206,7 @@ export default function AdminDashboard() {
 
       setMessage({
         type: errorCount > 0 ? "error" : "success",
-        text: `Manual sync completed: ${clientsProcessed} clients refreshed, ${syncedInvoices} invoices synced, ${failedInvoices} invoice sync failures, ${itemsCount} products/services, ${customersCount} customers, ${newLogs} new missing payment-link logs.${
+        text: `Manual sync completed: ${clientsProcessed} clients refreshed, ${syncedInvoices} invoices synced, ${failedInvoices} invoice sync failures, ${itemsCount} products/services, ${customersCount} customers, ${newLogs} API errors logged.${
           errorCount > 0 ? " Some refresh operations returned errors." : ""
         }`,
       });
