@@ -243,18 +243,12 @@ export default function Portal() {
 
                     // Prefer QuickBooks doc number.
                     const displayNumber = invoice.qbo_doc_number || "—";
-                    const isManualLink = invoice.is_manual_link === true;
                     const isUnpaid = status !== "paid";
 
                     return (
                       <tr key={invoice.id} className="border-b border-gray-100">
                         <td className="py-4 pr-4 font-medium text-gray-900">
                           <span>{displayNumber}</span>
-                          {isManualLink && (
-                            <span className="ml-2 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold bg-gray-100 text-gray-500 uppercase tracking-wide">
-                              Manually linked
-                            </span>
-                          )}
                         </td>
                         <td className="py-4 pr-4 text-gray-700">{formatDate(invoice.invoice_date)}</td>
                         <td className="py-4 pr-4 text-gray-700">{formatDate(invoice.due_date)}</td>

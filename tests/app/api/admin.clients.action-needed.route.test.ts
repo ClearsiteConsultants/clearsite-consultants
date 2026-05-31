@@ -82,4 +82,38 @@ describe("/api/admin/clients/[clientId]/action-needed", () => {
     expect(payload.actionNeeded).toBe(false);
     expect(payload.issues).toEqual([]);
   });
+
+  it("returns logged MissingQboPaymentUrl issues even when invoice-state filters would otherwise exclude them", async () => {
+    sqlMock
+      .mockResolvedValueOnce({ rows: [{ id: "client-3" }] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            invoice_id: "inv-3",
+            qbo_doc_number: "3001",
+            qbo_invoice_id: "qbo-3",
+            qbo_sync_status: "paid",
+            due_date: "2026-06-20",
+            invoice_date: "2026-05-20",
+            amount_total: 900,
+            amount_paid: 900,
+            last_synced_at: "2026-05-28T10:00:00.000Z",
+            created_at: "2026-05-27T09:00:00.000Z",
+            logged_error_message: "MISSING_QBO_PAY_URL inv:3001 cli:client-3 origin:admin-link",
+            logged_at: "2026-05-28T11:00:00.000Z",
+          },
+        ],
+      });
+
+    const res = await GET(
+      new NextRequest("http://localhost:3000/api/admin/clients/client-3/action-needed"),
+      { params: Promise.resolve({ clientId: "client-3" }) }
+    );
+    const payload = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(payload.actionNeeded).toBe(true);
+    expect(payload.issues).toHaveLength(1);
+    expect(payload.issues[0].errorMessage).toContain("origin:admin-link");
+  });
 });

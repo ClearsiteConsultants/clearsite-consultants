@@ -61,6 +61,12 @@ type ManualLinkMode = "existing-client" | "new-client";
 const MAX_AMOUNT_DUE = 10_000;
 const MAX_AMOUNT_DUE_DIGITS = MAX_AMOUNT_DUE * 100;
 const MAX_AMOUNT_DUE_MESSAGE = "Max Limit is $10,000.00";
+const QUICKBOOKS_CONNECT_PATH = "/api/integrations/quickbooks/connect";
+const QUICKBOOKS_API_FAILED_MESSAGE = "QuickBooks API request failed";
+
+function isQuickBooksApiFailureMessage(message: unknown) {
+  return typeof message === "string" && message.toLowerCase().includes(QUICKBOOKS_API_FAILED_MESSAGE.toLowerCase());
+}
 
 export default function AdminInvoices() {
   const { data: session, status } = useSession();
@@ -179,9 +185,10 @@ export default function AdminInvoices() {
       setQboItemsLoading(true);
       const res = await fetch("/api/invoices?action=qbo-items", { cache: "no-store" });
       const payload = await res.json().catch(() => null);
-      if (payload?.reconnectRequired) {
+      if (payload?.reconnectRequired || isQuickBooksApiFailureMessage(payload?.error)) {
         setQboStatus((prev) => ({ ...prev, reconnectRequired: true, reconnectReason: payload.reconnectReason || null }));
         setMessage({ type: "error", text: payload.error || "QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue." });
+        window.location.href = QUICKBOOKS_CONNECT_PATH;
         return;
       }
       if (res.ok) {
@@ -199,9 +206,10 @@ export default function AdminInvoices() {
       setQboCustomersLoading(true);
       const res = await fetch("/api/invoices?action=qbo-customers", { cache: "no-store" });
       const payload = await res.json().catch(() => null);
-      if (payload?.reconnectRequired) {
+      if (payload?.reconnectRequired || isQuickBooksApiFailureMessage(payload?.error)) {
         setQboStatus((prev) => ({ ...prev, reconnectRequired: true, reconnectReason: payload.reconnectReason || null }));
         setMessage({ type: "error", text: payload.error || "QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue." });
+        window.location.href = QUICKBOOKS_CONNECT_PATH;
         return;
       }
       if (res.ok) {
@@ -215,7 +223,7 @@ export default function AdminInvoices() {
   };
 
   const handleConnectQuickBooks = () => {
-    window.location.href = "/api/integrations/quickbooks/connect";
+    window.location.href = QUICKBOOKS_CONNECT_PATH;
   };
 
   const resetQboForm = () => {
@@ -270,6 +278,7 @@ export default function AdminInvoices() {
 
     if (qboReconnectRequired) {
       setMessage({ type: "error", text: "QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue." });
+      window.location.href = QUICKBOOKS_CONNECT_PATH;
       return;
     }
 
@@ -302,9 +311,11 @@ export default function AdminInvoices() {
       const payload = await res.json();
       if (!res.ok) throw new Error(payload?.error || "Failed to create invoice");
 
-      if (payload?.reconnectRequired) {
+      if (payload?.reconnectRequired || isQuickBooksApiFailureMessage(payload?.sync_error) || isQuickBooksApiFailureMessage(payload?.error)) {
         setQboStatus((prev) => ({ ...prev, reconnectRequired: true, reconnectReason: payload.reconnectReason || null }));
         setMessage({ type: "error", text: payload?.sync_error || "QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue." });
+        window.location.href = QUICKBOOKS_CONNECT_PATH;
+        return;
       } else if (payload?.sync_error) {
         setMessage({ type: "error", text: `Invoice created, but QuickBooks sync failed: ${payload.sync_error}` });
       } else if (payload?.qbo_invoice_id) {
@@ -352,6 +363,7 @@ export default function AdminInvoices() {
     try {
       if (qboReconnectRequired) {
         setMessage({ type: "error", text: "QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue." });
+        window.location.href = QUICKBOOKS_CONNECT_PATH;
         return;
       }
       const res = await fetch("/api/invoices", {
@@ -367,9 +379,10 @@ export default function AdminInvoices() {
       });
 
       const payload = await res.json();
-      if (payload?.reconnectRequired) {
+      if (payload?.reconnectRequired || isQuickBooksApiFailureMessage(payload?.error)) {
         setQboStatus((prev) => ({ ...prev, reconnectRequired: true, reconnectReason: payload.reconnectReason || null }));
         setMessage({ type: "error", text: payload?.error || "QuickBooks authorization is no longer valid. Reconnect QuickBooks to continue." });
+        window.location.href = QUICKBOOKS_CONNECT_PATH;
         return;
       }
       if (!res.ok) {

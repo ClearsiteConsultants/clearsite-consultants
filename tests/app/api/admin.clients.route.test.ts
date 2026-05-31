@@ -57,4 +57,29 @@ describe("/api/admin/clients", () => {
     expect(response.status).toBe(200);
     expect(payload[0].action_needed).toBe(true);
   });
+
+  it("returns action_needed when MissingQboPaymentUrl logs exist for a client invoice", async () => {
+    sqlMock.mockResolvedValue({
+      rows: [
+        {
+          id: "2",
+          company_name: "Globex",
+          email: "ops@globex.com",
+          plan: "Starter",
+          service_status: "Active",
+          first_name: "G",
+          last_name: "User",
+          phone: null,
+          next_invoice_due: "2026-06-30",
+          action_needed: true,
+        },
+      ],
+    });
+
+    const response = await GET();
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload[0].action_needed).toBe(true);
+  });
 });

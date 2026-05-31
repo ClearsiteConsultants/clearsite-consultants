@@ -8,6 +8,13 @@ import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+const QUICKBOOKS_CONNECT_PATH = "/api/integrations/quickbooks/connect";
+const QUICKBOOKS_API_FAILED_MESSAGE = "QuickBooks API request failed";
+
+function isQuickBooksApiFailureMessage(message: unknown) {
+  return typeof message === "string" && message.toLowerCase().includes(QUICKBOOKS_API_FAILED_MESSAGE.toLowerCase());
+}
+
 interface ClientUser {
   id: string;
   email: string;
@@ -43,7 +50,7 @@ interface ActionNeededIssue {
 function formatDate(value: string | null | undefined) {
   if (!value) return "N/A";
 
-  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
   const date = dateOnlyMatch
     ? new Date(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3]))
     : new Date(value);
@@ -194,7 +201,13 @@ export default function AdminDashboard() {
       } | null;
 
       if (payload?.reconnectRequired) {
-        router.push("/admin/invoices");
+        router.push(QUICKBOOKS_CONNECT_PATH);
+        return;
+      }
+
+      const hasQuickBooksApiFailure = (payload?.errors ?? []).some((e) => isQuickBooksApiFailureMessage(e?.message));
+      if (hasQuickBooksApiFailure || isQuickBooksApiFailureMessage(payload?.error)) {
+        router.push(QUICKBOOKS_CONNECT_PATH);
         return;
       }
 

@@ -58,9 +58,14 @@ export async function GET(_req: NextRequest, context: RouteContext) {
         LIMIT 1
       ) log ON TRUE
       WHERE i.client_id = ${clientId}
-        AND i.paid_at IS NULL
-        AND LOWER(COALESCE(i.qbo_sync_status, 'pending')) <> 'paid'
-        AND COALESCE(BTRIM(i.qbo_payment_url), '') = ''
+        AND (
+          (
+            i.paid_at IS NULL
+            AND LOWER(COALESCE(i.qbo_sync_status, 'pending')) <> 'paid'
+            AND COALESCE(BTRIM(i.qbo_payment_url), '') = ''
+          )
+          OR log.error_message IS NOT NULL
+        )
       ORDER BY COALESCE(log.created_at, i.last_synced_at, i.created_at) DESC
     `;
 
