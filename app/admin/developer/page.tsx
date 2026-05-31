@@ -19,6 +19,16 @@ type ErrorLogRow = {
   created_at: string;
 };
 
+type ErrorLogRetention = {
+  days: number;
+  maxRetained: number;
+};
+
+const DEFAULT_RETENTION: ErrorLogRetention = {
+  days: 30,
+  maxRetained: 150,
+};
+
 function formatDateTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -37,6 +47,7 @@ export default function DeveloperLogsPage() {
   const [total, setTotal] = useState(0);
   const [query, setQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [retention, setRetention] = useState<ErrorLogRetention>(DEFAULT_RETENTION);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
@@ -68,6 +79,11 @@ export default function DeveloperLogsPage() {
 
       setRows(Array.isArray(payload.rows) ? payload.rows : []);
       setTotal(Number(payload.total || 0));
+      const retentionPayload = payload.retention as Partial<ErrorLogRetention> | undefined;
+      setRetention({
+        days: Number(retentionPayload?.days) || DEFAULT_RETENTION.days,
+        maxRetained: Number(retentionPayload?.maxRetained) || DEFAULT_RETENTION.maxRetained,
+      });
       setSelectedIds([]);
     } catch (error) {
       const text = error instanceof Error ? error.message : "Failed to load logs";
@@ -127,7 +143,9 @@ export default function DeveloperLogsPage() {
       <div className="bg-white shadow">
         <div className="mx-auto max-w-7xl px-4 py-6">
           <h1 className="text-3xl font-bold text-gray-900">Developer Logs</h1>
-          <p className="mt-1 text-sm text-gray-600">Persistent API server errors retained for 30 days up to 50 entries.</p>
+          <p className="mt-1 text-sm text-gray-600">
+            Persistent API server errors retained for {retention.days} days up to {retention.maxRetained} entries.
+          </p>
         </div>
       </div>
 

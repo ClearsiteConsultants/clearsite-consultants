@@ -106,6 +106,16 @@ export default function Portal() {
       client?.billing_postal_code?.trim()
   );
 
+  const firstMissingPaymentUrlInvoice = invoices.find((invoice) => {
+    const status = (invoice.qbo_sync_status || "pending").toLowerCase();
+    const isUnpaid = status !== "paid";
+    return isUnpaid && !(invoice.qbo_payment_url || "").trim();
+  });
+
+  const missingPaymentUrlContactHref = firstMissingPaymentUrlInvoice
+    ? buildMissingPaymentUrlContactHref(firstMissingPaymentUrlInvoice.id, firstMissingPaymentUrlInvoice.qbo_doc_number)
+    : "/#contact";
+
   if (status === "loading" || loading) {
     return (
       <div className="min-h-screen bg-tech flex items-center justify-center">
@@ -177,7 +187,23 @@ export default function Portal() {
 
         {/* Invoices */}
         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-          <h2 className="font-display text-3xl text-gray-900 mb-4">Invoices</h2>
+          <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <h2 className="font-display text-3xl text-gray-900">Invoices</h2>
+            {firstMissingPaymentUrlInvoice && (
+              <div className="w-full max-w-3xl md:w-auto">
+                <div className="grid grid-cols-[minmax(0,1fr)_max-content] items-center gap-3 text-sm">
+                  <p className="min-w-0 break-words text-center text-red-700">
+                    The QuickBooks Online payment link (&quot;qbo_payment_url&quot;) for one or more invoices does not exist. Contact customer support for assistance.
+                  </p>
+                  <div className="justify-self-center">
+                    <Button asChild variant="outline" size="sm" className="h-8 w-fit px-3 text-xs tracking-[0.08em]">
+                      <a href={missingPaymentUrlContactHref}>Contact Support</a>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
           {!hasBillingAddress && (
             <p className="mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
               Billing address required to receive services. Go to{" "}
@@ -218,11 +244,7 @@ export default function Portal() {
                     // Prefer QuickBooks doc number.
                     const displayNumber = invoice.qbo_doc_number || "—";
                     const isManualLink = invoice.is_manual_link === true;
-                    const payNowHref = invoice.qbo_payment_url || null;
                     const isUnpaid = status !== "paid";
-                    const invoiceNumberForMessage = invoice.qbo_doc_number || "";
-                    const isMissingPaymentUrlError = isUnpaid && !payNowHref;
-                    const contactSupportHref = buildMissingPaymentUrlContactHref(invoice.id, invoice.qbo_doc_number);
 
                     return (
                       <tr key={invoice.id} className="border-b border-gray-100">
@@ -259,31 +281,9 @@ export default function Portal() {
                         <td className="py-4 pr-4">
                           <div className="flex flex-col gap-2 text-sm">
                             {isUnpaid && (
-                              payNowHref ? (
-                                <Button asChild size="sm" className="h-8 w-fit px-3 text-xs tracking-[0.12em]">
-                                  <a
-                                    href={payNowHref}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                  >
-                                    Pay Now
-                                  </a>
-                                </Button>
-                              ) : (
-                                <Button size="sm" disabled className="h-8 w-fit px-3 text-xs tracking-[0.12em]">
-                                  Pay Now
-                                </Button>
-                              )
-                            )}
-                            {isMissingPaymentUrlError && (
-                              <>
-                                <p className="text-xs text-red-700">
-                                  The QuickBooks Online payment link (&quot;qbo_payment_url&quot;) for invoice {invoiceNumberForMessage} does not exist. Contact customer support for assistance.
-                                </p>
-                                <Button asChild variant="outline" size="sm" className="h-8 w-fit px-3 text-xs tracking-[0.08em]">
-                                  <a href={contactSupportHref}>Contact Support</a>
-                                </Button>
-                              </>
+                              <Button size="sm" disabled className="h-8 w-fit px-3 text-xs tracking-[0.12em]">
+                                Pay Now
+                              </Button>
                             )}
                           </div>
                         </td>

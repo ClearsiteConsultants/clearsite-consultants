@@ -158,6 +158,7 @@ async function maybeLogMissingPaymentUrl(input: {
     qboDocNumber: typeof invoice.qbo_doc_number === "string" ? invoice.qbo_doc_number : null,
     qboInvoiceId: typeof invoice.qbo_invoice_id === "string" ? invoice.qbo_invoice_id : null,
     qboSyncStatus: typeof invoice.qbo_sync_status === "string" ? invoice.qbo_sync_status : null,
+    cooldownMinutes: input.context.origin === "portal-read" ? 720 : 60,
   });
 }
 

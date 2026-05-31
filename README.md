@@ -263,6 +263,8 @@ The `users` table is never written to by this app — it is read-only for admin 
 - **Invoice PDF delivery**: `/api/invoices/[id]/pdf` fetches from QuickBooks on demand and returns an attachment response. Clients can only download their own invoices; admins are blocked from this endpoint.
 - **Missing payment-link handling**: Admin client rows expose an **Action needed** badge when unpaid invoices are missing `qbo_payment_url`. Clicking the badge opens issue details from `/api/admin/clients/[clientId]/action-needed`, preferring `MissingQboPaymentUrl` log messages when present (client `/api/invoices` fetch does not create these warnings).
 - **Missing payment-link developer log origins**: `MissingQboPaymentUrl` warnings include `metadata.origin` values of `admin-create`, `admin-link`, `admin-sync`, `portal-read`, or `qbo-webhook`.
+- **Developer log retention behavior**: The retention window and max retained entry count are soft-coded from code-configured values rather than fixed UI strings. The current configured defaults are 30 days and 150 retained error-log entries.
+- **Developer log duplicate cleanup**: Manual Sync can re-log `MissingQboPaymentUrl` warnings. When retaining a new row would exceed the max entry count, cleanup first deletes older exact duplicates and keeps only the newest exact duplicate. An exact duplicate means the same Route, Method, Status, Error, and User values, even if the timestamp differs. If the log count is still over the configured max after duplicate cleanup, oldest-log pruning runs next.
 - **Webhook anti-spam rule**: `qbo-webhook` logging only writes `MissingQboPaymentUrl` when an invoice transitions from non-empty `qbo_payment_url` to empty/null; null->null webhook updates do not log.
 - **Pricing data**: Website pricing display values are maintained in `components/Pricing.tsx`.
 - **Contact endpoint**: `app/api/contact/route.ts` sends contact emails through Resend.
@@ -316,6 +318,7 @@ Full policy: `.github/agents/squad.agent.md` -> **Blake Autopilot Security Prote
   - QuickBooks Customers used by `/admin/invoices` manual-link "New QBO Client" flow.
 - The response returns structured summary counts (`invoiceSync`, `qboData`), an `errors` array, and `developerLogs` metadata indicating whether new `MissingQboPaymentUrl` logs were created during this run.
 - Manual sync-triggered missing payment-link warnings are tagged with origin `admin-sync` and still use cooldown dedupe behavior.
+- A later Manual Sync run can re-log the same `MissingQboPaymentUrl` warning if the missing-link condition still exists. If that insert would push retained logs past the configured max, older exact duplicates are deleted first so only the newest exact duplicate remains before oldest-log pruning is applied.
 
 ## Admin Invoice Modes
 

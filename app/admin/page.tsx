@@ -66,7 +66,7 @@ export default function AdminDashboard() {
   const [actionNeededError, setActionNeededError] = useState("");
   const [actionNeededIssues, setActionNeededIssues] = useState<ActionNeededIssue[]>([]);
   const [manualSyncLoading, setManualSyncLoading] = useState(false);
-  const [message, setMessage] = useState({ type: "", text: "" });
+  const [message, setMessage] = useState<{ type: string; text: string; details?: string[] }>({ type: "", text: "" });
 
   useEffect(() => {
     const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
@@ -177,6 +177,7 @@ export default function AdminDashboard() {
 
       const payload = await response.json().catch(() => null) as {
         error?: string;
+        reconnectRequired?: boolean;
         invoiceSync?: {
           clientsProcessed?: number;
           syncedInvoices?: number;
@@ -189,8 +190,13 @@ export default function AdminDashboard() {
         developerLogs?: {
           newMissingPaymentUrlLogs?: number;
         };
-        errors?: Array<{ message?: string }>;
+        errors?: Array<{ scope?: string; message?: string }>;
       } | null;
+
+      if (payload?.reconnectRequired) {
+        router.push("/admin/invoices");
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(payload?.error || "Manual sync failed");
@@ -204,11 +210,16 @@ export default function AdminDashboard() {
       const newLogs = payload?.developerLogs?.newMissingPaymentUrlLogs ?? 0;
       const errorCount = Array.isArray(payload?.errors) ? payload?.errors.length : 0;
 
+      const errorDetails = (payload?.errors ?? []).map(
+        (e) => `[${e.scope ?? "unknown"}] ${e.message ?? "Unknown error"}`
+      );
+
       setMessage({
         type: errorCount > 0 ? "error" : "success",
         text: `Manual sync completed: ${clientsProcessed} clients refreshed, ${syncedInvoices} invoices synced, ${failedInvoices} invoice sync failures, ${itemsCount} products/services, ${customersCount} customers, ${newLogs} API errors logged.${
-          errorCount > 0 ? " Some refresh operations returned errors." : ""
+          errorCount > 0 ? ` ${errorCount} refresh operation${errorCount === 1 ? "" : "s"} returned errors:` : ""
         }`,
+        details: errorCount > 0 ? errorDetails : undefined,
       });
 
       await loadClients();
@@ -250,7 +261,14 @@ export default function AdminDashboard() {
               : "bg-green-50 text-green-800 border border-green-200"
           }`}
         >
-          {message.text}
+          <p>{message.text}</p>
+          {message.details && message.details.length > 0 && (
+            <ul className="mt-2 list-disc list-inside space-y-1 text-sm">
+              {message.details.map((d, i) => (
+                <li key={i}>{d}</li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 

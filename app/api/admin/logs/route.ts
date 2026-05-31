@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
-import { deleteErrorLogsByIds, deleteErrorLogsOlderThanDays, listErrorLogs } from "@/lib/db";
+import {
+  deleteErrorLogsByIds,
+  deleteErrorLogsOlderThanDays,
+  getErrorLogRetentionConfig,
+  listErrorLogs,
+} from "@/lib/db";
 
 function isAdmin(userType: string | undefined) {
   return userType === "admin";
@@ -22,8 +27,12 @@ export async function GET(req: NextRequest) {
     const query = searchParams.get("query") || undefined;
 
     const result = await listErrorLogs({ page, pageSize, level, query });
+    const retention = getErrorLogRetentionConfig();
 
-    return NextResponse.json(result, {
+    return NextResponse.json({
+      ...result,
+      retention,
+    }, {
       headers: {
         "Cache-Control": "no-store, max-age=0",
       },

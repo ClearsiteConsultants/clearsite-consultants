@@ -50,6 +50,7 @@ export async function POST() {
         syncedInvoices += Number(result?.synced ?? 0);
         failedInvoices += Number(result?.failed ?? 0);
       } catch (error) {
+        if (isQuickBooksReconnectRequiredError(error)) throw error;
         failedClients += 1;
         errors.push({
           scope: "invoices",
@@ -65,6 +66,7 @@ export async function POST() {
       const items = await getQuickBooksItems(connection.realm_id);
       productsServicesCount = Array.isArray(items) ? items.length : 0;
     } catch (error) {
+      if (isQuickBooksReconnectRequiredError(error)) throw error;
       errors.push({
         scope: "items",
         message: error instanceof Error ? error.message : "Failed to refresh QuickBooks products/services",
@@ -75,6 +77,7 @@ export async function POST() {
       const customers = await getQuickBooksCustomers(connection.realm_id);
       customersCount = Array.isArray(customers) ? customers.length : 0;
     } catch (error) {
+      if (isQuickBooksReconnectRequiredError(error)) throw error;
       errors.push({
         scope: "customers",
         message: error instanceof Error ? error.message : "Failed to refresh QuickBooks customers",
