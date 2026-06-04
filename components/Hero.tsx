@@ -56,7 +56,6 @@ export default function Hero() {
                 src="/clearsite-logo-only-cropped-transparent.png"
                 alt="Clearsite Consultants Logo"
                 width={420}
-                height={420}
                 className="block h-auto w-auto max-w-full"
               />
             </div>
