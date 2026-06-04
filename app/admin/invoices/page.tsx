@@ -280,7 +280,11 @@ export default function AdminInvoices() {
         // Convert to digits format (cents as integer string).
         const digits = String(Math.round(item.UnitPrice * 100));
         setAmountDueDigits(digits);
+      } else {
+        setAmountDueDigits("");
       }
+    } else {
+      setAmountDueDigits("");
     }
   };
 
@@ -583,7 +587,7 @@ export default function AdminInvoices() {
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  min={getLocalDatePlus30Days()}
+                  min={getMinimumDueDate(invoiceDate)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
                   required
                 />
