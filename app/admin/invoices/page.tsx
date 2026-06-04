@@ -585,9 +585,9 @@ export default function AdminInvoices() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Due Date *</label>
                 <input
                   type="date"
-                  value={dueDate}
+                  value={invoiceDate ? getMinimumDueDate(invoiceDate) : dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  min={getMinimumDueDate(invoiceDate)}
+                  min={invoiceDate ? getMinimumDueDate(invoiceDate) : getLocalDatePlus30Days()}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
                   required
                 />
