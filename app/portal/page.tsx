@@ -193,7 +193,7 @@ export default function Portal() {
               <div className="w-full max-w-3xl md:w-auto">
                 <div className="grid grid-cols-[minmax(0,1fr)_max-content] items-center gap-3 text-sm">
                   <p className="min-w-0 break-words text-center text-red-700">
-                    The QuickBooks Online payment link (&quot;qbo_payment_url&quot;) for one or more invoices does not exist. Contact customer support for assistance.
+                    One or more invoices is missing a payment link. Contact customer support for assistance.
                   </p>
                   <div className="justify-self-center">
                     <Button asChild variant="outline" size="sm" className="h-8 w-fit px-3 text-xs tracking-[0.08em]">
@@ -244,6 +244,7 @@ export default function Portal() {
                     // Prefer QuickBooks doc number.
                     const displayNumber = invoice.qbo_doc_number || "—";
                     const isUnpaid = status !== "paid";
+                    const paymentUrl = (invoice.qbo_payment_url || "").trim();
 
                     return (
                       <tr key={invoice.id} className="border-b border-gray-100">
@@ -274,7 +275,12 @@ export default function Portal() {
                         </td>
                         <td className="py-4 pr-4">
                           <div className="flex flex-col gap-2 text-sm">
-                            {isUnpaid && (
+                            {isUnpaid && paymentUrl && (
+                              <Button asChild size="sm" className="h-8 w-fit px-3 text-xs tracking-[0.12em]">
+                                <a href={paymentUrl} target="_blank" rel="noreferrer">Pay Now</a>
+                              </Button>
+                            )}
+                            {isUnpaid && !paymentUrl && (
                               <Button size="sm" disabled className="h-8 w-fit px-3 text-xs tracking-[0.12em]">
                                 Pay Now
                               </Button>

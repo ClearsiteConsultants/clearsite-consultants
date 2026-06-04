@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
+function futureDueDate(daysFromNow = 60): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromNow);
+  return d.toISOString().slice(0, 10);
+}
+
 const {
   authMock,
   getQuickBooksConnectionMock,
@@ -166,7 +172,7 @@ describe("/api/invoices reconnect-required responses", () => {
       body: JSON.stringify({
         client_id: "1",
         invoice_total: 100,
-        due_date: "2026-07-01",
+        due_date: futureDueDate(),
         sync_to_qbo: true,
       }),
       headers: { "content-type": "application/json" },
@@ -249,7 +255,7 @@ describe("/api/invoices reconnect-required responses", () => {
       body: JSON.stringify({
         client_id: "1",
         invoice_total: 100,
-        due_date: "2026-07-01",
+        due_date: futureDueDate(),
         sync_to_qbo: true,
       }),
       headers: { "content-type": "application/json" },
