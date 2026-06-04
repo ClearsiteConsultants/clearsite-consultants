@@ -47,13 +47,22 @@ interface ActionNeededIssue {
   errorMessage?: string | null;
 }
 
-function formatDate(value: string | null | undefined) {
+function formatCalendarDate(value: string | null | undefined) {
   if (!value) return "N/A";
 
-  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(value.trim());
   const date = dateOnlyMatch
     ? new Date(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3]))
     : new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleDateString();
+}
+
+function formatTimestampDate(value: string | null | undefined) {
+  if (!value) return "N/A";
+
+  const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) return "N/A";
   return date.toLocaleDateString();
@@ -331,7 +340,7 @@ export default function AdminDashboard() {
                         <td className="px-6 py-4 text-sm">{client.email}</td>
                         <td className="px-6 py-4 text-sm">{[client.first_name, client.last_name].filter(Boolean).join(" ") || "—"}</td>
                         <td className="px-6 py-4 text-sm">{client.plan || "—"}</td>
-                        <td className="px-6 py-4 text-sm">{formatDate(client.next_invoice_due)}</td>
+                        <td className="px-6 py-4 text-sm">{formatCalendarDate(client.next_invoice_due)}</td>
                         <td className="px-6 py-4">
                           <span
                             className={`px-3 py-1 text-sm rounded-full ${
@@ -515,11 +524,11 @@ export default function AdminDashboard() {
                         <p><span className="font-semibold">QBO Doc #:</span> {issue.qboDocNumber || "N/A"}</p>
                         <p><span className="font-semibold">QBO Invoice ID:</span> {issue.qboInvoiceId || "N/A"}</p>
                         <p><span className="font-semibold">QBO Sync Status:</span> {issue.qboSyncStatus || "N/A"}</p>
-                        <p><span className="font-semibold">Invoice Date:</span> {formatDate(issue.invoiceDate)}</p>
-                        <p><span className="font-semibold">Due Date:</span> {formatDate(issue.dueDate)}</p>
+                        <p><span className="font-semibold">Invoice Date:</span> {formatCalendarDate(issue.invoiceDate)}</p>
+                        <p><span className="font-semibold">Due Date:</span> {formatCalendarDate(issue.dueDate)}</p>
                         <p><span className="font-semibold">Amount Total:</span> {formatCurrency(issue.amountTotal)}</p>
                         <p><span className="font-semibold">Amount Paid:</span> {formatCurrency(issue.amountPaid)}</p>
-                        <p><span className="font-semibold">Updated:</span> {formatDate(issue.updatedAt)}</p>
+                        <p><span className="font-semibold">Updated:</span> {formatTimestampDate(issue.updatedAt)}</p>
                       </div>
                     </div>
                   ))}

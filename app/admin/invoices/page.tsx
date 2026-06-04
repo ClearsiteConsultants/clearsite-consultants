@@ -30,11 +30,28 @@ function getLocalDatePlus30Days(): string {
   return `${year}-${month}-${day}`;
 }
 
-// Helper: check if due date is at least 30 days from today
-function isValidDueDate(dueDateString: string): boolean {
+function addLocalDays(dateString: string, days: number): string | null {
+  const match = dateString.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  if (Number.isNaN(date.getTime())) return null;
+  date.setDate(date.getDate() + days);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getMinimumDueDate(invoiceDate?: string): string {
+  const baseDate = invoiceDate || getLocalDateString();
+  return addLocalDays(baseDate, 30) || getLocalDatePlus30Days();
+}
+
+// Helper: check if due date is at least 30 days after the invoice date.
+function isValidDueDate(dueDateString: string, invoiceDateString?: string): boolean {
   if (!dueDateString) return false;
-  const minDate = getLocalDatePlus30Days();
-  return dueDateString >= minDate;
+  const minDate = getMinimumDueDate(invoiceDateString);
+  return dueDateString.slice(0, 10) >= minDate;
 }
 
 interface Client {
@@ -287,9 +304,9 @@ export default function AdminInvoices() {
       return;
     }
 
-    if (!isValidDueDate(dueDate)) {
-      const minDate = getLocalDatePlus30Days();
-      setMessage({ type: "error", text: `Due date must be at least 30 days from today (minimum: ${minDate}).` });
+    if (!isValidDueDate(dueDate, invoiceDate)) {
+      const minDate = getMinimumDueDate(invoiceDate);
+      setMessage({ type: "error", text: `Due date must be at least 30 days after the invoice date (minimum: ${minDate}).` });
       return;
     }
 

@@ -7,6 +7,12 @@ function futureDueDate(daysFromNow = 60): string {
   return d.toISOString().slice(0, 10);
 }
 
+function futureDate(daysFromNow = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromNow);
+  return d.toISOString().slice(0, 10);
+}
+
 const {
   authMock,
   getQuickBooksConnectionMock,
@@ -215,13 +221,14 @@ describe("/api/invoices reconnect-required responses", () => {
     expect(createInvoiceMock).not.toHaveBeenCalled();
   });
 
-  it("rejects due dates earlier than 30 days from today", async () => {
+  it("rejects due dates earlier than 30 days after the invoice date", async () => {
     const req = new NextRequest("http://localhost:3000/api/invoices", {
       method: "POST",
       body: JSON.stringify({
         client_id: "1",
         invoice_total: 100,
-        due_date: "2026-06-15",
+        invoice_date: futureDate(40),
+        due_date: futureDate(55),
       }),
       headers: { "content-type": "application/json" },
     });
@@ -230,8 +237,43 @@ describe("/api/invoices reconnect-required responses", () => {
     const payload = await res.json();
 
     expect(res.status).toBe(400);
-    expect(payload.error).toContain("Due date must be at least 30 days from today");
+    expect(payload.error).toContain("Due date must be at least 30 days after the invoice date");
     expect(createInvoiceMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts due dates that are at least 30 days after the invoice date", async () => {
+    createInvoiceMock.mockResolvedValue({
+      id: "inv-2",
+      client_id: "1",
+      qbo_sync_status: "pending",
+      qbo_invoice_id: "qbo-inv-2",
+      qbo_doc_number: "1002",
+    });
+    syncInvoiceToQuickBooksMock.mockResolvedValue({
+      id: "inv-2",
+      client_id: "1",
+      qbo_invoice_id: "qbo-inv-2",
+      qbo_doc_number: "1002",
+      qbo_sync_status: "sent",
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/invoices", {
+      method: "POST",
+      body: JSON.stringify({
+        client_id: "1",
+        invoice_total: 100,
+        invoice_date: futureDate(10),
+        due_date: futureDate(40),
+        sync_to_qbo: true,
+      }),
+      headers: { "content-type": "application/json" },
+    });
+
+    const res = await POST(req);
+    const payload = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(payload.qbo_doc_number).toBe("1002");
   });
 
   it("accepts due dates that are exactly 30 days or more in the future", async () => {

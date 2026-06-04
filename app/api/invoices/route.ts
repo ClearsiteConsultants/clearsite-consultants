@@ -30,21 +30,40 @@ function quickBooksReconnectResponse(error: unknown) {
   };
 }
 
-// Helper: get today + 30 days in YYYY-MM-DD format (server timezone)
-function getServerDatePlus30Days(): string {
-  const date = new Date();
-  date.setDate(date.getDate() + 30);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+function parseDateOnly(value: string): Date | null {
+  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatDateOnly(date: Date): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
-// Helper: validate due date is at least 30 days from today
-function isValidServerDueDate(dueDateString: string): boolean {
+function addDaysToDateOnly(dateString: string, days: number): string | null {
+  const baseDate = parseDateOnly(dateString);
+  if (!baseDate) return null;
+  const nextDate = new Date(baseDate);
+  nextDate.setUTCDate(nextDate.getUTCDate() + days);
+  return formatDateOnly(nextDate);
+}
+
+function getMinimumDueDate(invoiceDate?: string | null): string {
+  const baseDate = invoiceDate && invoiceDate.trim() ? invoiceDate.trim().slice(0, 10) : formatDateOnly(new Date());
+  return addDaysToDateOnly(baseDate, 30) || baseDate;
+}
+
+function isValidServerDueDate(invoiceDate: string | null | undefined, dueDateString: string): boolean {
   if (!dueDateString) return false;
-  const minDate = getServerDatePlus30Days();
-  return dueDateString >= minDate;
+  const minimumDueDate = getMinimumDueDate(invoiceDate);
+  return dueDateString.slice(0, 10) >= minimumDueDate;
 }
 
 // GET /api/invoices - Get client's invoices or admin lists
@@ -317,11 +336,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate due date is at least 30 days from today
-    if (!isValidServerDueDate(String(due_date))) {
-      const minDate = getServerDatePlus30Days();
+    // Validate due date is at least 30 days after the invoice date.
+    if (!isValidServerDueDate(invoice_date ? String(invoice_date) : null, String(due_date))) {
+      const minDate = getMinimumDueDate(invoice_date ? String(invoice_date) : null);
       return NextResponse.json(
-        { error: `Due date must be at least 30 days from today. Minimum: ${minDate}.` },
+        { error: `Due date must be at least 30 days after the invoice date. Minimum: ${minDate}.` },
         { status: 400 }
       );
     }

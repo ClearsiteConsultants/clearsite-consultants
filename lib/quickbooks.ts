@@ -519,11 +519,17 @@ export async function createQuickBooksInvoice(realmId: string, data: {
     throw new Error("QUICKBOOKS_DEFAULT_ITEM_ID is required to create invoices in QuickBooks");
   }
 
+  const net30Term = await findQuickBooksTermByName(realmId, "Net 30");
+  if (!net30Term) {
+    throw new Error('QuickBooks term "Net 30" is required to create invoices in QuickBooks');
+  }
+
   const payload = {
     CustomerRef: { value: data.customerId },
     ...(data.invoiceNumber ? { DocNumber: data.invoiceNumber } : {}),
     ...(data.invoiceDate ? { TxnDate: data.invoiceDate } : {}),
     DueDate: data.dueDate,
+    SalesTermRef: { value: net30Term.Id, name: net30Term.Name },
     PrivateNote: data.description,
     Line: [
       {
@@ -543,7 +549,12 @@ export async function createQuickBooksInvoice(realmId: string, data: {
     body: payload,
   });
 
-  return result.Invoice;
+  const createdInvoiceId = typeof result.Invoice?.Id === "string" ? result.Invoice.Id : null;
+  if (!createdInvoiceId) {
+    return result.Invoice;
+  }
+
+  return await getQuickBooksInvoice(realmId, createdInvoiceId);
 }
 
 export async function getQuickBooksInvoice(realmId: string, qboInvoiceId: string) {
@@ -697,6 +708,32 @@ export async function getQuickBooksItems(realmId: string): Promise<QuickBooksIte
     Active: Boolean(item.Active),
     Type: String(item.Type || ""),
   }));
+}
+
+async function findQuickBooksTermByName(realmId: string, termName: string): Promise<{ Id: string; Name: string } | null> {
+  const query = `SELECT Id, Name FROM Term WHERE Name = '${escapeQuickBooksQueryValue(termName)}' MAXRESULTS 5`;
+  const connection = await getFreshQuickBooksConnection();
+  const url = `${getApiBaseUrl()}/v3/company/${realmId}/query?query=${encodeURIComponent(query)}&minorversion=75`;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${connection.access_token}`,
+      Accept: "application/json",
+    },
+  });
+  const result = await parseJsonResponse(response) as { QueryResponse?: { Term?: Array<Record<string, unknown>> } };
+  if (!response.ok) {
+    await throwQuickBooksApiError(connection, response, result);
+  }
+  const terms = result.QueryResponse?.Term || [];
+  const match = terms.find((term) => String(term.Name || "") === termName);
+  if (!match?.Id) {
+    return null;
+  }
+  return {
+    Id: String(match.Id),
+    Name: String(match.Name || termName),
+  };
 }
 
 export async function findQuickBooksInvoiceByDocNumber(
