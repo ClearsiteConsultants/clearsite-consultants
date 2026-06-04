@@ -176,11 +176,18 @@ export default function Header({ showNavigation = true }: HeaderProps) {
           </Link>
         </DropdownMenuItem>
         {userType === "admin" && (
-          <DropdownMenuItem asChild className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 font-medium cursor-pointer">
-            <Link href="/admin/invoices" onClick={handleNavLinkClick}>
-              Invoice Management
-            </Link>
-          </DropdownMenuItem>
+          <>
+            <DropdownMenuItem asChild className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 font-medium cursor-pointer">
+              <Link href="/admin/invoices" onClick={handleNavLinkClick}>
+                Invoice Management
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 font-medium cursor-pointer">
+              <Link href="/admin/developer" onClick={handleNavLinkClick}>
+                Developer Logs
+              </Link>
+            </DropdownMenuItem>
+          </>
         )}
         <DropdownMenuItem asChild className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 font-medium cursor-pointer">
           <Link href="/account-settings" onClick={handleNavLinkClick}>
