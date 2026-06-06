@@ -3,7 +3,7 @@
 import { useSession, signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Rocket } from "lucide-react";
+import clearsiteLogo from "@/public/clearsite-favicon-nav.png";
 import Header from "@/components/Header";
 
 function normalizeAuthError(error?: string | null) {
@@ -135,8 +135,8 @@ export default function Login() {
         <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
         {/* Logo */}
         <div className="flex items-center justify-center gap-2 mb-8">
-          <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
-            <Rocket className="w-6 h-6 text-white" />
+          <div className="w-10 h-10 border border-gray-200 flex items-center justify-center">
+            <img src={clearsiteLogo.src} alt="Clearsite logo" width={28} height={28} className="w-7 h-7" />
           </div>
           <span className="font-display text-lg text-gray-900 tracking-wide">
             CLEARSITE <span className="text-primary">CONSULTANTS</span>

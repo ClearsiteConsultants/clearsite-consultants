@@ -213,7 +213,7 @@ export default function Header({ showNavigation = true }: HeaderProps) {
           <Link href="/" className="flex items-center gap-2 group" onClick={handleHomeClick}>
             <div className="w-10 h-10 border border-gray-200 flex items-center justify-center">
               <Image
-                src="/favicon-nav.png"
+                src="/clearsite-favicon-nav.png"
                 alt="Clearsite logo"
                 width={28}
                 height={28}
