@@ -274,17 +274,33 @@ export default function Portal() {
                           </div>
                         </td>
                         <td className="py-4 pr-4">
-                          <div className="flex flex-col gap-2 text-sm">
-                            {isUnpaid && paymentUrl && (
-                              <Button asChild size="sm" className="h-8 w-fit px-3 text-xs tracking-[0.12em]">
-                                <a href={paymentUrl} target="_blank" rel="noreferrer">Pay Now</a>
-                              </Button>
-                            )}
-                            {isUnpaid && !paymentUrl && (
-                              <Button size="sm" disabled className="h-8 w-fit px-3 text-xs tracking-[0.12em]">
-                                Pay Now
-                              </Button>
-                            )}
+                          <div className="flex flex-col gap-1 text-sm">
+                            {isUnpaid && paymentUrl ? (
+                              <div className="flex items-center gap-3">
+                                <Button asChild size="sm" className="h-8 w-fit px-3 text-xs tracking-[0.12em]">
+                                  <a
+                                    href={paymentUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    aria-label="Pay invoice with QuickBooks (opens in new tab)"
+                                  >
+                                    PAY NOW
+                                  </a>
+                                </Button>
+
+                                <div className="flex items-center gap-2 text-xs text-gray-500">
+                                  <span>via</span>
+                                  <img src="/quickbooks.svg" alt="QuickBooks" className="h-10 w-auto" />
+                                </div>
+                              </div>
+                            ) : isUnpaid && !paymentUrl ? (
+                              <>
+                                <Button size="sm" disabled className="h-8 w-fit px-3 text-xs tracking-[0.12em]">
+                                  PAY NOW
+                                </Button>
+                                <div className="text-xs text-gray-500">Contact support to obtain a payment link.</div>
+                              </>
+                            ) : null}
                           </div>
                         </td>
                       </tr>
@@ -306,6 +322,12 @@ export default function Portal() {
           >
             Go to Account Settings
           </a>
+        </div>
+        {/* Trademark Disclaimer */}
+        <div className="mt-12 pt-8 border-t border-gray-200">
+          <p className="text-[10px] text-gray-400 text-center uppercase tracking-wider">
+            QuickBooks and the QuickBooks logo are registered trademarks of Intuit Inc.
+          </p>
         </div>
       </div>
     </div>

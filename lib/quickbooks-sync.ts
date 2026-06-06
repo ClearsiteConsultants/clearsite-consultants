@@ -137,8 +137,13 @@ async function maybeLogMissingPaymentUrl(input: {
   const invoice = input.invoice;
   if (!invoice) return null;
 
-  const hasMissingPaymentUrl = isBlank(input.paymentUrl);
-  if (!hasMissingPaymentUrl) return null;
+  // Check the committed value from the database record first.
+  const databasePaymentUrl = typeof invoice.qbo_payment_url === 'string' ? invoice.qbo_payment_url : '';
+  const hasMissingPaymentUrl = isBlank(databasePaymentUrl) && isBlank(input.paymentUrl);
+
+  if (!hasMissingPaymentUrl) {
+    return null;
+  }
 
   const webhookTransitionToMissing =
     input.context.origin === "qbo-webhook"

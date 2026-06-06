@@ -725,6 +725,12 @@ export default function AdminInvoices() {
             </form>
           </div>
         )}
+        {/* Trademark Disclaimer */}
+        <div className="mt-12 pt-8 border-t border-gray-200">
+          <p className="text-[10px] text-gray-400 text-center uppercase tracking-wider">
+            QuickBooks and the QuickBooks logo are registered trademarks of Intuit Inc.
+          </p>
+        </div>
       </div>
     </div>
   );

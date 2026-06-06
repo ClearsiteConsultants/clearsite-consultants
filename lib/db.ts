@@ -453,10 +453,7 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
           qbo_sync_status = ${data.qboSyncStatus},
           amount_paid = COALESCE(${data.amountPaid ?? null}, amount_paid),
           paid_at = COALESCE(${data.paidAt || null}, paid_at),
-          qbo_payment_url = CASE
-            WHEN ${data.qboPaymentUrl === undefined} THEN qbo_payment_url
-            ELSE NULLIF(BTRIM(${data.qboPaymentUrl ?? null}), '')
-          END,
+          qbo_payment_url = COALESCE(NULLIF(BTRIM(${data.qboPaymentUrl ?? null}), ''), qbo_payment_url),
           qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
           invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
           invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
@@ -486,10 +483,7 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
           qbo_sync_status = ${data.qboSyncStatus},
           amount_paid = COALESCE(${data.amountPaid ?? null}, amount_paid),
           paid_at = NULL,
-          qbo_payment_url = CASE
-            WHEN ${data.qboPaymentUrl === undefined} THEN qbo_payment_url
-            ELSE NULLIF(BTRIM(${data.qboPaymentUrl ?? null}), '')
-          END,
+          qbo_payment_url = COALESCE(NULLIF(BTRIM(${data.qboPaymentUrl ?? null}), ''), qbo_payment_url),
           qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
           invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
           invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
@@ -518,10 +512,7 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
           qbo_sync_status = ${data.qboSyncStatus},
           amount_paid = COALESCE(${data.amountPaid ?? null}, amount_paid),
           paid_at = COALESCE(${data.paidAt || null}, paid_at),
-          qbo_payment_url = CASE
-            WHEN ${data.qboPaymentUrl === undefined} THEN qbo_payment_url
-            ELSE NULLIF(BTRIM(${data.qboPaymentUrl ?? null}), '')
-          END,
+          qbo_payment_url = COALESCE(NULLIF(BTRIM(${data.qboPaymentUrl ?? null}), ''), qbo_payment_url),
           qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
           invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
           invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
