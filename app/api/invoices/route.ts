@@ -10,6 +10,7 @@ import { getQuickBooksConnection } from "@/lib/db";
 import { getQuickBooksItems, getQuickBooksCustomers, isQuickBooksReconnectRequiredError } from "@/lib/quickbooks";
 import { syncClientInvoicesFromQuickBooks, syncInvoiceToQuickBooks, linkInvoiceByDocNumber } from "@/lib/quickbooks-sync";
 import { persistApiError } from "@/lib/error-logger";
+import { BILLING_FIELD_LIMITS } from "@/lib/field-limits";
 
 function parseClientId(sessionUserId: string) {
   const normalized = sessionUserId.trim();
@@ -267,6 +268,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error: `Billing address is incomplete. Missing required fields: ${missingBillingFields.join(", ")}.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const overLimitFields = requiredBillingFields
+      .filter(({ key }) => {
+        if (key === "billing_state") return false;
+        const value = String(selectedClient[key] ?? "");
+        const limit = BILLING_FIELD_LIMITS[key];
+        return value.length > limit;
+      })
+      .map(({ label }) => label);
+
+    if (overLimitFields.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Billing address has invalid field lengths: ${overLimitFields.join(", ")}. Please update the client profile.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    if (selectedClient.billing_state && (selectedClient.billing_state.length !== BILLING_FIELD_LIMITS.billing_state || selectedClient.billing_state !== selectedClient.billing_state.toUpperCase())) {
+      return NextResponse.json(
+        {
+          error: `Billing address state must be a 2-letter uppercase code. Please update the client profile.`,
         },
         { status: 400 }
       );

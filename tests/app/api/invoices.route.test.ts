@@ -221,6 +221,62 @@ describe("/api/invoices reconnect-required responses", () => {
     expect(createInvoiceMock).not.toHaveBeenCalled();
   });
 
+  it("blocks invoice creation when billing address fields exceed limits", async () => {
+    getClientBillingAddressMock.mockResolvedValueOnce({
+      id: "1",
+      billing_address_line1: "A".repeat(100), // Max is 46
+      billing_city: "Austin",
+      billing_state: "TX",
+      billing_postal_code: "78701",
+      billing_country: "US",
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/invoices", {
+      method: "POST",
+      body: JSON.stringify({
+        client_id: "1",
+        invoice_total: 100,
+        due_date: "2026-07-06",
+      }),
+      headers: { "content-type": "application/json" },
+    });
+
+    const res = await POST(req);
+    const payload = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(payload.error).toContain("Billing address has invalid field lengths: line1");
+    expect(createInvoiceMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks invoice creation when billing state code is invalid", async () => {
+    getClientBillingAddressMock.mockResolvedValueOnce({
+      id: "1",
+      billing_address_line1: "123 Main",
+      billing_city: "Austin",
+      billing_state: "Texas", // Should be 2-letter uppercase
+      billing_postal_code: "78701",
+      billing_country: "US",
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/invoices", {
+      method: "POST",
+      body: JSON.stringify({
+        client_id: "1",
+        invoice_total: 100,
+        due_date: "2026-07-06",
+      }),
+      headers: { "content-type": "application/json" },
+    });
+
+    const res = await POST(req);
+    const payload = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(payload.error).toContain("Billing address state must be a 2-letter uppercase code");
+    expect(createInvoiceMock).not.toHaveBeenCalled();
+  });
+
   it("rejects due dates earlier than 30 days after the invoice date", async () => {
     const req = new NextRequest("http://localhost:3000/api/invoices", {
       method: "POST",

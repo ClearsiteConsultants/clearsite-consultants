@@ -4,6 +4,7 @@ import { getQuickBooksConnection, sql, updateClientBillingAddress } from "@/lib/
 import { updateQuickBooksCustomerBillingAddress } from "@/lib/quickbooks";
 import { syncClientInvoicesFromQuickBooks } from "@/lib/quickbooks-sync";
 import { persistApiError } from "@/lib/error-logger";
+import { BILLING_FIELD_LIMITS } from "@/lib/field-limits";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -242,6 +243,28 @@ async function updateBillingAddress(request: Request) {
       billing_postal_code: normalizeTextField(payload.billing_postal_code),
       billing_country: 'US',
     };
+
+    // Server-side validation
+    const errors: string[] = [];
+    if (normalizedPayload.billing_address_line1 && normalizedPayload.billing_address_line1.length > BILLING_FIELD_LIMITS.billing_address_line1) {
+      errors.push(`Address Line 1 exceeds maximum length of ${BILLING_FIELD_LIMITS.billing_address_line1} characters.`);
+    }
+    if (normalizedPayload.billing_address_line2 && normalizedPayload.billing_address_line2.length > BILLING_FIELD_LIMITS.billing_address_line2) {
+      errors.push(`Address Line 2 exceeds maximum length of ${BILLING_FIELD_LIMITS.billing_address_line2} characters.`);
+    }
+    if (normalizedPayload.billing_city && normalizedPayload.billing_city.length > BILLING_FIELD_LIMITS.billing_city) {
+      errors.push(`City exceeds maximum length of ${BILLING_FIELD_LIMITS.billing_city} characters.`);
+    }
+    if (normalizedPayload.billing_postal_code && normalizedPayload.billing_postal_code.length > BILLING_FIELD_LIMITS.billing_postal_code) {
+      errors.push(`Postal Code exceeds maximum length of ${BILLING_FIELD_LIMITS.billing_postal_code} characters.`);
+    }
+    if (normalizedPayload.billing_state && (normalizedPayload.billing_state.length !== BILLING_FIELD_LIMITS.billing_state || normalizedPayload.billing_state !== normalizedPayload.billing_state.toUpperCase())) {
+      errors.push(`State must be a 2-letter uppercase code.`);
+    }
+
+    if (errors.length > 0) {
+      return NextResponse.json({ error: errors.join(" ") }, { status: 400 });
+    }
 
     let updatedClient;
     try {

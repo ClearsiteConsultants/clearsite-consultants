@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
+import { BILLING_FIELD_LIMITS, BillingField, isFieldAtLimit } from "@/lib/field-limits";
 
 export default function AccountSettings() {
   const { data: session, status } = useSession();
@@ -29,6 +30,8 @@ export default function AccountSettings() {
     billing_state: "",
     billing_postal_code: "",
   });
+  const [attemptedExceed, setAttemptedExceed] = useState<Partial<Record<BillingField, boolean>>>({});
+
   const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
   const firstName = (session?.user as { first_name?: string } | undefined)?.first_name;
   const lastName = (session?.user as { last_name?: string } | undefined)?.last_name;
@@ -130,8 +133,23 @@ export default function AccountSettings() {
     }
   };
 
-  const handleBillingChange = (field: keyof typeof billingForm, value: string) => {
+  const handleBillingChange = (field: BillingField, value: string) => {
+    const limit = BILLING_FIELD_LIMITS[field];
+
+    if (limit && value.length > limit) {
+      if (!attemptedExceed[field]) {
+        setAttemptedExceed((prev) => ({ ...prev, [field]: true }));
+      }
+      return;
+    }
+
     setBillingForm((prev) => ({ ...prev, [field]: value }));
+    const isAtLimit = limit ? value.length >= limit : false;
+
+    // If they delete characters, reset the "attempted to exceed" state
+    if (!isAtLimit) {
+      setAttemptedExceed((prev) => ({ ...prev, [field]: false }));
+    }
   };
 
   const US_STATES = [
@@ -140,6 +158,18 @@ export default function AccountSettings() {
 
   const handleBillingSave = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    // Client-side validation final check
+    const overLimitFields = (Object.keys(billingForm) as BillingField[]).filter(field => {
+      const limit = BILLING_FIELD_LIMITS[field];
+      return limit && (billingForm[field]?.length || 0) > limit;
+    });
+
+    if (overLimitFields.length > 0) {
+      setBillingMessage({ type: "error", text: "Some fields exceed character limits. Please correct them before saving." });
+      return;
+    }
+
     setSavingBilling(true);
     setBillingMessage({ type: "", text: "" });
 
@@ -354,7 +384,12 @@ export default function AccountSettings() {
             ) : (
               <form onSubmit={handleBillingSave} className="grid gap-4 md:grid-cols-2">
                 <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-gray-700">Address Line 1 *</label>
+                  <div className="flex justify-between items-end mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Address Line 1 *</label>
+                    {attemptedExceed.billing_address_line1 && (
+                      <span className="text-[10px] font-bold uppercase text-red-600 animate-pulse">Maximum length reached</span>
+                    )}
+                  </div>
                   <input
                     type="text"
                     value={billingForm.billing_address_line1}
@@ -364,7 +399,12 @@ export default function AccountSettings() {
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-gray-700">Address Line 2</label>
+                  <div className="flex justify-between items-end mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Address Line 2</label>
+                    {attemptedExceed.billing_address_line2 && (
+                      <span className="text-[10px] font-bold uppercase text-red-600 animate-pulse">Maximum length reached</span>
+                    )}
+                  </div>
                   <input
                     type="text"
                     value={billingForm.billing_address_line2}
@@ -373,7 +413,12 @@ export default function AccountSettings() {
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">City *</label>
+                  <div className="flex justify-between items-end mb-2">
+                    <label className="block text-sm font-medium text-gray-700">City *</label>
+                    {attemptedExceed.billing_city && (
+                      <span className="text-[10px] font-bold uppercase text-red-600 animate-pulse">Maximum length reached</span>
+                    )}
+                  </div>
                   <input
                     type="text"
                     value={billingForm.billing_city}
@@ -397,7 +442,12 @@ export default function AccountSettings() {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">Postal Code *</label>
+                  <div className="flex justify-between items-end mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Postal Code *</label>
+                    {attemptedExceed.billing_postal_code && (
+                      <span className="text-[10px] font-bold uppercase text-red-600 animate-pulse">Maximum length reached</span>
+                    )}
+                  </div>
                   <input
                     type="text"
                     value={billingForm.billing_postal_code}

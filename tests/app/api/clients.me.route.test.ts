@@ -213,4 +213,38 @@ describe("/api/clients/me", () => {
     expect(updateClientBillingAddressMock).toHaveBeenCalledTimes(2);
     expect(sqlMock).toHaveBeenCalledTimes(6);
   });
+
+  it("rejects overlong billing address fields with 400", async () => {
+    const response = await PUT(new Request("http://localhost:3000/api/clients/me", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        billing_address_line1: "A".repeat(100), // Max is 46
+        billing_city: "Austin",
+        billing_state: "TX",
+        billing_postal_code: "12345"
+      }),
+    }));
+
+    const payload = await response.json();
+    expect(response.status).toBe(400);
+    expect(payload.error).toContain("Address Line 1 exceeds maximum length");
+  });
+
+  it("rejects invalid state code format with 400", async () => {
+    const response = await PUT(new Request("http://localhost:3000/api/clients/me", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        billing_address_line1: "123 Main",
+        billing_city: "Austin",
+        billing_state: "Texas", // Should be TX
+        billing_postal_code: "12345"
+      }),
+    }));
+
+    const payload = await response.json();
+    expect(response.status).toBe(400);
+    expect(payload.error).toContain("State must be a 2-letter uppercase code");
+  });
 });
