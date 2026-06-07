@@ -10,6 +10,7 @@ import {
   formatCurrencyFromDigits,
   sanitizeCurrencyDigits,
 } from "@/lib/utils";
+import { INVOICE_FIELD_LIMITS, InvoiceField } from "@/lib/field-limits";
 
 // Helper: get today's date in YYYY-MM-DD format (local browser timezone)
 function getLocalDateString(): string {
@@ -108,6 +109,7 @@ export default function AdminInvoices() {
   const [mlQboCustomerId, setMlQboCustomerId] = useState("");
   const [mlQboDocNumber, setMlQboDocNumber] = useState("");
   const [mlErrors, setMlErrors] = useState<Record<string, string>>({});
+  const [attemptedExceed, setAttemptedExceed] = useState<Partial<Record<InvoiceField, boolean>>>({});
 
   const [submitting, setSubmitting] = useState(false);
   const [qboLoading, setQboLoading] = useState(true);
@@ -249,6 +251,7 @@ export default function AdminInvoices() {
     setInvoiceDate(getLocalDateString());
     setDueDate(getLocalDatePlus30Days());
     setSelectedItemId("");
+    setAttemptedExceed({});
   };
 
   const resetManualLinkForm = () => {
@@ -257,6 +260,7 @@ export default function AdminInvoices() {
     setMlQboCustomerId("");
     setMlQboDocNumber("");
     setMlErrors({});
+    setAttemptedExceed({});
   };
 
   const handleManualLinkModeChange = (nextMode: ManualLinkMode) => {
@@ -268,7 +272,38 @@ export default function AdminInvoices() {
   };
 
   const handleQboAmountDueChange = (value: string) => {
-    setAmountDueDigits(sanitizeCurrencyDigits(value));
+    const sanitized = sanitizeCurrencyDigits(value);
+    const limit = INVOICE_FIELD_LIMITS.amount_due_digits;
+
+    if (sanitized.length > limit) {
+      if (!attemptedExceed.amount_due_digits) {
+        setAttemptedExceed((prev) => ({ ...prev, amount_due_digits: true }));
+      }
+      return;
+    }
+
+    setAmountDueDigits(sanitized);
+
+    if (sanitized.length < limit) {
+      setAttemptedExceed((prev) => ({ ...prev, amount_due_digits: false }));
+    }
+  };
+
+  const handleManualDocNumberChange = (value: string) => {
+    const limit = INVOICE_FIELD_LIMITS.qbo_doc_number;
+
+    if (value.length > limit) {
+      if (!attemptedExceed.qbo_doc_number) {
+        setAttemptedExceed((prev) => ({ ...prev, qbo_doc_number: true }));
+      }
+      return;
+    }
+
+    setMlQboDocNumber(value);
+
+    if (value.length <= limit) {
+      setAttemptedExceed((prev) => ({ ...prev, qbo_doc_number: false }));
+    }
   };
 
   // When a QBO item is selected, auto-fill amount from the item's unit price.
@@ -558,7 +593,12 @@ export default function AdminInvoices() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Amount Due</label>
+                <div className="flex justify-between items-end mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Amount Due</label>
+                  {attemptedExceed.amount_due_digits && (
+                    <span className="text-[10px] font-bold uppercase text-red-600 animate-pulse">Maximum length reached</span>
+                  )}
+                </div>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -691,11 +731,16 @@ export default function AdminInvoices() {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">QuickBooks Invoice Number</label>
+                <div className="flex justify-between items-end mb-2">
+                  <label className="block text-sm font-medium text-gray-700">QuickBooks Invoice Number</label>
+                  {attemptedExceed.qbo_doc_number && (
+                    <span className="text-[10px] font-bold uppercase text-red-600 animate-pulse">Maximum length reached</span>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={mlQboDocNumber}
-                  onChange={(e) => setMlQboDocNumber(e.target.value)}
+                  onChange={(e) => handleManualDocNumberChange(e.target.value)}
                   placeholder="e.g. 1007"
                   className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 ${mlErrors.invoiceId ? "border-red-400" : "border-gray-300"}`}
                 />
