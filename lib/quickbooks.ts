@@ -530,7 +530,6 @@ export async function createQuickBooksInvoice(realmId: string, data: {
     ...(data.invoiceDate ? { TxnDate: data.invoiceDate } : {}),
     DueDate: data.dueDate,
     SalesTermRef: { value: net30Term.Id, name: net30Term.Name },
-    EmailStatus: "NeedToSend",
     PrivateNote: data.description,
     Line: [
       {
@@ -546,7 +545,7 @@ export async function createQuickBooksInvoice(realmId: string, data: {
 
   const result = await quickBooksApiRequest<{ Invoice: Record<string, unknown> }>({
     method: "POST",
-    path: `/v3/company/${realmId}/invoice?minorversion=75&include=invoiceLink`,
+    path: `/v3/company/${realmId}/invoice?minorversion=75`,
     body: payload,
   });
 
@@ -561,7 +560,7 @@ export async function createQuickBooksInvoice(realmId: string, data: {
 export async function getQuickBooksInvoice(realmId: string, qboInvoiceId: string) {
   const result = await quickBooksApiRequest<{ Invoice: Record<string, unknown> }>({
     method: "GET",
-    path: `/v3/company/${realmId}/invoice/${qboInvoiceId}?minorversion=75&include=invoiceLink`,
+    path: `/v3/company/${realmId}/invoice/${qboInvoiceId}?minorversion=75`,
   });
 
   return result.Invoice;
