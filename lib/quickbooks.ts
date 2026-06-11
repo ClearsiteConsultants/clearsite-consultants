@@ -527,7 +527,7 @@ export async function createQuickBooksInvoice(realmId: string, data: {
 
   const payload = {
     CustomerRef: { value: data.customerId },
-    ...(data.invoiceNumber ? { DocNumber: data.invoiceNumber } : {}),
+    ...(data.invoiceNumber ? { DocNumber: data.invoiceNumber } : { AutoDocNumber: true }),
     ...(data.invoiceDate ? { TxnDate: data.invoiceDate } : {}),
     DueDate: data.dueDate,
     SalesTermRef: { value: net30Term.Id, name: net30Term.Name },
