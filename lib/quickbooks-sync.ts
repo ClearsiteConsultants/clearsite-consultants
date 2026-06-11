@@ -184,7 +184,13 @@ export async function syncInvoiceToQuickBooks(
   }
 
   if (!invoice.qbo_invoice_id) {
-    const customerId = await ensureQuickBooksCustomer(String(invoice.client_id));
+    const clientId = String(invoice.client_id);
+    const client = await getClientQuickBooksProfile(clientId);
+    if (!client) {
+      throw new Error(`Client not found: ${clientId}`);
+    }
+
+    const customerId = await ensureQuickBooksCustomer(clientId);
     // qbo_doc_number may be null — let QuickBooks auto-generate the DocNumber
     const qboInvoice = await createQuickBooksInvoice(connection.realm_id, {
       customerId,
@@ -194,6 +200,7 @@ export async function syncInvoiceToQuickBooks(
       dueDate: toYyyyMmDd(invoice.due_date) || String(invoice.due_date).slice(0, 10),
       description: `Portal invoice${invoice.qbo_doc_number ? ` ${invoice.qbo_doc_number}` : ""}`,
       itemId: invoice.qbo_item_id ? String(invoice.qbo_item_id) : undefined,
+      email: client.email || undefined,
     });
 
     const qboState = extractQuickBooksInvoiceState(qboInvoice);

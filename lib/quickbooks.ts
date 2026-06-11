@@ -513,6 +513,7 @@ export async function createQuickBooksInvoice(realmId: string, data: {
   dueDate: string;
   description: string;
   itemId?: string;
+  email?: string;
 }) {
   const defaultItemId = data.itemId || process.env.QUICKBOOKS_DEFAULT_ITEM_ID;
   if (!defaultItemId) {
@@ -530,6 +531,8 @@ export async function createQuickBooksInvoice(realmId: string, data: {
     ...(data.invoiceDate ? { TxnDate: data.invoiceDate } : {}),
     DueDate: data.dueDate,
     SalesTermRef: { value: net30Term.Id, name: net30Term.Name },
+    BillEmail: data.email ? { Address: data.email } : undefined,
+    EmailStatus: "NeedToSend",
     PrivateNote: data.description,
     Line: [
       {
@@ -545,7 +548,7 @@ export async function createQuickBooksInvoice(realmId: string, data: {
 
   const result = await quickBooksApiRequest<{ Invoice: Record<string, unknown> }>({
     method: "POST",
-    path: `/v3/company/${realmId}/invoice?minorversion=75`,
+    path: `/v3/company/${realmId}/invoice?include=allowonlinelink&minorversion=75`,
     body: payload,
   });
 
@@ -560,7 +563,7 @@ export async function createQuickBooksInvoice(realmId: string, data: {
 export async function getQuickBooksInvoice(realmId: string, qboInvoiceId: string) {
   const result = await quickBooksApiRequest<{ Invoice: Record<string, unknown> }>({
     method: "GET",
-    path: `/v3/company/${realmId}/invoice/${qboInvoiceId}?minorversion=75`,
+    path: `/v3/company/${realmId}/invoice/${qboInvoiceId}?include=allowonlinelink&minorversion=75`,
   });
 
   return result.Invoice;
@@ -744,7 +747,7 @@ export async function findQuickBooksInvoiceByDocNumber(
   const safeDocNumber = escapeQuickBooksQueryValue(docNumber);
   const query = `SELECT * FROM Invoice WHERE DocNumber = '${safeDocNumber}' MAXRESULTS 5`;
   const connection = await getFreshQuickBooksConnection();
-  const url = `${getApiBaseUrl()}/v3/company/${realmId}/query?query=${encodeURIComponent(query)}&minorversion=75`;
+  const url = `${getApiBaseUrl()}/v3/company/${realmId}/query?query=${encodeURIComponent(query)}&include=allowonlinelink&minorversion=75`;
   const response = await fetch(url, {
     method: "GET",
     headers: {
@@ -816,13 +819,22 @@ export function extractQuickBooksInvoiceState(invoice: Record<string, unknown>) 
     (typeof invoice.InvoiceLinkUrl === "string" && invoice.InvoiceLinkUrl) ||
     null;
 
+  const qboDocNumber = invoice.DocNumber ? String(invoice.DocNumber) : null;
+
+  if (!qboDocNumber) {
+    console.warn(`[QuickBooks] Invoice ${invoice.Id} is missing DocNumber in QBO response.`);
+  }
+  if (!paymentUrl && !isPaid) {
+    console.warn(`[QuickBooks] Unpaid invoice ${invoice.Id} is missing OnlineInvoiceLink in QBO response.`);
+  }
+
   const invoiceDate = typeof invoice.TxnDate === "string" && invoice.TxnDate
     ? invoice.TxnDate.slice(0, 10)
     : null;
 
   return {
     qboInvoiceId: String(invoice.Id || ""),
-    qboDocNumber: invoice.DocNumber ? String(invoice.DocNumber) : null,
+    qboDocNumber,
     qboSyncStatus: isPaid ? "paid" : "sent",
     amountPaid,
     paidAt: isPaid
