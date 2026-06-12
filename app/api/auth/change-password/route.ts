@@ -3,6 +3,12 @@ import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { getClientById, updateClientPasswordById, getUserById, updateAdminPasswordById } from "@/lib/db";
 import { validatePasswordPolicy } from "@/lib/password-policy";
 import { hashPassword, verifyPassword } from "@/lib/password-utils";
+import { Resend } from "resend";
+import { persistApiError } from "@/lib/error-logger";
+
+const resendApiKey = process.env.RESEND_API_KEY;
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
+const contactFromEmail = process.env.CONTACT_FROM_EMAIL;
 
 type AttemptState = {
   count: number;
@@ -136,6 +142,39 @@ export async function POST(req: NextRequest) {
 
     if (!updated) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Send security notification email via Resend
+    if (resend && contactFromEmail && session?.user?.email) {
+      try {
+        const origin = req.nextUrl.origin;
+        const settingsUrl = `${origin}/account-settings`;
+        
+        await resend.emails.send({
+          from: contactFromEmail,
+          to: session.user.email,
+          subject: "Security Alert: Password Changed",
+          html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; rounded: 12px;">
+              <h2 style="color: #1e293b;">Security Alert</h2>
+              <p>Your password was recently changed. If you did not perform this action, please visit your account settings to reset it again immediately.</p>
+              <div style="margin: 30px 0;">
+                <a href="${settingsUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Account Settings</a>
+              </div>
+              <p style="color: #64748b; font-size: 14px;">This is an automated security notification.</p>
+            </div>
+          `,
+        });
+      } catch (emailError) {
+        console.error("Failed to send security email:", emailError);
+        await persistApiError({
+          route: "/api/auth/change-password",
+          method: "POST",
+          statusCode: 500,
+          error: emailError instanceof Error ? emailError : new Error("Failed to send security email"),
+        });
+        // We don't fail the password change if the email fails, but we logged it.
+      }
     }
 
     clearAttempts(rawUserId as string);
