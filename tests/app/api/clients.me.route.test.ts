@@ -36,7 +36,7 @@ import { GET, PUT } from "@/app/api/clients/me/route";
 
 describe("/api/clients/me", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     authMock.mockResolvedValue({ user: { id: "client:1", user_type: "client" } });
   });
 
@@ -69,7 +69,8 @@ describe("/api/clients/me", () => {
     sqlMock
       // Initial SELECT fails due to missing billing column
       .mockRejectedValueOnce(new Error('column "billing_address_line1" does not exist'))
-      // ensureClientProfileColumns: 7 ALTER TABLE calls, all resolve with empty rows
+      // ensureClientProfileColumns: 8 ALTER TABLE calls, all resolve with empty rows
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })

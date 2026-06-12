@@ -3,6 +3,7 @@
 import { useSession, signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import clearsiteLogo from "@/public/clearsite-favicon-nav.png";
 import Header from "@/components/Header";
 
@@ -136,7 +137,7 @@ export default function Login() {
         {/* Logo */}
         <div className="flex items-center justify-center gap-2 mb-8">
           <div className="w-10 h-10 border border-gray-200 flex items-center justify-center">
-            <img src={clearsiteLogo.src} alt="Clearsite logo" width={28} height={28} className="w-7 h-7" />
+            <Image src={clearsiteLogo} alt="Clearsite logo" width={28} height={28} className="w-7 h-7" />
           </div>
           <span className="font-display text-lg text-gray-900 tracking-wide">
             CLEARSITE <span className="text-primary">CONSULTANTS</span>

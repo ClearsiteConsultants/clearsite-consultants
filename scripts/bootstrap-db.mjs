@@ -32,6 +32,7 @@ async function run() {
         domain_name VARCHAR(255),
         plan VARCHAR(100) DEFAULT NULL,
         service_status VARCHAR(50) DEFAULT 'Active',
+        maintenance_fee_frequency VARCHAR(50) DEFAULT 'Monthly',
         next_invoice_due DATE,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
@@ -46,6 +47,11 @@ async function run() {
     await tx`
       ALTER TABLE clients
       ADD COLUMN IF NOT EXISTS qbo_customer_id VARCHAR(64)
+    `;
+
+    await tx`
+      ALTER TABLE clients
+      ADD COLUMN IF NOT EXISTS maintenance_fee_frequency VARCHAR(50) DEFAULT 'Monthly'
     `;
 
     await tx`

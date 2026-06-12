@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
-import { BILLING_FIELD_LIMITS, BillingField, isFieldAtLimit } from "@/lib/field-limits";
+import { BILLING_FIELD_LIMITS, BillingField } from "@/lib/field-limits";
 
 export default function AccountSettings() {
   const { data: session, status } = useSession();

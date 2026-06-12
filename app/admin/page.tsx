@@ -21,6 +21,7 @@ interface ClientUser {
   company_name: string;
   plan: string | null;
   service_status: string;
+  maintenance_fee_frequency: string;
   next_invoice_due: string | null;
   first_name: string;
   last_name: string;
@@ -32,6 +33,7 @@ interface EditingClient {
   id: string;
   plan: string | null;
   service_status: string;
+  maintenance_fee_frequency: string;
 }
 
 interface ActionNeededIssue {
@@ -118,6 +120,7 @@ export default function AdminDashboard() {
       id: client.id,
       plan: client.plan,
       service_status: client.service_status,
+      maintenance_fee_frequency: client.maintenance_fee_frequency || "Monthly",
     });
     setShowEditModal(true);
   };
@@ -443,6 +446,20 @@ export default function AdminDashboard() {
                   <option value="">No active plan</option>
                   <option value="Starter">Starter</option>
                   <option value="Feature-Rich">Feature-Rich</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Maintenance Fee Frequency</label>
+                <select
+                  value={editingClient.maintenance_fee_frequency}
+                  onChange={(e) =>
+                    setEditingClient({ ...editingClient, maintenance_fee_frequency: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded-md"
+                >
+                  <option value="Monthly">Monthly</option>
+                  <option value="Yearly">Yearly</option>
                 </select>
                 <button
                   type="button"

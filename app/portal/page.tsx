@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ interface Client {
   domain_name: string;
   plan: string | null;
   service_status: string;
+  maintenance_fee_frequency: string | null;
   next_invoice_due: string | null;
   billing_address_line1: string | null;
   billing_city: string | null;
@@ -57,6 +59,21 @@ export default function Portal() {
   const [client, setClient] = useState<Client | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const MAINTENANCE_FEES: Record<string, Record<string, number>> = {
+    "Starter": {
+      "Monthly": 10,
+      "Yearly": 100,
+    },
+    "Feature-Rich": {
+      "Monthly": 20,
+      "Yearly": 200,
+    },
+  };
+
+  const getMaintenanceFee = (plan: string | null, frequency: string | null) => {
+    if (!plan || !frequency) return null;
+    return MAINTENANCE_FEES[plan]?.[frequency] ?? null;
+  };
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -155,7 +172,12 @@ export default function Portal() {
         <div className="grid md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Current Plan</h3>
-            <p className="text-2xl font-bold text-gray-900">{client?.plan || "Not enrolled"}</p>
+            <div className="flex flex-col">
+              <p className="text-2xl font-bold text-gray-900">{client?.plan || "Not enrolled"}</p>
+              {client?.plan && client?.maintenance_fee_frequency && (
+                <p className="text-sm font-medium text-gray-500 mt-1">Billed {client.maintenance_fee_frequency} {getMaintenanceFee(client.plan, client.maintenance_fee_frequency) ? `($${getMaintenanceFee(client.plan, client.maintenance_fee_frequency)})` : ""}</p>
+              )}
+            </div>
           </div>
 
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
@@ -290,7 +312,7 @@ export default function Portal() {
 
                                 <div className="flex items-center gap-2 text-xs text-gray-500">
                                   <span>via</span>
-                                  <img src="/quickbooks.svg" alt="QuickBooks" className="h-10 w-auto" />
+                                  <Image src="/quickbooks.svg" alt="QuickBooks" width={120} height={40} className="h-10 w-auto" />
                                 </div>
                               </div>
                             ) : isUnpaid && !paymentUrl ? (

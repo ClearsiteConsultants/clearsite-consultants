@@ -42,7 +42,7 @@ function isMissingBillingColumnError(error: unknown) {
 
 function isMissingClientProfileColumnError(error: unknown) {
   if (!(error instanceof Error)) return false;
-  return /column .*\b(domain_name|plan|service_status|next_invoice_due|qbo_customer_id|first_name|last_name)\b.* does not exist/i.test(
+  return /column .*\b(domain_name|plan|service_status|maintenance_fee_frequency|next_invoice_due|qbo_customer_id|first_name|last_name)\b.* does not exist/i.test(
     error.message
   );
 }
@@ -71,6 +71,10 @@ async function ensureClientProfileColumns() {
   await sql`
     ALTER TABLE clients
     ADD COLUMN IF NOT EXISTS service_status VARCHAR(50) DEFAULT 'Active'
+  `;
+  await sql`
+    ALTER TABLE clients
+    ADD COLUMN IF NOT EXISTS maintenance_fee_frequency VARCHAR(50) DEFAULT 'Monthly'
   `;
   await sql`
     ALTER TABLE clients
@@ -121,6 +125,7 @@ async function getClientProfile(clientId: string) {
         domain_name,
         plan,
         service_status,
+        maintenance_fee_frequency,
         next_invoice_due,
         qbo_customer_id,
         billing_address_line1,
@@ -151,6 +156,7 @@ async function getClientProfile(clientId: string) {
         domain_name,
         plan,
         service_status,
+        maintenance_fee_frequency,
         next_invoice_due,
         qbo_customer_id,
         billing_address_line1,
