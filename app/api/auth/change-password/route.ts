@@ -5,6 +5,7 @@ import { validatePasswordPolicy } from "@/lib/password-policy";
 import { hashPassword, verifyPassword } from "@/lib/password-utils";
 import { Resend } from "resend";
 import { persistApiError } from "@/lib/error-logger";
+import { encryptToken, decryptToken } from "@/lib/crypto";
 
 const resendApiKey = process.env.RESEND_API_KEY;
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
@@ -86,9 +87,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { currentPassword, newPassword, confirmPassword } = await req.json();
+    const { currentPassword, newPassword, confirmPassword, sec_token } = await req.json();
 
-    if (!currentPassword || !newPassword || !confirmPassword) {
+    if (!newPassword || !confirmPassword || (!currentPassword && !sec_token)) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -117,10 +118,29 @@ export async function POST(req: NextRequest) {
       passwordHash = adminUser.password_hash as string;
     }
 
-    const { valid: currentPasswordValid } = await verifyPassword(currentPassword, passwordHash);
-    if (!currentPasswordValid) {
-      recordFailedAttempt(rawUserId as string);
-      return NextResponse.json({ error: "Invalid current password" }, { status: 401 });
+    let bypassAuth = false;
+    if (sec_token) {
+      try {
+        const decrypted = decryptToken(sec_token);
+        const tokenData = JSON.parse(decrypted);
+        // Valid if userId matches and token is less than 24 hours old
+        if (tokenData.userId === rawUserId && Date.now() - tokenData.timestamp < 24 * 60 * 60 * 1000) {
+          bypassAuth = true;
+        }
+      } catch (e) {
+        console.error("Invalid sec_token in change-password:", e);
+      }
+    }
+
+    if (!bypassAuth) {
+      if (!currentPassword) {
+        return NextResponse.json({ error: "Current password is required" }, { status: 400 });
+      }
+      const { valid: currentPasswordValid } = await verifyPassword(currentPassword, passwordHash);
+      if (!currentPasswordValid) {
+        recordFailedAttempt(rawUserId as string);
+        return NextResponse.json({ error: "Invalid current password" }, { status: 401 });
+      }
     }
 
     const { valid: isSamePassword } = await verifyPassword(newPassword, passwordHash);
@@ -148,14 +168,15 @@ export async function POST(req: NextRequest) {
     if (resend && contactFromEmail && session?.user?.email) {
       try {
         const origin = req.nextUrl.origin;
-        const settingsUrl = `${origin}/account-settings`;
+        const secToken = encryptToken(JSON.stringify({ userId: rawUserId, timestamp: Date.now() }));
+        const settingsUrl = `${origin}/account-settings?sec_token=${encodeURIComponent(secToken)}`;
         
         await resend.emails.send({
           from: contactFromEmail,
           to: session.user.email,
           subject: "Security Alert: Password Changed",
           html: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; rounded: 12px;">
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
               <h2 style="color: #1e293b;">Security Alert</h2>
               <p>Your password was recently changed. If you did not perform this action, please visit your account settings to reset it again immediately.</p>
               <div style="margin: 30px 0;">

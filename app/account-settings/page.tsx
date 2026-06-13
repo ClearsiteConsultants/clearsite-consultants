@@ -1,15 +1,16 @@
 'use client';
 
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
 import Header from "@/components/Header";
 import { PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 import { BILLING_FIELD_LIMITS, BillingField } from "@/lib/field-limits";
 
-export default function AccountSettings() {
+function AccountSettingsContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [changingPassword, setChangingPassword] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [isPasswordPromptComplete, setIsPasswordPromptComplete] = useState(false);
@@ -33,6 +34,15 @@ export default function AccountSettings() {
     billing_postal_code: "",
   });
   const [attemptedExceed, setAttemptedExceed] = useState<Partial<Record<BillingField, boolean>>>({});
+
+  const secToken = searchParams.get("sec_token");
+
+  useEffect(() => {
+    if (secToken) {
+      setIsPasswordPromptComplete(true);
+      setShowPasswordForm(true);
+    }
+  }, [secToken]);
 
   const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
   const firstName = (session?.user as { first_name?: string } | undefined)?.first_name;
@@ -132,7 +142,10 @@ export default function AccountSettings() {
       const response = await fetch("/api/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(passwordForm),
+        body: JSON.stringify({
+          ...passwordForm,
+          sec_token: secToken,
+        }),
       });
 
       const payload = await response.json();
@@ -524,5 +537,20 @@ export default function AccountSettings() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AccountSettings() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-tech flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <AccountSettingsContent />
+    </Suspense>
   );
 }
