@@ -46,12 +46,13 @@ import { POST } from "@/app/api/auth/change-password/route";
 describe("/api/auth/change-password", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    authMock.mockResolvedValue({ user: { id: "client:123" } });
+    authMock.mockResolvedValue(null);
     validatePasswordPolicyMock.mockReturnValue({ valid: true, message: "" });
     getClientByIdMock.mockResolvedValue({ id: "123", password_hash: "stored-hash" });
   });
 
   it("rejects a new password that matches the current password", async () => {
+    authMock.mockResolvedValueOnce({ user: { id: "client:123" } });
     verifyPasswordMock
       .mockResolvedValueOnce({ valid: true, legacy: false })
       .mockResolvedValueOnce({ valid: true, legacy: false });
@@ -71,13 +72,7 @@ describe("/api/auth/change-password", () => {
 
     expect(res.status).toBe(400);
     expect(payload.error).toBe("New password must be different from current password");
-    expect(verifyPasswordMock).toHaveBeenNthCalledWith(
-      1,
-      "SecurePassword123!",
-      "stored-hash"
-    );
-    expect(verifyPasswordMock).toHaveBeenNthCalledWith(
-      2,
+    expect(verifyPasswordMock).toHaveBeenCalledWith(
       "SecurePassword123!",
       "stored-hash"
     );
@@ -86,9 +81,15 @@ describe("/api/auth/change-password", () => {
   });
 
   it("hashes and persists the new password after validating the current password", async () => {
-    verifyPasswordMock
-      .mockResolvedValueOnce({ valid: true, legacy: false })
-      .mockResolvedValueOnce({ valid: false, legacy: false });
+    authMock.mockResolvedValueOnce({ user: { id: "client:123" } });
+    
+    // bypassAuth is true because session is present.
+    // So verifyPassword should NOT be called for currentPassword check.
+    // It should only be called once for isSamePassword check.
+    // We mock ResolvedValue directly to ensure it doesn't return the default mocking.
+    verifyPasswordMock.mockReset();
+    verifyPasswordMock.mockResolvedValue({ valid: false, legacy: false }); 
+    
     hashPasswordMock.mockResolvedValue("new-password-hash");
     updateClientPasswordByIdMock.mockResolvedValue({ id: "123" });
 

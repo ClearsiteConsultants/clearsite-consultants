@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
         const origin = req.nextUrl.origin;
         const targetUserId = `client:${updated.id}`;
         const secToken = encryptToken(JSON.stringify({ userId: targetUserId, timestamp: Date.now() }));
-        const settingsUrl = `${origin}/account-settings?sec_token=${encodeURIComponent(secToken)}`;
+        const settingsUrl = `${origin}/change-password?sec_token=${encodeURIComponent(secToken)}`;
         
         await resend.emails.send({
           from: contactFromEmail,
@@ -99,9 +99,9 @@ export async function POST(req: NextRequest) {
           html: `
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
               <h2 style="color: #1e293b;">Security Alert</h2>
-              <p>Your password was recently changed by an administrator. If you did not request this, please visit your account settings to choose a new password immediately.</p>
+              <p>Your password was recently changed by an administrator. If you did not request this, please visit the link below to choose a new password immediately.</p>
               <div style="margin: 30px 0;">
-                <a href="${settingsUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Account Settings</a>
+                <a href="${settingsUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Change Password</a>
               </div>
               <p style="color: #64748b; font-size: 14px;">This is an automated security notification.</p>
             </div>

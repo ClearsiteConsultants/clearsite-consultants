@@ -1,8 +1,8 @@
 'use client';
 
 import { useSession, signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
 import Image from "next/image";
 import clearsiteLogo from "@/public/clearsite-favicon-nav.png";
 import Header from "@/components/Header";
@@ -34,9 +34,11 @@ function formatPhoneNumber(value: string): string {
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
-export default function Login() {
+function LoginContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl");
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -50,6 +52,10 @@ export default function Login() {
 
   useEffect(() => {
     if (status === "authenticated") {
+      if (callbackUrl) {
+        router.push(callbackUrl);
+        return;
+      }
       const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
       if (userType === "admin") {
         router.push("/admin");
@@ -57,7 +63,7 @@ export default function Login() {
         router.push("/portal");
       }
     }
-  }, [status, router, session]);
+  }, [status, router, session, callbackUrl]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -283,5 +289,20 @@ export default function Login() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Login() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-tech flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }

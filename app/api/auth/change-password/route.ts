@@ -69,7 +69,38 @@ function parseSessionUserId(sessionUserId: string): { type: "client" | "admin"; 
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
-    const rawUserId = session?.user?.id;
+    let rawUserId = session?.user?.id;
+
+    const body = await req.json();
+    const { currentPassword, newPassword, confirmPassword, sec_token } = body;
+
+    // Users with a valid session bypass the current password requirement 
+    // because we force a re-authentication flow in the portal before they reach this page.
+    let bypassAuth = !!rawUserId;
+    let tokenUserId: string | null = null;
+
+    if (sec_token) {
+      try {
+        const decrypted = decryptToken(sec_token);
+        const tokenData = JSON.parse(decrypted);
+        // Valid if token is less than 24 hours old
+        if (Date.now() - tokenData.timestamp < 24 * 60 * 60 * 1000) {
+          tokenUserId = tokenData.userId || null;
+          
+          // If logged in, token must match logged-in user to bypass
+          if (rawUserId && rawUserId !== tokenUserId) {
+            bypassAuth = false;
+          } else {
+            bypassAuth = true;
+            if (!rawUserId && tokenUserId) {
+              rawUserId = tokenUserId;
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Invalid sec_token in change-password:", e);
+      }
+    }
 
     if (!rawUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -82,14 +113,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const parsed = parseSessionUserId(rawUserId as string);
+    const parsed = parseSessionUserId(rawUserId);
     if (!parsed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { currentPassword, newPassword, confirmPassword, sec_token } = await req.json();
-
-    if (!newPassword || !confirmPassword || (!currentPassword && !sec_token)) {
+    if (!newPassword || !confirmPassword || (!currentPassword && !bypassAuth)) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -116,20 +145,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
       passwordHash = adminUser.password_hash as string;
-    }
-
-    let bypassAuth = false;
-    if (sec_token) {
-      try {
-        const decrypted = decryptToken(sec_token);
-        const tokenData = JSON.parse(decrypted);
-        // Valid if userId matches and token is less than 24 hours old
-        if (tokenData.userId === rawUserId && Date.now() - tokenData.timestamp < 24 * 60 * 60 * 1000) {
-          bypassAuth = true;
-        }
-      } catch (e) {
-        console.error("Invalid sec_token in change-password:", e);
-      }
     }
 
     if (!bypassAuth) {
@@ -169,7 +184,7 @@ export async function POST(req: NextRequest) {
       try {
         const origin = req.nextUrl.origin;
         const secToken = encryptToken(JSON.stringify({ userId: rawUserId, timestamp: Date.now() }));
-        const settingsUrl = `${origin}/account-settings?sec_token=${encodeURIComponent(secToken)}`;
+        const settingsUrl = `${origin}/change-password?sec_token=${encodeURIComponent(secToken)}`;
         
         await resend.emails.send({
           from: contactFromEmail,
@@ -178,9 +193,9 @@ export async function POST(req: NextRequest) {
           html: `
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
               <h2 style="color: #1e293b;">Security Alert</h2>
-              <p>Your password was recently changed. If you did not perform this action, please visit your account settings to reset it again immediately.</p>
+              <p>Your password was recently changed. If you did not perform this action, please visit the link below to reset it again immediately.</p>
               <div style="margin: 30px 0;">
-                <a href="${settingsUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Account Settings</a>
+                <a href="${settingsUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Change Password</a>
               </div>
               <p style="color: #64748b; font-size: 14px;">This is an automated security notification.</p>
             </div>

@@ -1,28 +1,14 @@
 'use client';
 
-import { useSession } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, Suspense } from "react";
+import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 import { BILLING_FIELD_LIMITS, BillingField } from "@/lib/field-limits";
 
 function AccountSettingsContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const [changingPassword, setChangingPassword] = useState(false);
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [isPasswordPromptComplete, setIsPasswordPromptComplete] = useState(false);
-  const [passwordPromptValue, setPasswordPromptValue] = useState("");
-  const [reauthEmail, setReauthEmail] = useState("");
-  const [isReauthenticating, setIsReauthenticating] = useState(false);
-  const [passwordMessage, setPasswordMessage] = useState({ type: "", text: "" });
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
   const [billingLoading, setBillingLoading] = useState(false);
   const [savingBilling, setSavingBilling] = useState(false);
   const [billingMessage, setBillingMessage] = useState({ type: "", text: "" });
@@ -34,15 +20,6 @@ function AccountSettingsContent() {
     billing_postal_code: "",
   });
   const [attemptedExceed, setAttemptedExceed] = useState<Partial<Record<BillingField, boolean>>>({});
-
-  const secToken = searchParams.get("sec_token");
-
-  useEffect(() => {
-    if (secToken) {
-      setIsPasswordPromptComplete(true);
-      setShowPasswordForm(true);
-    }
-  }, [secToken]);
 
   const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
   const firstName = (session?.user as { first_name?: string } | undefined)?.first_name;
@@ -78,107 +55,6 @@ function AccountSettingsContent() {
 
     loadBilling();
   }, [status, userType]);
-
-  const handlePasswordFieldChange = (field: "newPassword" | "confirmPassword", value: string) => {
-    setPasswordForm((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handlePasswordPromptContinue = async (event?: React.FormEvent) => {
-    event?.preventDefault();
-
-    if (!reauthEmail || !passwordPromptValue) {
-      setPasswordMessage({ type: "error", text: "Please enter your email and current password to continue." });
-      return;
-    }
-
-    setIsReauthenticating(true);
-    setPasswordMessage({ type: "", text: "" });
-
-    try {
-      const response = await fetch("/api/auth/reauth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: reauthEmail,
-          password: passwordPromptValue,
-        }),
-      });
-
-      const payload = await response.json();
-
-      if (!response.ok) {
-        setPasswordMessage({
-          type: "error",
-          text: payload?.error || "Invalid email or password.",
-        });
-        return;
-      }
-
-      setPasswordMessage({ type: "", text: "" });
-      setPasswordForm((prev) => ({ ...prev, currentPassword: passwordPromptValue }));
-      setIsPasswordPromptComplete(true);
-    } catch {
-      setPasswordMessage({
-        type: "error",
-        text: "Unable to verify credentials. Please try again.",
-      });
-    } finally {
-      setIsReauthenticating(false);
-    }
-  };
-
-  const handlePasswordChange = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setPasswordMessage({ type: "", text: "" });
-
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setPasswordMessage({ type: "error", text: "New password and confirmation do not match." });
-      return;
-    }
-
-    setChangingPassword(true);
-
-    try {
-      const response = await fetch("/api/auth/change-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...passwordForm,
-          sec_token: secToken,
-        }),
-      });
-
-      const payload = await response.json();
-
-      if (!response.ok) {
-        if (payload?.error === "Invalid current password") {
-          setPasswordPromptValue("");
-          setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-          setIsPasswordPromptComplete(false);
-        }
-
-        setPasswordMessage({
-          type: "error",
-          text: payload?.error || "Unable to change password.",
-        });
-        return;
-      }
-
-      setPasswordMessage({ type: "success", text: "Password updated successfully." });
-      setPasswordPromptValue("");
-      setReauthEmail("");
-      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-      setIsPasswordPromptComplete(false);
-      setShowPasswordForm(false);
-    } catch (error) {
-      setPasswordMessage({
-        type: "error",
-        text: error instanceof Error ? error.message : "Unable to change password.",
-      });
-    } finally {
-      setChangingPassword(false);
-    }
-  };
 
   const handleBillingChange = (field: BillingField, value: string) => {
     const limit = BILLING_FIELD_LIMITS[field];
@@ -288,141 +164,18 @@ function AccountSettingsContent() {
         {userType === "client" && (
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h2 className="font-display text-3xl text-gray-900 mb-2">Change Password</h2>
+            <p className="text-gray-600 mb-6">Redirect to a secure page to update your account credentials.</p>
 
-            {passwordMessage.text && (
-              <div
-                className={`mb-4 rounded-lg p-3 text-sm ${
-                  passwordMessage.type === "success"
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "bg-red-50 text-red-700"
-                }`}
-              >
-                {passwordMessage.text}
-              </div>
-            )}
-
-            {!showPasswordForm ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setPasswordMessage({ type: "", text: "" });
-                  setPasswordPromptValue("");
-                  setReauthEmail("");
-                  setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-                  setIsPasswordPromptComplete(false);
-                  setShowPasswordForm(true);
-                }}
-                className="rounded-xl bg-red-600 px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-red-700"
-              >
-                Change Password
-              </button>
-            ) : (
-              <>
-                {!isPasswordPromptComplete ? (
-                  <form onSubmit={handlePasswordPromptContinue} className="grid gap-4 md:grid-cols-2" autoComplete="off">
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">Confirm Your Email</label>
-                      <input
-                        type="email"
-                        value={reauthEmail}
-                        onChange={(event) => setReauthEmail(event.target.value)}
-                        className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                        autoComplete="email"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">Confirm Your Current Password</label>
-                      <input
-                        type="password"
-                        value={passwordPromptValue}
-                        onChange={(event) => setPasswordPromptValue(event.target.value)}
-                        className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                        autoComplete="current-password"
-                        required
-                      />
-                    </div>
-                    <div className="md:col-span-2 flex gap-3">
-                      <button
-                        type="submit"
-                        disabled={isReauthenticating}
-                        className="rounded-xl bg-primary px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-primary/90 disabled:opacity-50"
-                      >
-                        {isReauthenticating ? "Verifying..." : "Continue"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPasswordPromptValue("");
-                          setReauthEmail("");
-                          setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-                          setPasswordMessage({ type: "", text: "" });
-                          setIsPasswordPromptComplete(false);
-                          setShowPasswordForm(false);
-                        }}
-                        className="rounded-xl border border-gray-300 px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-gray-700 transition hover:bg-gray-50"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  <>
-                    <p className="text-sm text-gray-600 mb-4">{PASSWORD_POLICY_MESSAGE}</p>
-
-                    <form onSubmit={handlePasswordChange} className="grid gap-4 md:grid-cols-2" autoComplete="off">
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-700">New Password</label>
-                        <input
-                          type="password"
-                          value={passwordForm.newPassword}
-                          onChange={(event) => handlePasswordFieldChange("newPassword", event.target.value)}
-                          className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                          autoComplete="new-password"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-700">Confirm New Password</label>
-                        <input
-                          type="password"
-                          value={passwordForm.confirmPassword}
-                          onChange={(event) => handlePasswordFieldChange("confirmPassword", event.target.value)}
-                          className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                          autoComplete="new-password"
-                          required
-                        />
-                      </div>
-
-                      <div className="md:col-span-2 flex gap-3">
-                        <button
-                          type="submit"
-                          disabled={changingPassword}
-                          className="rounded-xl bg-primary px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-primary/90 disabled:opacity-50"
-                        >
-                          {changingPassword ? "Updating..." : "Update Password"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPasswordPromptValue("");
-                            setReauthEmail("");
-                            setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-                            setPasswordMessage({ type: "", text: "" });
-                            setIsPasswordPromptComplete(false);
-                            setShowPasswordForm(false);
-                          }}
-                          className="rounded-xl border border-gray-300 px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-gray-700 transition hover:bg-gray-50"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
-                  </>
-                )}
-              </>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                // Sign out and redirect to login, then back to change-password
+                signOut({ callbackUrl: "/login?callbackUrl=/change-password" });
+              }}
+              className="rounded-xl bg-red-600 px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-red-700"
+            >
+              Change Password
+            </button>
           </div>
         )}
 
@@ -541,16 +294,5 @@ function AccountSettingsContent() {
 }
 
 export default function AccountSettings() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-tech flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    }>
-      <AccountSettingsContent />
-    </Suspense>
-  );
+  return <AccountSettingsContent />;
 }
