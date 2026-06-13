@@ -107,7 +107,7 @@ export default function AccountSettings() {
       setPasswordMessage({ type: "", text: "" });
       setPasswordForm((prev) => ({ ...prev, currentPassword: passwordPromptValue }));
       setIsPasswordPromptComplete(true);
-    } catch (error) {
+    } catch {
       setPasswordMessage({
         type: "error",
         text: "Unable to verify credentials. Please try again.",
@@ -151,7 +151,7 @@ export default function AccountSettings() {
         return;
       }
 
-      setPasswordMessage({ type: "success", text: "Password reset was successful." });
+      setPasswordMessage({ type: "success", text: "Password updated successfully." });
       setPasswordPromptValue("");
       setReauthEmail("");
       setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
