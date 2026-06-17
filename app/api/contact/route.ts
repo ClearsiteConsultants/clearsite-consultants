@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
       to: toEmail,
       replyTo: safeEmail,
       subject,
+      text: `New Contact Form Submission\n\nName: ${safeName}\nEmail: ${safeEmail}\nBusiness Name: ${safeBusinessName || "Not provided"}\n\nMessage:\n${String(message).trim()}`,
       html: `
         <h2>New Contact Form Submission</h2>
         <p><strong>Name:</strong> ${safeName}</p>
