@@ -184,20 +184,20 @@ export async function POST(req: NextRequest) {
       try {
         const origin = req.nextUrl.origin;
         const secToken = encryptToken(JSON.stringify({ userId: rawUserId, timestamp: Date.now() }));
-        const settingsUrl = `${origin}/change-password?sec_token=${encodeURIComponent(secToken)}`;
+        const changePasswordUrl = `${origin}/change-password?sec_token=${encodeURIComponent(secToken)}`;
         
         await resend.emails.send({
           from: contactFromEmail,
           to: session.user.email,
           replyTo: process.env.CONTACT_TO_EMAIL || "hello@clearsiteconsultants.com",
           subject: "Security Alert: Password Changed",
-          text: `Security Alert: Your password was recently changed. If you did not perform this action, please visit the following link to reset it again immediately: ${settingsUrl}`,
+          text: `Security Alert: Your password was recently changed. If you did not perform this action, please visit the following link to reset it again immediately: ${changePasswordUrl}`,
           html: `
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
               <h2 style="color: #1e293b;">Security Alert</h2>
               <p>Your password was recently changed. If you did not perform this action, please visit the link below to reset it again immediately.</p>
               <div style="margin: 30px 0;">
-                <a href="${settingsUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Change Password</a>
+                <a href="${changePasswordUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Change Password</a>
               </div>
               <p style="color: #64748b; font-size: 14px;">This is an automated security notification.</p>
             </div>
