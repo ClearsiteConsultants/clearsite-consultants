@@ -175,7 +175,11 @@ export default function Portal() {
             <div className="flex flex-col">
               <p className="text-2xl font-bold text-gray-900">{client?.plan || "Not enrolled"}</p>
               {client?.plan && client?.maintenance_fee_frequency && (
-                <p className="text-sm font-medium text-gray-500 mt-1">Billed {client.maintenance_fee_frequency} {getMaintenanceFee(client.plan, client.maintenance_fee_frequency) ? `($${getMaintenanceFee(client.plan, client.maintenance_fee_frequency)})` : ""}</p>
+                <p className="text-sm font-medium text-gray-500 mt-1">
+                  {getMaintenanceFee(client.plan, client.maintenance_fee_frequency)
+                    ? `Maintenance Fee $${getMaintenanceFee(client.plan, client.maintenance_fee_frequency)}/${client.maintenance_fee_frequency === "Monthly" ? "mo" : "yr"}`
+                    : `Billed ${client.maintenance_fee_frequency}`}
+                </p>
               )}
             </div>
           </div>
