@@ -8,6 +8,15 @@ import { BILLING_FIELD_LIMITS, BillingField, ACCOUNT_INFO_FIELD_LIMITS, AccountI
 import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
 
+function formatPhoneNumber(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
 function AccountSettingsContent() {
   const { data: session, status, update } = useSession();
   const router = useRouter();
@@ -318,8 +327,10 @@ function AccountSettingsContent() {
                           type={editingField === "email" ? "email" : editingField === "phone" ? "tel" : "text"}
                           value={tempValue}
                           onChange={(e) => {
-                            const val = e.target.value;
-                            if (editingField) {
+                            let val = e.target.value;
+                            if (editingField === "phone") {
+                              val = formatPhoneNumber(val);
+                            } else if (editingField) {
                               const limit = ACCOUNT_INFO_FIELD_LIMITS[editingField];
                               if (limit && val.length > limit) return;
                             }
@@ -328,6 +339,8 @@ function AccountSettingsContent() {
                           className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
                           required={editingField !== "phone"}
                           autoComplete={editingField === "company_name" ? "organization" : editingField === "phone" ? "tel" : "email"}
+                          inputMode={editingField === "phone" ? "numeric" : "text"}
+                          placeholder={editingField === "phone" ? "(555) 123-4567" : ""}
                         />
                       </div>
                       
