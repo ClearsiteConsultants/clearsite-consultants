@@ -4,10 +4,10 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { BILLING_FIELD_LIMITS, BillingField } from "@/lib/field-limits";
+import { BILLING_FIELD_LIMITS, BillingField, ACCOUNT_INFO_FIELD_LIMITS, AccountInfoField } from "@/lib/field-limits";
 
 function AccountSettingsContent() {
-  const { data: session, status } = useSession();
+  const { data: session, status, update } = useSession();
   const router = useRouter();
   const [billingLoading, setBillingLoading] = useState(false);
   const [savingBilling, setSavingBilling] = useState(false);
@@ -19,7 +19,19 @@ function AccountSettingsContent() {
     billing_state: "",
     billing_postal_code: "",
   });
-  const [attemptedExceed, setAttemptedExceed] = useState<Partial<Record<BillingField, boolean>>>({});
+
+  const [accountLoading, setAccountLoading] = useState(false);
+  const [savingAccount, setSavingAccount] = useState(false);
+  const [accountMessage, setAccountMessage] = useState({ type: "", text: "" });
+  const [accountForm, setAccountForm] = useState({
+    company_name: "",
+    phone: "",
+    email: "",
+    currentPassword: "",
+  });
+  const [originalEmail, setOriginalEmail] = useState("");
+
+  const [attemptedExceed, setAttemptedExceed] = useState<Partial<Record<BillingField | AccountInfoField, boolean>>>({});
 
   const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
   const firstName = (session?.user as { first_name?: string } | undefined)?.first_name;
@@ -32,9 +44,10 @@ function AccountSettingsContent() {
   }, [status, router]);
 
   useEffect(() => {
-    const loadBilling = async () => {
+    const loadData = async () => {
       if (status !== "authenticated" || userType !== "client") return;
       setBillingLoading(true);
+      setAccountLoading(true);
       try {
         const response = await fetch("/api/clients/me", { cache: "no-store" });
         if (!response.ok) return;
@@ -46,14 +59,23 @@ function AccountSettingsContent() {
           billing_state: payload.billing_state || "",
           billing_postal_code: payload.billing_postal_code || "",
         });
+        setAccountForm({
+          company_name: payload.company_name || "",
+          phone: payload.phone || "",
+          email: payload.email || "",
+          currentPassword: "",
+        });
+        setOriginalEmail(payload.email || "");
       } catch {
         setBillingMessage({ type: "error", text: "Unable to load billing address." });
+        setAccountMessage({ type: "error", text: "Unable to load account information." });
       } finally {
         setBillingLoading(false);
+        setAccountLoading(false);
       }
     };
 
-    loadBilling();
+    loadData();
   }, [status, userType]);
 
   const handleBillingChange = (field: BillingField, value: string) => {
@@ -72,6 +94,60 @@ function AccountSettingsContent() {
     // If they delete characters, reset the "attempted to exceed" state
     if (!isAtLimit) {
       setAttemptedExceed((prev) => ({ ...prev, [field]: false }));
+    }
+  };
+
+  const handleAccountChange = (field: AccountInfoField | 'currentPassword', value: string) => {
+    if (field !== 'currentPassword') {
+      const limit = ACCOUNT_INFO_FIELD_LIMITS[field as AccountInfoField];
+      if (limit && value.length > limit) {
+        if (!attemptedExceed[field as AccountInfoField]) {
+          setAttemptedExceed((prev) => ({ ...prev, [field]: true }));
+        }
+        return;
+      }
+      
+      const isAtLimit = limit ? value.length >= limit : false;
+      if (!isAtLimit) {
+        setAttemptedExceed((prev) => ({ ...prev, [field as AccountInfoField]: false }));
+      }
+    }
+
+    setAccountForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleAccountSave = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSavingAccount(true);
+    setAccountMessage({ type: "", text: "" });
+
+    try {
+      const response = await fetch("/api/clients/me", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(accountForm),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        setAccountMessage({ type: "error", text: payload?.error || "Unable to save account info." });
+        return;
+      }
+
+      setAccountMessage({ type: "success", text: "Account information saved successfully." });
+      
+      // If email changed, update the session
+      if (accountForm.email !== originalEmail) {
+        await update({ email: accountForm.email });
+        setOriginalEmail(accountForm.email);
+      }
+      
+      // Clear password field
+      setAccountForm(prev => ({ ...prev, currentPassword: "" }));
+    } catch {
+      setAccountMessage({ type: "error", text: "Unable to save account info." });
+    } finally {
+      setSavingAccount(false);
     }
   };
 
@@ -159,6 +235,106 @@ function AccountSettingsContent() {
             {backLabel}
           </a>
         </div>
+
+        {/* Account Info */}
+        {userType === "client" && (
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mb-8">
+            <h2 className="font-display text-3xl text-gray-900 mb-2">Account Info</h2>
+            <p className="text-gray-600 mb-6">Update your basic account details.</p>
+
+            {accountMessage.text && (
+              <div
+                className={`mb-4 rounded-lg p-3 text-sm ${
+                  accountMessage.type === "success"
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-red-50 text-red-700"
+                }`}
+              >
+                {accountMessage.text}
+              </div>
+            )}
+
+            {accountLoading ? (
+              <p className="text-gray-600">Loading account information...</p>
+            ) : (
+              <form onSubmit={handleAccountSave} className="grid gap-4">
+                <div>
+                  <div className="flex justify-between items-end mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Company Name *</label>
+                    {attemptedExceed.company_name && (
+                      <span className="text-[10px] font-bold uppercase text-red-600 animate-pulse">Maximum length reached</span>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    value={accountForm.company_name}
+                    onChange={(e) => handleAccountChange("company_name", e.target.value)}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    required
+                  />
+                </div>
+                <div>
+                  <div className="flex justify-between items-end mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+                    {attemptedExceed.phone && (
+                      <span className="text-[10px] font-bold uppercase text-red-600 animate-pulse">Maximum length reached</span>
+                    )}
+                  </div>
+                  <input
+                    type="tel"
+                    value={accountForm.phone}
+                    onChange={(e) => handleAccountChange("phone", e.target.value)}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+                <div>
+                  <div className="flex justify-between items-end mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Email Address *</label>
+                    {attemptedExceed.email && (
+                      <span className="text-[10px] font-bold uppercase text-red-600 animate-pulse">Maximum length reached</span>
+                    )}
+                  </div>
+                  <input
+                    type="email"
+                    value={accountForm.email}
+                    onChange={(e) => handleAccountChange("email", e.target.value)}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    required
+                  />
+                </div>
+
+                {accountForm.email !== originalEmail && (
+                  <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
+                    <label className="block text-sm font-medium text-amber-900 mb-2">
+                      Confirm Password to Change Email
+                    </label>
+                    <input
+                      type="password"
+                      value={accountForm.currentPassword}
+                      onChange={(e) => handleAccountChange("currentPassword", e.target.value)}
+                      placeholder="Enter your current password"
+                      className="w-full rounded-xl border border-amber-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      required
+                    />
+                    <p className="mt-2 text-xs text-amber-700">
+                      For your security, you must provide your current password to update your email address.
+                    </p>
+                  </div>
+                )}
+
+                <div className="mt-2">
+                  <button
+                    type="submit"
+                    disabled={savingAccount}
+                    className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {savingAccount ? "Saving..." : "Save Account Info"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
 
         {/* Change Password */}
         {userType === "client" && (

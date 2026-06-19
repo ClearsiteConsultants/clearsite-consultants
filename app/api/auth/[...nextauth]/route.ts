@@ -80,18 +80,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
         token.user_type = (user as { user_type?: string }).user_type || "client";
         token.first_name = (user as { first_name?: string }).first_name ?? "";
         token.last_name = (user as { last_name?: string }).last_name ?? "";
       }
+
+      if (trigger === "update" && session?.email) {
+        token.email = session.email;
+      }
+
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.email = token.email as string || session.user.email;
         (session.user as { user_type?: string }).user_type =
           typeof token.user_type === "string" ? token.user_type : "client";
         (session.user as { first_name?: string }).first_name =

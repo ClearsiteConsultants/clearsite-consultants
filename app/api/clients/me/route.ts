@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
-import { getQuickBooksConnection, sql, updateClientBillingAddress } from "@/lib/db";
+import { getQuickBooksConnection, sql, updateClientBillingAddress, updateClientAccountInfo, getClientById } from "@/lib/db";
 import { updateQuickBooksCustomerBillingAddress } from "@/lib/quickbooks";
 import { syncClientInvoicesFromQuickBooks } from "@/lib/quickbooks-sync";
 import { persistApiError } from "@/lib/error-logger";
-import { BILLING_FIELD_LIMITS } from "@/lib/field-limits";
+import { BILLING_FIELD_LIMITS, ACCOUNT_INFO_FIELD_LIMITS } from "@/lib/field-limits";
+import { verifyPassword } from "@/lib/password-utils";
+import { encryptToken } from "@/lib/crypto";
+import { Resend } from "resend";
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -15,6 +20,13 @@ type BillingAddressPayload = {
   billing_city?: string | null;
   billing_state?: string | null;
   billing_postal_code?: string | null;
+};
+
+type AccountInfoPayload = {
+  company_name?: string;
+  phone?: string | null;
+  email?: string;
+  currentPassword?: string;
 };
 
 function parseClientId(sessionUserId: string) {
@@ -59,6 +71,10 @@ async function ensureClientProfileColumns() {
   await sql`
     ALTER TABLE clients
     ADD COLUMN IF NOT EXISTS last_name VARCHAR(255) NOT NULL DEFAULT ''
+  `;
+  await sql`
+    ALTER TABLE clients
+    ADD COLUMN IF NOT EXISTS phone VARCHAR(50)
   `;
   await sql`
     ALTER TABLE clients
@@ -122,6 +138,7 @@ async function getClientProfile(clientId: string) {
         company_name,
         first_name,
         last_name,
+        phone,
         domain_name,
         plan,
         service_status,
@@ -153,6 +170,7 @@ async function getClientProfile(clientId: string) {
         company_name,
         first_name,
         last_name,
+        phone,
         domain_name,
         plan,
         service_status,
@@ -329,10 +347,138 @@ async function updateBillingAddress(request: Request) {
   }
 }
 
+async function updateAccountInfo(request: Request) {
+  const session = await auth();
+  const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
+
+  if (!session?.user?.id || userType !== "client") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const clientId = parseClientId(session.user.id as string);
+  if (!clientId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const payload = await request.json() as AccountInfoPayload;
+    const client = await getClientById(clientId);
+
+    if (!client) {
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    }
+
+    const normalizedEmail = normalizeTextField(payload.email);
+    const normalizedCompany = normalizeTextField(payload.company_name);
+    const normalizedPhone = normalizeTextField(payload.phone);
+
+    if (!normalizedEmail || !normalizedCompany) {
+      return NextResponse.json({ error: "Email and Company Name are required." }, { status: 400 });
+    }
+
+    // Validation
+    if (normalizedEmail.length > ACCOUNT_INFO_FIELD_LIMITS.email) {
+      return NextResponse.json({ error: "Email exceeds character limit." }, { status: 400 });
+    }
+    if (normalizedCompany.length > ACCOUNT_INFO_FIELD_LIMITS.company_name) {
+      return NextResponse.json({ error: "Company Name exceeds character limit." }, { status: 400 });
+    }
+    if (normalizedPhone && normalizedPhone.length > ACCOUNT_INFO_FIELD_LIMITS.phone) {
+      return NextResponse.json({ error: "Phone Number exceeds character limit." }, { status: 400 });
+    }
+
+    // Email change requires re-authentication
+    if (normalizedEmail !== client.email) {
+      if (!payload.currentPassword) {
+        return NextResponse.json({ error: "Password is required to change email address." }, { status: 400 });
+      }
+
+      const { valid } = await verifyPassword(payload.currentPassword, client.password_hash);
+      if (!valid) {
+        return NextResponse.json({ error: "Incorrect password." }, { status: 401 });
+      }
+
+      // Send Security Alert to OLD email
+      if (resend) {
+        const secToken = encryptToken(JSON.stringify({
+          userId: clientId,
+          oldEmail: client.email,
+          timestamp: Date.now()
+        }));
+
+        const protocol = process.env.NEXTAUTH_URL?.startsWith('https') ? 'https' : 'http';
+        const host = process.env.NEXTAUTH_URL?.split('://')[1] || 'localhost:3000';
+        const recoveryUrl = `${protocol}://${host}/change-email?sec_token=${encodeURIComponent(secToken)}`;
+
+        try {
+          await resend.emails.send({
+            from: process.env.CONTACT_FROM_EMAIL || "security@clearsiteconsultants.com",
+            to: client.email,
+            subject: "Security Alert: Email Address Changed",
+            text: `Security Alert: Your email address was recently changed. If you did not perform this action, please visit the following link to restore it immediately: ${recoveryUrl}. We also recommend that you change your password.`,
+            html: `
+              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+                <h2 style="color: #1e293b;">Security Alert</h2>
+                <p>Your email address was recently changed. If you did not perform this action, please visit the link below to restore it immediately.</p>
+                <div style="margin: 30px 0;">
+                  <a href="${recoveryUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Change Email Address</a>
+                </div>
+                <p>We also recommend that you change your password to secure your account.</p>
+                <p style="color: #64748b; font-size: 14px;">This is an automated security notification.</p>
+              </div>
+            `
+          });
+        } catch (emailError) {
+          console.error("[api/clients/me] Failed to send security alert email", emailError);
+          // We continue anyway, but maybe we should log this.
+        }
+      }
+    }
+
+    const updatedClient = await updateClientAccountInfo(clientId, {
+      company_name: normalizedCompany,
+      phone: normalizedPhone,
+      email: normalizedEmail,
+    });
+
+    return NextResponse.json(updatedClient);
+  } catch (error: unknown) {
+    await persistApiError({
+      route: "/api/clients/me",
+      method: "PUT",
+      statusCode: 500,
+      userId: String(session.user.id),
+      userType: userType ?? null,
+      error,
+      metadata: { clientId },
+    });
+    const message = error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
 export async function PUT(request: Request) {
-  return updateBillingAddress(request);
+  const clonedRequest = request.clone();
+  try {
+    const payload = await clonedRequest.json();
+    if ('company_name' in payload || 'email' in payload) {
+      return updateAccountInfo(request);
+    }
+    return updateBillingAddress(request);
+  } catch {
+    return updateBillingAddress(request);
+  }
 }
 
 export async function PATCH(request: Request) {
-  return updateBillingAddress(request);
+  const clonedRequest = request.clone();
+  try {
+    const payload = await clonedRequest.json();
+    if ('company_name' in payload || 'email' in payload) {
+      return updateAccountInfo(request);
+    }
+    return updateBillingAddress(request);
+  } catch {
+    return updateBillingAddress(request);
+  }
 }

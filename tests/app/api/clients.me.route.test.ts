@@ -7,6 +7,9 @@ const {
   getQuickBooksConnectionMock,
   updateQuickBooksCustomerBillingAddressMock,
   syncClientInvoicesFromQuickBooksMock,
+  createErrorLogMock,
+  getClientByIdMock,
+  updateClientAccountInfoMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn(),
   sqlMock: vi.fn(),
@@ -14,6 +17,9 @@ const {
   getQuickBooksConnectionMock: vi.fn(),
   updateQuickBooksCustomerBillingAddressMock: vi.fn(),
   syncClientInvoicesFromQuickBooksMock: vi.fn(),
+  createErrorLogMock: vi.fn(),
+  getClientByIdMock: vi.fn(),
+  updateClientAccountInfoMock: vi.fn(),
 }));
 
 vi.mock("@/app/api/auth/[...nextauth]/route", () => ({ auth: authMock }));
@@ -22,6 +28,9 @@ vi.mock("@/lib/db", () => ({
   sql: sqlMock,
   updateClientBillingAddress: updateClientBillingAddressMock,
   getQuickBooksConnection: getQuickBooksConnectionMock,
+  createErrorLog: createErrorLogMock,
+  getClientById: getClientByIdMock,
+  updateClientAccountInfo: updateClientAccountInfoMock,
 }));
 
 vi.mock("@/lib/quickbooks", () => ({
@@ -69,7 +78,8 @@ describe("/api/clients/me", () => {
     sqlMock
       // Initial SELECT fails due to missing billing column
       .mockRejectedValueOnce(new Error('column "billing_address_line1" does not exist'))
-      // ensureClientProfileColumns: 8 ALTER TABLE calls, all resolve with empty rows
+      // ensureClientProfileColumns: 9 ALTER TABLE calls, all resolve with empty rows
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
