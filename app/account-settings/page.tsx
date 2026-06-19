@@ -5,16 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { BILLING_FIELD_LIMITS, BillingField, ACCOUNT_INFO_FIELD_LIMITS, AccountInfoField } from "@/lib/field-limits";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Pencil } from "lucide-react";
 
 function AccountSettingsContent() {
@@ -300,62 +291,77 @@ function AccountSettingsContent() {
               </div>
             )}
 
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogContent className="sm:max-w-[425px]">
-                <form onSubmit={handleDialogSave}>
-                  <DialogHeader>
-                    <DialogTitle>Edit {editingField === "company_name" ? "Company Name" : editingField === "phone" ? "Phone Number" : "Email Address"}</DialogTitle>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                      <div className="flex justify-between items-center">
-                        <Label htmlFor="tempValue">
-                          {editingField === "company_name" ? "Company Name" : editingField === "phone" ? "Phone Number" : "Email Address"}
-                        </Label>
-                        {editingField && tempValue.length >= ACCOUNT_INFO_FIELD_LIMITS[editingField] && (
-                          <span className="text-[10px] font-bold uppercase text-red-600 animate-pulse">Max length reached</span>
-                        )}
+            {isDialogOpen && (
+              <div
+                className="fixed inset-0 bg-gray-500/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+                onClick={() => setIsDialogOpen(false)}
+              >
+                <div className="bg-white rounded-lg max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+                  <form onSubmit={handleDialogSave}>
+                    <div className="px-6 py-4 border-b">
+                      <h3 className="text-lg font-semibold">
+                        Edit {editingField === "company_name" ? "Company Name" : editingField === "phone" ? "Phone Number" : "Email Address"}
+                      </h3>
+                    </div>
+                    
+                    <div className="px-6 py-4 space-y-4">
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="block text-sm font-medium text-gray-700">
+                            {editingField === "company_name" ? "Company Name" : editingField === "phone" ? "Phone Number" : "Email Address"}
+                          </label>
+                          {editingField && tempValue.length >= ACCOUNT_INFO_FIELD_LIMITS[editingField] && (
+                            <span className="text-[10px] font-bold uppercase text-red-600 animate-pulse">Max length reached</span>
+                          )}
+                        </div>
+                        <input
+                          type={editingField === "email" ? "email" : editingField === "phone" ? "tel" : "text"}
+                          value={tempValue}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (editingField) {
+                              const limit = ACCOUNT_INFO_FIELD_LIMITS[editingField];
+                              if (limit && val.length > limit) return;
+                            }
+                            setTempValue(val);
+                          }}
+                          className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                          required={editingField !== "phone"}
+                          autoComplete={editingField === "company_name" ? "organization" : editingField === "phone" ? "tel" : "email"}
+                        />
                       </div>
-                      <Input
-                        id="tempValue"
-                        type={editingField === "email" ? "email" : editingField === "phone" ? "tel" : "text"}
-                        value={tempValue}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (editingField) {
-                            const limit = ACCOUNT_INFO_FIELD_LIMITS[editingField];
-                            if (limit && val.length > limit) return;
-                          }
-                          setTempValue(val);
-                        }}
-                        className="col-span-3"
-                        required={editingField !== "phone"}
-                      />
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+                        <input
+                          type="password"
+                          value={tempPassword}
+                          onChange={(e) => setTempPassword(e.target.value)}
+                          placeholder="Confirm with your password"
+                          className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                          required
+                          autoComplete="current-password"
+                        />
+                      </div>
                     </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="tempPassword">Current Password</Label>
-                      <Input
-                        id="tempPassword"
-                        type="password"
-                        value={tempPassword}
-                        onChange={(e) => setTempPassword(e.target.value)}
-                        placeholder="Confirm with your password"
-                        className="col-span-3"
-                        required
-                      />
+
+                    <div className="px-6 py-4 border-t flex justify-end gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsDialogOpen(false)}
+                        disabled={savingAccount}
+                      >
+                        Cancel
+                      </Button>
+                      <Button type="submit" disabled={savingAccount}>
+                        {savingAccount ? "Saving..." : "Save Changes"}
+                      </Button>
                     </div>
-                  </div>
-                  <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={savingAccount}>
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={savingAccount}>
-                      {savingAccount ? "Saving..." : "Save Changes"}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
+                  </form>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -412,6 +418,7 @@ function AccountSettingsContent() {
                     onChange={(event) => handleBillingChange("billing_address_line1", event.target.value)}
                     className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
                     required
+                    autoComplete="address-line1"
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -426,6 +433,7 @@ function AccountSettingsContent() {
                     value={billingForm.billing_address_line2}
                     onChange={(event) => handleBillingChange("billing_address_line2", event.target.value)}
                     className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    autoComplete="address-line2"
                   />
                 </div>
                 <div>
@@ -441,6 +449,7 @@ function AccountSettingsContent() {
                     onChange={(event) => handleBillingChange("billing_city", event.target.value)}
                     className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
                     required
+                    autoComplete="address-level2"
                   />
                 </div>
                 <div>
@@ -450,6 +459,7 @@ function AccountSettingsContent() {
                     onChange={(event) => handleBillingChange("billing_state", event.target.value)}
                     className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
                     required
+                    autoComplete="address-level1"
                   >
                     <option value="">Select State</option>
                     {US_STATES.map((abbr) => (
@@ -470,6 +480,7 @@ function AccountSettingsContent() {
                     onChange={(event) => handleBillingChange("billing_postal_code", event.target.value)}
                     className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
                     required
+                    autoComplete="postal-code"
                   />
                 </div>
                 {/* Country field removed: US only */}
