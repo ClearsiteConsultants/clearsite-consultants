@@ -387,10 +387,10 @@ async function updateAccountInfo(request: Request) {
       return NextResponse.json({ error: "Phone Number exceeds character limit." }, { status: 400 });
     }
 
-    // Email change requires re-authentication
-    if (normalizedEmail !== client.email) {
+    // Account info changes require re-authentication
+    if (normalizedEmail !== client.email || normalizedCompany !== client.company_name || normalizedPhone !== client.phone) {
       if (!payload.currentPassword) {
-        return NextResponse.json({ error: "Password is required to change email address." }, { status: 400 });
+        return NextResponse.json({ error: "Password is required to update account information." }, { status: 400 });
       }
 
       const { valid } = await verifyPassword(payload.currentPassword, client.password_hash);
@@ -398,8 +398,8 @@ async function updateAccountInfo(request: Request) {
         return NextResponse.json({ error: "Incorrect password." }, { status: 401 });
       }
 
-      // Send Security Alert to OLD email
-      if (resend) {
+      // Send Security Alert to OLD email (only if email changed)
+      if (normalizedEmail !== client.email && resend) {
         const secToken = encryptToken(JSON.stringify({
           userId: clientId,
           oldEmail: client.email,

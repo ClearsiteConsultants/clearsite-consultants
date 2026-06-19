@@ -5,6 +5,17 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { BILLING_FIELD_LIMITS, BillingField, ACCOUNT_INFO_FIELD_LIMITS, AccountInfoField } from "@/lib/field-limits";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Pencil } from "lucide-react";
 
 function AccountSettingsContent() {
   const { data: session, status, update } = useSession();
@@ -30,6 +41,11 @@ function AccountSettingsContent() {
     currentPassword: "",
   });
   const [originalEmail, setOriginalEmail] = useState("");
+
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingField, setEditingField] = useState<AccountInfoField | null>(null);
+  const [tempValue, setTempValue] = useState("");
+  const [tempPassword, setTempPassword] = useState("");
 
   const [attemptedExceed, setAttemptedExceed] = useState<Partial<Record<BillingField | AccountInfoField, boolean>>>({});
 
@@ -97,53 +113,57 @@ function AccountSettingsContent() {
     }
   };
 
-  const handleAccountChange = (field: AccountInfoField | 'currentPassword', value: string) => {
-    if (field !== 'currentPassword') {
-      const limit = ACCOUNT_INFO_FIELD_LIMITS[field as AccountInfoField];
-      if (limit && value.length > limit) {
-        if (!attemptedExceed[field as AccountInfoField]) {
-          setAttemptedExceed((prev) => ({ ...prev, [field]: true }));
-        }
-        return;
-      }
-      
-      const isAtLimit = limit ? value.length >= limit : false;
-      if (!isAtLimit) {
-        setAttemptedExceed((prev) => ({ ...prev, [field as AccountInfoField]: false }));
-      }
-    }
-
-    setAccountForm((prev) => ({ ...prev, [field]: value }));
+  const handleOpenEditDialog = (field: AccountInfoField) => {
+    setEditingField(field);
+    setTempValue(accountForm[field] || "");
+    setTempPassword("");
+    setIsDialogOpen(true);
+    setAccountMessage({ type: "", text: "" });
   };
 
-  const handleAccountSave = async (event: React.FormEvent) => {
+  const handleDialogSave = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!editingField) return;
+
     setSavingAccount(true);
     setAccountMessage({ type: "", text: "" });
+
+    // Build the payload with the updated field and current values for others
+    const payload = {
+      ...accountForm,
+      [editingField]: tempValue,
+      currentPassword: tempPassword,
+    };
 
     try {
       const response = await fetch("/api/clients/me", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(accountForm),
+        body: JSON.stringify(payload),
       });
 
-      const payload = await response.json();
+      const data = await response.json();
       if (!response.ok) {
-        setAccountMessage({ type: "error", text: payload?.error || "Unable to save account info." });
+        setAccountMessage({ type: "error", text: data?.error || "Unable to save account info." });
         return;
       }
 
       setAccountMessage({ type: "success", text: "Account information saved successfully." });
       
+      // Update local state
+      setAccountForm(prev => ({
+        ...prev,
+        [editingField]: tempValue,
+        currentPassword: "",
+      }));
+
       // If email changed, update the session
-      if (accountForm.email !== originalEmail) {
-        await update({ email: accountForm.email });
-        setOriginalEmail(accountForm.email);
+      if (editingField === "email" && tempValue !== originalEmail) {
+        await update({ email: tempValue });
+        setOriginalEmail(tempValue);
       }
       
-      // Clear password field
-      setAccountForm(prev => ({ ...prev, currentPassword: "" }));
+      setIsDialogOpen(false);
     } catch {
       setAccountMessage({ type: "error", text: "Unable to save account info." });
     } finally {
@@ -257,82 +277,85 @@ function AccountSettingsContent() {
             {accountLoading ? (
               <p className="text-gray-600">Loading account information...</p>
             ) : (
-              <form onSubmit={handleAccountSave} className="grid gap-4">
-                <div>
-                  <div className="flex justify-between items-end mb-2">
-                    <label className="block text-sm font-medium text-gray-700">Company Name *</label>
-                    {attemptedExceed.company_name && (
-                      <span className="text-[10px] font-bold uppercase text-red-600 animate-pulse">Maximum length reached</span>
-                    )}
+              <div className="space-y-6">
+                {[
+                  { id: "company_name", label: "Company Name", value: accountForm.company_name },
+                  { id: "phone", label: "Phone Number", value: accountForm.phone || "Not set" },
+                  { id: "email", label: "Email Address", value: accountForm.email },
+                ].map((field) => (
+                  <div key={field.id} className="flex items-center justify-between border-b border-gray-100 pb-4 last:border-0 last:pb-0">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">{field.label}</p>
+                      <p className="text-lg text-gray-900">{field.value}</p>
+                    </div>
+                    <button
+                      onClick={() => handleOpenEditDialog(field.id as AccountInfoField)}
+                      className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                      title={`Edit ${field.label}`}
+                    >
+                      <Pencil className="w-5 h-5" />
+                    </button>
                   </div>
-                  <input
-                    type="text"
-                    value={accountForm.company_name}
-                    onChange={(e) => handleAccountChange("company_name", e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                    required
-                  />
-                </div>
-                <div>
-                  <div className="flex justify-between items-end mb-2">
-                    <label className="block text-sm font-medium text-gray-700">Phone Number</label>
-                    {attemptedExceed.phone && (
-                      <span className="text-[10px] font-bold uppercase text-red-600 animate-pulse">Maximum length reached</span>
-                    )}
-                  </div>
-                  <input
-                    type="tel"
-                    value={accountForm.phone}
-                    onChange={(e) => handleAccountChange("phone", e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                </div>
-                <div>
-                  <div className="flex justify-between items-end mb-2">
-                    <label className="block text-sm font-medium text-gray-700">Email Address *</label>
-                    {attemptedExceed.email && (
-                      <span className="text-[10px] font-bold uppercase text-red-600 animate-pulse">Maximum length reached</span>
-                    )}
-                  </div>
-                  <input
-                    type="email"
-                    value={accountForm.email}
-                    onChange={(e) => handleAccountChange("email", e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                    required
-                  />
-                </div>
-
-                {accountForm.email !== originalEmail && (
-                  <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
-                    <label className="block text-sm font-medium text-amber-900 mb-2">
-                      Confirm Password to Change Email
-                    </label>
-                    <input
-                      type="password"
-                      value={accountForm.currentPassword}
-                      onChange={(e) => handleAccountChange("currentPassword", e.target.value)}
-                      placeholder="Enter your current password"
-                      className="w-full rounded-xl border border-amber-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                      required
-                    />
-                    <p className="mt-2 text-xs text-amber-700">
-                      For your security, you must provide your current password to update your email address.
-                    </p>
-                  </div>
-                )}
-
-                <div className="mt-2">
-                  <button
-                    type="submit"
-                    disabled={savingAccount}
-                    className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {savingAccount ? "Saving..." : "Save Account Info"}
-                  </button>
-                </div>
-              </form>
+                ))}
+              </div>
             )}
+
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogContent className="sm:max-w-[425px]">
+                <form onSubmit={handleDialogSave}>
+                  <DialogHeader>
+                    <DialogTitle>Edit {editingField === "company_name" ? "Company Name" : editingField === "phone" ? "Phone Number" : "Email Address"}</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <div className="flex justify-between items-center">
+                        <Label htmlFor="tempValue">
+                          {editingField === "company_name" ? "Company Name" : editingField === "phone" ? "Phone Number" : "Email Address"}
+                        </Label>
+                        {editingField && tempValue.length >= ACCOUNT_INFO_FIELD_LIMITS[editingField] && (
+                          <span className="text-[10px] font-bold uppercase text-red-600 animate-pulse">Max length reached</span>
+                        )}
+                      </div>
+                      <Input
+                        id="tempValue"
+                        type={editingField === "email" ? "email" : editingField === "phone" ? "tel" : "text"}
+                        value={tempValue}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (editingField) {
+                            const limit = ACCOUNT_INFO_FIELD_LIMITS[editingField];
+                            if (limit && val.length > limit) return;
+                          }
+                          setTempValue(val);
+                        }}
+                        className="col-span-3"
+                        required={editingField !== "phone"}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="tempPassword">Current Password</Label>
+                      <Input
+                        id="tempPassword"
+                        type="password"
+                        value={tempPassword}
+                        onChange={(e) => setTempPassword(e.target.value)}
+                        placeholder="Confirm with your password"
+                        className="col-span-3"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={savingAccount}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={savingAccount}>
+                      {savingAccount ? "Saving..." : "Save Changes"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
           </div>
         )}
 
