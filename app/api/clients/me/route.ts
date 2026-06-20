@@ -387,8 +387,10 @@ async function updateAccountInfo(request: Request) {
       return NextResponse.json({ error: "Phone Number exceeds character limit." }, { status: 400 });
     }
 
-    // Account info changes require re-authentication
-    if (normalizedEmail !== client.email || normalizedCompany !== client.company_name || normalizedPhone !== client.phone) {
+    // Account info changes or password verification
+    const hasInfoChange = normalizedEmail !== client.email || normalizedCompany !== client.company_name || normalizedPhone !== client.phone;
+    
+    if (hasInfoChange || payload.currentPassword) {
       if (!payload.currentPassword) {
         return NextResponse.json({ error: "Password is required to update account information." }, { status: 400 });
       }

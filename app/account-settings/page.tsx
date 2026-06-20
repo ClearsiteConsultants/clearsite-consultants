@@ -46,6 +46,7 @@ function AccountSettingsContent() {
   const [editingField, setEditingField] = useState<AccountInfoField | null>(null);
   const [tempValue, setTempValue] = useState("");
   const [tempPassword, setTempPassword] = useState("");
+  const [dialogError, setDialogError] = useState("");
 
   const [attemptedExceed, setAttemptedExceed] = useState<Partial<Record<BillingField | AccountInfoField, boolean>>>({});
 
@@ -117,6 +118,7 @@ function AccountSettingsContent() {
     setEditingField(field);
     setTempValue(accountForm[field] || "");
     setTempPassword("");
+    setDialogError("");
     setIsDialogOpen(true);
     setAccountMessage({ type: "", text: "" });
   };
@@ -125,8 +127,16 @@ function AccountSettingsContent() {
     event.preventDefault();
     if (!editingField) return;
 
+    const hasChanged = tempValue !== (accountForm[editingField] || "");
+    
+    // If no change and no password, just close without message
+    if (!hasChanged && !tempPassword) {
+      setIsDialogOpen(false);
+      return;
+    }
+
     setSavingAccount(true);
-    setAccountMessage({ type: "", text: "" });
+    setDialogError("");
 
     // Build the payload with the updated field and current values for others
     const payload = {
@@ -144,11 +154,13 @@ function AccountSettingsContent() {
 
       const data = await response.json();
       if (!response.ok) {
-        setAccountMessage({ type: "error", text: data?.error || "Unable to save account info." });
+        setDialogError(data?.error || "Unable to save account info.");
         return;
       }
 
-      setAccountMessage({ type: "success", text: "Account information saved successfully." });
+      if (hasChanged) {
+        setAccountMessage({ type: "success", text: "Account information saved successfully." });
+      }
       
       // Update local state
       setAccountForm(prev => ({
@@ -165,7 +177,7 @@ function AccountSettingsContent() {
       
       setIsDialogOpen(false);
     } catch {
-      setAccountMessage({ type: "error", text: "Unable to save account info." });
+      setDialogError("Unable to save account info.");
     } finally {
       setSavingAccount(false);
     }
@@ -314,6 +326,11 @@ function AccountSettingsContent() {
                     </div>
                     
                     <div className="px-6 py-4 space-y-4">
+                      {dialogError && (
+                        <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm border border-red-100">
+                          {dialogError}
+                        </div>
+                      )}
                       <div>
                         <div className="flex justify-between items-center mb-1">
                           <label className="block text-sm font-medium text-gray-700">
@@ -352,7 +369,6 @@ function AccountSettingsContent() {
                           onChange={(e) => setTempPassword(e.target.value)}
                           placeholder="Confirm with your password"
                           className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                          required
                           autoComplete="current-password"
                         />
                       </div>
