@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
-import { getQuickBooksConnection, sql, updateClientBillingAddress, updateClientAccountInfo, getClientById } from "@/lib/db";
+import { 
+  getQuickBooksConnection, 
+  sql, 
+  updateClientBillingAddress, 
+  updateClientAccountInfo, 
+  getClientById,
+  isEmailInUse
+} from "@/lib/db";
 import { updateQuickBooksCustomerBillingAddress } from "@/lib/quickbooks";
 import { syncClientInvoicesFromQuickBooks } from "@/lib/quickbooks-sync";
 import { persistApiError } from "@/lib/error-logger";
@@ -385,6 +392,14 @@ async function updateAccountInfo(request: Request) {
     }
     if (normalizedPhone && normalizedPhone.length > ACCOUNT_INFO_FIELD_LIMITS.phone) {
       return NextResponse.json({ error: "Phone Number exceeds character limit." }, { status: 400 });
+    }
+
+    // New check: check if email is already in use by another account
+    if (normalizedEmail !== client.email) {
+      const emailTaken = await isEmailInUse(normalizedEmail, clientId);
+      if (emailTaken) {
+        return NextResponse.json({ error: "This email address is already in use." }, { status: 400 });
+      }
     }
 
     // Account info changes or password verification
