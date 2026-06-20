@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/db";
+import { createClient, isEmailInUse } from "@/lib/db";
 import { hashPassword } from "@/lib/password-utils";
 import { validatePasswordPolicy } from "@/lib/password-policy";
 
@@ -11,6 +11,13 @@ export async function POST(req: NextRequest) {
     if (!email || !password || !company_name || !first_name || !last_name) {
       return NextResponse.json(
         { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    if (await isEmailInUse(email)) {
+      return NextResponse.json(
+        { error: "This email address is already in use." },
         { status: 400 }
       );
     }

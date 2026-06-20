@@ -3,16 +3,19 @@ import { NextRequest } from "next/server";
 
 const {
   createClientMock,
+  isEmailInUseMock,
   hashPasswordMock,
   validatePasswordPolicyMock,
 } = vi.hoisted(() => ({
   createClientMock: vi.fn(),
+  isEmailInUseMock: vi.fn(),
   hashPasswordMock: vi.fn(),
   validatePasswordPolicyMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
   createClient: createClientMock,
+  isEmailInUse: isEmailInUseMock,
 }));
 
 vi.mock("@/lib/password-utils", () => ({
@@ -28,6 +31,7 @@ import { POST } from "@/app/api/auth/register/route";
 describe("/api/auth/register", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    isEmailInUseMock.mockResolvedValue(false);
     validatePasswordPolicyMock.mockReturnValue({ valid: true, message: "" });
     hashPasswordMock.mockResolvedValue("hashed-password");
     createClientMock.mockResolvedValue({ id: "client-1", email: "client@example.com" });
@@ -89,5 +93,28 @@ describe("/api/auth/register", () => {
       })
     );
     expect(payload.client).toEqual({ id: "client-1", email: "client@example.com" });
+  });
+
+  it("returns 400 when the email is already in use", async () => {
+    isEmailInUseMock.mockResolvedValue(true);
+
+    const req = new NextRequest("http://localhost:3000/api/auth/register", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        email: "taken@example.com",
+        password: "SecurePassword123!",
+        company_name: "Clearsite",
+        first_name: "Test",
+        last_name: "Client",
+      }),
+    });
+
+    const res = await POST(req);
+    const payload = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(payload.error).toBe("This email address is already in use.");
+    expect(createClientMock).not.toHaveBeenCalled();
   });
 });
