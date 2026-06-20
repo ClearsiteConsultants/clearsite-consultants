@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { decryptToken } from "@/lib/crypto";
-import { sql } from "@/lib/db";
+import { sql, isEmailInUse } from "@/lib/db";
 import { persistApiError } from "@/lib/error-logger";
 
 export async function POST(request: Request) {
@@ -34,6 +34,11 @@ export async function POST(request: Request) {
     const age = now - timestamp;
     if (age > 24 * 60 * 60 * 1000) {
       return NextResponse.json({ error: "Security token has expired." }, { status: 400 });
+    }
+
+    // Check if the new email is already in use
+    if (await isEmailInUse(email, userId)) {
+      return NextResponse.json({ error: "This email address is already in use." }, { status: 400 });
     }
 
     // Update the email in the DB
