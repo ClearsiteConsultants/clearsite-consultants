@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
-import { getQuickBooksConnection, sql, updateClientBillingAddress, updateClientAccountInfo, getClientById } from "@/lib/db";
+import { 
+  getQuickBooksConnection, 
+  sql, 
+  updateClientBillingAddress, 
+  updateClientAccountInfo, 
+  getClientById,
+  isEmailInUse
+} from "@/lib/db";
 import { updateQuickBooksCustomerBillingAddress } from "@/lib/quickbooks";
 import { syncClientInvoicesFromQuickBooks } from "@/lib/quickbooks-sync";
 import { persistApiError } from "@/lib/error-logger";
@@ -390,6 +397,13 @@ async function updateAccountInfo(request: Request) {
     // Account info changes or password verification
     const hasInfoChange = normalizedEmail !== client.email || normalizedCompany !== client.company_name || normalizedPhone !== client.phone;
     
+    // Check if new email is already in use by another client or admin
+    if (normalizedEmail !== client.email) {
+      if (await isEmailInUse(normalizedEmail, clientId)) {
+        return NextResponse.json({ error: "This email address is already in use." }, { status: 400 });
+      }
+    }
+
     if (hasInfoChange || payload.currentPassword) {
       if (!payload.currentPassword) {
         return NextResponse.json({ error: "Password is required to update account information." }, { status: 400 });
