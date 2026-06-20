@@ -245,6 +245,23 @@ export async function updateClientPasswordById(clientId: string, passwordHash: s
   return result.rows[0];
 }
 
+/**
+ * Checks if an email address is already in use by another client or an administrator.
+ */
+export async function isEmailInUse(email: string, excludeClientId?: string) {
+  // Check clients table
+  const clientQuery = excludeClientId
+    ? sql`SELECT id FROM clients WHERE email = ${email} AND id != ${excludeClientId} LIMIT 1`
+    : sql`SELECT id FROM clients WHERE email = ${email} LIMIT 1`;
+  
+  const clientResult = await clientQuery;
+  if (clientResult.rows.length > 0) return true;
+
+  // Check users (admin) table
+  const userResult = await sql`SELECT id FROM users WHERE email = ${email} LIMIT 1`;
+  return userResult.rows.length > 0;
+}
+
 export async function updateClientPasswordByEmail(email: string, passwordHash: string) {
   const result = await sql`
     UPDATE clients
