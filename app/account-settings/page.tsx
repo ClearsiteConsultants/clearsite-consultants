@@ -160,6 +160,9 @@ function AccountSettingsContent() {
 
       if (hasChanged) {
         setAccountMessage({ type: "success", text: "Account information saved successfully." });
+      } else {
+        const fieldLabel = editingField === "company_name" ? "Company Name" : editingField === "phone" ? "Phone Number" : "Email Address";
+        setAccountMessage({ type: "success", text: `${fieldLabel} was unchanged.` });
       }
       
       // Update local state
@@ -333,7 +336,7 @@ function AccountSettingsContent() {
                       )}
                       <div>
                         <div className="flex justify-between items-center mb-1">
-                          <label className="block text-sm font-medium text-gray-700">
+                          <label htmlFor={editingField || "account_field"} className="block text-sm font-medium text-gray-700">
                             {editingField === "company_name" ? "Company Name" : editingField === "phone" ? "Phone Number" : "Email Address"}
                           </label>
                           {editingField && tempValue.length >= ACCOUNT_INFO_FIELD_LIMITS[editingField] && (
@@ -341,6 +344,8 @@ function AccountSettingsContent() {
                           )}
                         </div>
                         <input
+                          id={editingField || "account_field"}
+                          name={editingField || "account_field"}
                           type={editingField === "email" ? "email" : editingField === "phone" ? "tel" : "text"}
                           value={tempValue}
                           onChange={(e) => {
@@ -362,8 +367,10 @@ function AccountSettingsContent() {
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+                        <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
                         <input
+                          id="currentPassword"
+                          name="currentPassword"
                           type="password"
                           value={tempPassword}
                           onChange={(e) => setTempPassword(e.target.value)}
