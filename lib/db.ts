@@ -866,6 +866,44 @@ export async function getClientBillingAddress(clientId: string) {
   return result.rows[0];
 }
 
+export async function updateClientAccountInfo(
+  clientId: string,
+  data: {
+    company_name: string;
+    phone: string | null;
+    email: string;
+  }
+) {
+  const result = await sql`
+    UPDATE clients
+    SET
+      company_name = ${data.company_name},
+      phone = ${data.phone},
+      email = ${data.email},
+      updated_at = NOW()
+    WHERE id = ${clientId}
+    RETURNING
+      id,
+      email,
+      company_name,
+      first_name,
+      last_name,
+      phone,
+      domain_name,
+      plan,
+      service_status,
+      next_invoice_due,
+      qbo_customer_id,
+      billing_address_line1,
+      billing_address_line2,
+      billing_city,
+      billing_state,
+      billing_postal_code,
+      billing_country
+  `;
+  return result.rows[0];
+}
+
 export async function updateClientBillingAddress(
   clientId: string,
   data: {

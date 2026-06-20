@@ -7,6 +7,10 @@ const {
   getQuickBooksConnectionMock,
   updateQuickBooksCustomerBillingAddressMock,
   syncClientInvoicesFromQuickBooksMock,
+  createErrorLogMock,
+  getClientByIdMock,
+  updateClientAccountInfoMock,
+  verifyPasswordMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn(),
   sqlMock: vi.fn(),
@@ -14,6 +18,10 @@ const {
   getQuickBooksConnectionMock: vi.fn(),
   updateQuickBooksCustomerBillingAddressMock: vi.fn(),
   syncClientInvoicesFromQuickBooksMock: vi.fn(),
+  createErrorLogMock: vi.fn(),
+  getClientByIdMock: vi.fn(),
+  updateClientAccountInfoMock: vi.fn(),
+  verifyPasswordMock: vi.fn(),
 }));
 
 vi.mock("@/app/api/auth/[...nextauth]/route", () => ({ auth: authMock }));
@@ -22,6 +30,13 @@ vi.mock("@/lib/db", () => ({
   sql: sqlMock,
   updateClientBillingAddress: updateClientBillingAddressMock,
   getQuickBooksConnection: getQuickBooksConnectionMock,
+  createErrorLog: createErrorLogMock,
+  getClientById: getClientByIdMock,
+  updateClientAccountInfo: updateClientAccountInfoMock,
+}));
+
+vi.mock("@/lib/password-utils", () => ({
+  verifyPassword: verifyPasswordMock,
 }));
 
 vi.mock("@/lib/quickbooks", () => ({
@@ -69,7 +84,8 @@ describe("/api/clients/me", () => {
     sqlMock
       // Initial SELECT fails due to missing billing column
       .mockRejectedValueOnce(new Error('column "billing_address_line1" does not exist'))
-      // ensureClientProfileColumns: 8 ALTER TABLE calls, all resolve with empty rows
+      // ensureClientProfileColumns: 9 ALTER TABLE calls, all resolve with empty rows
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
@@ -247,5 +263,33 @@ describe("/api/clients/me", () => {
     const payload = await response.json();
     expect(response.status).toBe(400);
     expect(payload.error).toContain("State must be a 2-letter uppercase code");
+  });
+
+  it("verifies password even if account info hasn't changed if a password is provided", async () => {
+    getClientByIdMock.mockResolvedValue({
+      id: "1",
+      email: "client@example.com",
+      company_name: "Acme",
+      phone: "555-1234",
+      password_hash: "hashed_password",
+    });
+
+    verifyPasswordMock.mockResolvedValue({ valid: false });
+
+    const response = await PUT(new Request("http://localhost:3000/api/clients/me", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        email: "client@example.com",
+        company_name: "Acme",
+        phone: "555-1234",
+        currentPassword: "wrong_password"
+      }),
+    }));
+
+    const payload = await response.json();
+    expect(response.status).toBe(401);
+    expect(payload.error).toBe("Incorrect password.");
+    expect(verifyPasswordMock).toHaveBeenCalledWith("wrong_password", "hashed_password");
   });
 });

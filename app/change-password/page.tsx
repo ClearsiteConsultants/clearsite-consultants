@@ -72,9 +72,15 @@ function ChangePasswordContent() {
       setPasswordMessage({ type: "success", text: "Password updated successfully." });
       setPasswordForm({ newPassword: "", confirmPassword: "" });
       
-      // If they used a sec_token (not logged in), redirect to login after success
-      if (!session) {
-        setTimeout(() => router.push("/login"), 3000);
+      if (secToken) {
+        // If they used a sec_token (Security Alert), keep original behavior:
+        // redirect to login after success only if not currently logged in.
+        if (!session) {
+          setTimeout(() => router.push("/login"), 3000);
+        }
+      } else {
+        // Otherwise (changing from account settings), redirect to portal
+        setTimeout(() => router.push("/portal"), 3000);
       }
     } catch (error) {
       setPasswordMessage({
@@ -131,8 +137,11 @@ function ChangePasswordContent() {
               }`}
             >
               {passwordMessage.text}
-              {passwordMessage.type === "success" && !session && (
+              {passwordMessage.type === "success" && secToken && !session && (
                 <p className="mt-2">Redirecting to login...</p>
+              )}
+              {passwordMessage.type === "success" && !secToken && (
+                <p className="mt-2">Redirecting to portal...</p>
               )}
             </div>
           )}

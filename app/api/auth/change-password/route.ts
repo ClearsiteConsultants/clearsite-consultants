@@ -179,8 +179,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    const userEmail = session?.user?.email || (updated as { email?: string }).email;
+
     // Send security notification email via Resend
-    if (resend && contactFromEmail && session?.user?.email) {
+    if (resend && contactFromEmail && userEmail) {
       try {
         const origin = req.nextUrl.origin;
         const secToken = encryptToken(JSON.stringify({ userId: rawUserId, timestamp: Date.now() }));
@@ -188,7 +190,7 @@ export async function POST(req: NextRequest) {
         
         await resend.emails.send({
           from: contactFromEmail,
-          to: session.user.email,
+          to: userEmail,
           replyTo: process.env.CONTACT_TO_EMAIL || "hello@clearsiteconsultants.com",
           subject: "Security Alert: Password Changed",
           text: `Security Alert: Your password was recently changed. If you did not perform this action, please visit the following link to reset it again immediately: ${changePasswordUrl}`,

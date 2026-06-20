@@ -8,8 +8,22 @@ export const BILLING_FIELD_LIMITS = {
 
 export type BillingField = keyof typeof BILLING_FIELD_LIMITS;
 
-export function isFieldAtLimit(field: BillingField, value: string): boolean {
-  return value.length >= BILLING_FIELD_LIMITS[field];
+export const ACCOUNT_INFO_FIELD_LIMITS = {
+  company_name: 255,
+  phone: 50,
+  email: 255,
+} as const;
+
+export type AccountInfoField = keyof typeof ACCOUNT_INFO_FIELD_LIMITS;
+
+export function isFieldAtLimit(field: BillingField | AccountInfoField, value: string): boolean {
+  if (field in BILLING_FIELD_LIMITS) {
+    return value.length >= BILLING_FIELD_LIMITS[field as BillingField];
+  }
+  if (field in ACCOUNT_INFO_FIELD_LIMITS) {
+    return value.length >= ACCOUNT_INFO_FIELD_LIMITS[field as AccountInfoField];
+  }
+  return false;
 }
 
 export const INVOICE_FIELD_LIMITS = {
