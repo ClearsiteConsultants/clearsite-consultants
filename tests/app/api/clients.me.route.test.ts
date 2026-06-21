@@ -11,6 +11,7 @@ const {
   getClientByIdMock,
   updateClientAccountInfoMock,
   verifyPasswordMock,
+  isEmailInUseMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn(),
   sqlMock: vi.fn(),
@@ -22,6 +23,7 @@ const {
   getClientByIdMock: vi.fn(),
   updateClientAccountInfoMock: vi.fn(),
   verifyPasswordMock: vi.fn(),
+  isEmailInUseMock: vi.fn(),
 }));
 
 vi.mock("@/app/api/auth/[...nextauth]/route", () => ({ auth: authMock }));
@@ -33,6 +35,7 @@ vi.mock("@/lib/db", () => ({
   createErrorLog: createErrorLogMock,
   getClientById: getClientByIdMock,
   updateClientAccountInfo: updateClientAccountInfoMock,
+  isEmailInUse: isEmailInUseMock,
 }));
 
 vi.mock("@/lib/password-utils", () => ({
@@ -53,6 +56,7 @@ describe("/api/clients/me", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     authMock.mockResolvedValue({ user: { id: "client:1", user_type: "client" } });
+    isEmailInUseMock.mockResolvedValue(false);
   });
 
   it("returns billing address fields from GET", async () => {
@@ -291,5 +295,27 @@ describe("/api/clients/me", () => {
     expect(response.status).toBe(401);
     expect(payload.error).toBe("Incorrect password.");
     expect(verifyPasswordMock).toHaveBeenCalledWith("wrong_password", "hashed_password");
+  });
+
+  it("returns 400 when updating to an email already in use", async () => {
+    getClientByIdMock.mockResolvedValue({
+      id: "client:1",
+      email: "old@example.com",
+    });
+    isEmailInUseMock.mockResolvedValue(true);
+
+    const response = await PUT(new Request("http://localhost:3000/api/clients/me", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        email: "already-taken@example.com",
+        company_name: "Some Company",
+      }),
+    }));
+
+    const payload = await response.json();
+    expect(response.status).toBe(400);
+    expect(payload.error).toBe("This email address is already in use.");
+    expect(isEmailInUseMock).toHaveBeenCalledWith("already-taken@example.com", "1");
   });
 });

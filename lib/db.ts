@@ -262,6 +262,28 @@ export async function getUserById(id: string) {
   return result.rows[0];
 }
 
+/**
+ * Checks if an email is already in use by a client or an administrator.
+ * @param email The email to check.
+ * @param excludeClientId Optional client ID to exclude from the check (useful for updates).
+ * @returns True if the email is in use, false otherwise.
+ */
+export async function isEmailInUse(email: string, excludeClientId?: string): Promise<boolean> {
+  // Check clients table
+  const clientQuery = excludeClientId
+    ? sql`SELECT 1 FROM clients WHERE email = ${email} AND id != ${excludeClientId} LIMIT 1`
+    : sql`SELECT 1 FROM clients WHERE email = ${email} LIMIT 1`;
+  
+  const clientResult = await clientQuery;
+  if (clientResult.rows.length > 0) return true;
+
+  // Check users (admin) table
+  const userResult = await sql`SELECT 1 FROM users WHERE email = ${email} LIMIT 1`;
+  if (userResult.rows.length > 0) return true;
+
+  return false;
+}
+
 export async function updateAdminPasswordById(userId: string, passwordHash: string) {
   const result = await sql`
     UPDATE users
