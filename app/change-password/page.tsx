@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import Header from "@/components/Header";
 import { PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 
@@ -16,6 +17,8 @@ function ChangePasswordContent() {
     newPassword: "",
     confirmPassword: "",
   });
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const secToken = searchParams.get("sec_token");
   const userType = (session?.user as { user_type?: string } | undefined)?.user_type;
@@ -151,26 +154,54 @@ function ChangePasswordContent() {
           <form onSubmit={handlePasswordChange} className="grid gap-6" autoComplete="off">
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">New Password</label>
-              <input
-                type="password"
-                value={passwordForm.newPassword}
-                onChange={(event) => handlePasswordFieldChange("newPassword", event.target.value)}
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all font-mono"
-                autoComplete="new-password"
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showNewPassword ? "text" : "password"}
+                  value={passwordForm.newPassword}
+                  onChange={(event) => handlePasswordFieldChange("newPassword", event.target.value)}
+                  className="w-full rounded-xl border border-gray-300 pl-4 pr-10 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all font-mono"
+                  autoComplete="new-password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+                  aria-label={showNewPassword ? "Hide password" : "Show password"}
+                >
+                  {showNewPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">Confirm New Password</label>
-              <input
-                type="password"
-                value={passwordForm.confirmPassword}
-                onChange={(event) => handlePasswordFieldChange("confirmPassword", event.target.value)}
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all font-mono"
-                autoComplete="new-password"
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={passwordForm.confirmPassword}
+                  onChange={(event) => handlePasswordFieldChange("confirmPassword", event.target.value)}
+                  className="w-full rounded-xl border border-gray-300 pl-4 pr-10 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all font-mono"
+                  autoComplete="new-password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <div className="flex gap-4">
