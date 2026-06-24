@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { BILLING_FIELD_LIMITS, BillingField, ACCOUNT_INFO_FIELD_LIMITS, AccountInfoField } from "@/lib/field-limits";
 import { Button } from "@/components/ui/button";
-import { Pencil } from "lucide-react";
+import { Pencil, Eye, EyeOff } from "lucide-react";
 
 function formatPhoneNumber(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 10);
@@ -46,6 +46,7 @@ function AccountSettingsContent() {
   const [editingField, setEditingField] = useState<AccountInfoField | null>(null);
   const [tempValue, setTempValue] = useState("");
   const [tempPassword, setTempPassword] = useState("");
+  const [showDialogPassword, setShowDialogPassword] = useState(false);
   const [dialogError, setDialogError] = useState("");
 
   const [attemptedExceed, setAttemptedExceed] = useState<Partial<Record<BillingField | AccountInfoField, boolean>>>({});
@@ -118,6 +119,7 @@ function AccountSettingsContent() {
     setEditingField(field);
     setTempValue(accountForm[field] || "");
     setTempPassword("");
+    setShowDialogPassword(false);
     setDialogError("");
     setIsDialogOpen(true);
     setAccountMessage({ type: "", text: "" });
@@ -363,14 +365,28 @@ function AccountSettingsContent() {
                       
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
-                        <input
-                          type="password"
-                          value={tempPassword}
-                          onChange={(e) => setTempPassword(e.target.value)}
-                          placeholder="Confirm with your password"
-                          className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                          autoComplete="current-password"
-                        />
+                        <div className="relative">
+                          <input
+                            type={showDialogPassword ? "text" : "password"}
+                            value={tempPassword}
+                            onChange={(e) => setTempPassword(e.target.value)}
+                            placeholder="Confirm with your password"
+                            className="w-full rounded-xl border border-gray-300 pl-4 pr-10 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                            autoComplete="current-password"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowDialogPassword(!showDialogPassword)}
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+                            aria-label={showDialogPassword ? "Hide password" : "Show password"}
+                          >
+                            {showDialogPassword ? (
+                              <EyeOff className="h-5 w-5" />
+                            ) : (
+                              <Eye className="h-5 w-5" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
 
