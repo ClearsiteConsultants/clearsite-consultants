@@ -321,9 +321,20 @@ export default function Portal() {
                               </div>
                             ) : isUnpaid && !paymentUrl ? (
                               <>
-                                <Button size="sm" disabled className="h-8 w-fit px-3 text-xs tracking-[0.12em]">
-                                  PAY NOW
-                                </Button>
+                                <div className="flex items-center gap-3">
+                                  <Button size="sm" disabled className="h-8 w-fit px-3 text-xs tracking-[0.12em]">
+                                    <a
+                                      href="#"
+                                      aria-label="Pay invoice with QuickBooks (contact support for payment link)"
+                                    >
+                                      PAY NOW
+                                    </a>
+                                  </Button>
+                                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                                    <span>via</span>
+                                    <Image src="/quickbooks.svg" alt="QuickBooks" width={120} height={40} className="h-10 w-auto" />
+                                  </div>
+                                </div>
                                 <div className="text-xs text-gray-500">Contact support to obtain a payment link.</div>
                               </>
                             ) : null}
