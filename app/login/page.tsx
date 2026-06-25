@@ -43,7 +43,9 @@ function LoginContent() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [companyName, setCompanyName] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -67,6 +69,12 @@ function LoginContent() {
     }
   }, [status, router, session, callbackUrl]);
 
+  useEffect(() => {
+    if (message.text) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [message]);
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -88,6 +96,12 @@ function LoginContent() {
     e.preventDefault();
     setLoading(true);
     setMessage({ type: "", text: "" });
+
+    if (password !== confirmPassword) {
+      setMessage({ type: "error", text: "Passwords do not match" });
+      setLoading(false);
+      return;
+    }
 
     try {
       const res = await fetch("/api/auth/register", {
@@ -279,10 +293,39 @@ function LoginContent() {
                   <Eye className="h-5 w-5" />
                 )}
               </button>
+          </div>
+        </div>
+
+        {isSignUp && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Confirm Password *
+            </label>
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+                aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+              >
+                {showConfirmPassword ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
             </div>
           </div>
+        )}
 
-          <button
+        <button
             type="submit"
             disabled={loading}
             className="w-full py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition disabled:opacity-50 uppercase tracking-[0.18em] text-sm"
