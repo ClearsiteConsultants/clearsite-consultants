@@ -8,6 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "db:bootstrap": "node scripts/bootstrap-db.mjs",
+    "admin:create": "node scripts/admin-create.mjs",
+    "admin:reset-password": "node scripts/admin-reset-password.mjs",
+    "admin:update-email": "node scripts/admin-update-email.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "prepare": "husky"

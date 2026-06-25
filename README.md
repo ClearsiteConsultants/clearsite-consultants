@@ -254,6 +254,35 @@ Login checks `clients` first. If no match, it falls back to `users`. The resolve
 
 The `users` table is never written to by this app — it is read-only for admin authentication.
 
+### Admin vs. Client Account Settings
+
+- **Clients**: Can edit their email and change their password directly from the `/account-settings` page.
+- **Admins**: Must change their email and password from the command line (e.g., via direct database access or the management scripts below). The UI for editing these fields doesn't exist for admin accounts.
+
+### Admin Management Scripts
+
+Since admin accounts are stored in the `users` table and are read-only within the app's UI, use these scripts for management:
+
+#### Create an admin user
+```bash
+# Usage: npm run admin:create <email> <password> [name]
+npm run admin:create admin@example.com StrongPassword123! "Admin User"
+```
+
+#### Update an admin email
+```bash
+# Usage: npm run admin:update-email <old_email> <new_email>
+npm run admin:update-email old@example.com new@example.com
+```
+
+#### Reset an admin password
+```bash
+# Usage: npm run admin:reset-password <email> <new_password>
+npm run admin:reset-password admin@example.com NewStrongPassword456!
+```
+
+*Note: These scripts use the modern HMAC-SHA256 + bcrypt hashing required by this application. Using these scripts to reset a password for an account also used in `client-finder-portal` will break that account's login there until that project is updated to the same hashing standard.*
+
 ## Key Conventions
 
 - **Path alias**: `@/*` resolves from project root.
