@@ -19,6 +19,7 @@ import {
   findQuickBooksCustomerByDisplayName,
   findQuickBooksInvoiceByDocNumber,
   getQuickBooksInvoice,
+  sendQuickBooksInvoiceEmail,
 } from "@/lib/quickbooks";
 
 function toNumber(value: unknown) {
@@ -217,6 +218,15 @@ export async function syncInvoiceToQuickBooks(
       invoiceTotal: qboState.invoiceTotal,
     });
 
+    // Trigger QuickBooks "Review and Send" email
+    if (client.email) {
+      try {
+        await sendQuickBooksInvoiceEmail(connection.realm_id, qboState.qboInvoiceId, client.email);
+      } catch (emailError) {
+        console.error("Failed to send QuickBooks invoice email:", emailError);
+      }
+    }
+
     await maybeLogMissingPaymentUrl({
       invoice: updatedInvoice,
       paymentUrl: qboState.paymentUrl,
@@ -372,6 +382,15 @@ export async function linkInvoiceByDocNumber(options: {
     is_manual_link: true,
   });
 
+  // Trigger QuickBooks "Review and Send" email
+  if (client.email) {
+    try {
+      await sendQuickBooksInvoiceEmail(connection.realm_id, qboState.qboInvoiceId, client.email);
+    } catch (emailError) {
+      console.error("Failed to send QuickBooks invoice email after link (by DocNumber):", emailError);
+    }
+  }
+
   await maybeLogMissingPaymentUrl({
     invoice,
     paymentUrl: qboState.paymentUrl,
@@ -463,6 +482,15 @@ export async function linkInvoiceById(options: {
     paid_at: qboState.paidAt,
     is_manual_link: true,
   });
+
+  // Trigger QuickBooks "Review and Send" email
+  if (client.email) {
+    try {
+      await sendQuickBooksInvoiceEmail(connection.realm_id, qboState.qboInvoiceId, client.email);
+    } catch (emailError) {
+      console.error("Failed to send QuickBooks invoice email after link (by ID):", emailError);
+    }
+  }
 
   await maybeLogMissingPaymentUrl({
     invoice,

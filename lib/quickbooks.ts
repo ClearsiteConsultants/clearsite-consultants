@@ -560,6 +560,15 @@ export async function createQuickBooksInvoice(realmId: string, data: {
   return await getQuickBooksInvoice(realmId, createdInvoiceId);
 }
 
+export async function sendQuickBooksInvoiceEmail(realmId: string, qboInvoiceId: string, emailAddr?: string) {
+  const path = `/v3/company/${realmId}/invoice/${qboInvoiceId}/send${emailAddr ? `?sendTo=${encodeURIComponent(emailAddr)}` : ""}`;
+  return await quickBooksApiRequest({
+    method: "POST",
+    path,
+    contentType: "application/octet-stream",
+  });
+}
+
 export async function getQuickBooksInvoice(realmId: string, qboInvoiceId: string) {
   const result = await quickBooksApiRequest<{ Invoice: Record<string, unknown> }>({
     method: "GET",

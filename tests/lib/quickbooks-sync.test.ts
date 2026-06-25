@@ -15,7 +15,11 @@ const {
   findQuickBooksCustomerByDisplayNameMock,
   getQuickBooksInvoiceMock,
   getQuickBooksInvoicePdfMock,
+  sendQuickBooksInvoiceEmailMock,
   extractQuickBooksInvoiceStateMock,
+  findQuickBooksInvoiceByDocNumberMock,
+  createInvoiceMock,
+  checkDuplicateByQboInvoiceIdMock,
 } = vi.hoisted(() => ({
   getQuickBooksConnectionMock: vi.fn(),
   getClientQboInvoiceIdsMock: vi.fn(),
@@ -31,7 +35,11 @@ const {
   findQuickBooksCustomerByDisplayNameMock: vi.fn(),
   getQuickBooksInvoiceMock: vi.fn(),
   getQuickBooksInvoicePdfMock: vi.fn(),
+  sendQuickBooksInvoiceEmailMock: vi.fn(),
   extractQuickBooksInvoiceStateMock: vi.fn(),
+  findQuickBooksInvoiceByDocNumberMock: vi.fn(),
+  createInvoiceMock: vi.fn(),
+  checkDuplicateByQboInvoiceIdMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -44,8 +52,8 @@ vi.mock("@/lib/db", () => ({
   getQuickBooksConnection: getQuickBooksConnectionMock,
   updateInvoiceStatusByQuickBooksInvoiceId: updateInvoiceStatusByQuickBooksInvoiceIdMock,
   createMissingPaymentUrlLogIfNeeded: createMissingPaymentUrlLogIfNeededMock,
-  createInvoice: vi.fn(),
-  checkDuplicateByQboInvoiceId: vi.fn(),
+  createInvoice: createInvoiceMock,
+  checkDuplicateByQboInvoiceId: checkDuplicateByQboInvoiceIdMock,
 }));
 
 vi.mock("@/lib/quickbooks", () => ({
@@ -54,11 +62,12 @@ vi.mock("@/lib/quickbooks", () => ({
   createQuickBooksCustomer: createQuickBooksCustomerMock,
   createQuickBooksInvoice: createQuickBooksInvoiceMock,
   findQuickBooksCustomerByDisplayName: findQuickBooksCustomerByDisplayNameMock,
-  findQuickBooksInvoiceByDocNumber: vi.fn(),
+  findQuickBooksInvoiceByDocNumber: findQuickBooksInvoiceByDocNumberMock,
   getQuickBooksInvoicePdf: getQuickBooksInvoicePdfMock,
+  sendQuickBooksInvoiceEmail: sendQuickBooksInvoiceEmailMock,
 }));
 
-import { syncClientInvoicesFromQuickBooks, syncInvoiceByQuickBooksInvoiceId, syncInvoiceToQuickBooks } from "@/lib/quickbooks-sync";
+import { linkInvoiceByDocNumber, syncClientInvoicesFromQuickBooks, syncInvoiceByQuickBooksInvoiceId, syncInvoiceToQuickBooks } from "@/lib/quickbooks-sync";
 
 describe("lib/quickbooks-sync", () => {
   beforeEach(() => {
@@ -155,6 +164,7 @@ describe("lib/quickbooks-sync", () => {
         pdfSize: expect.anything(),
       })
     );
+    expect(sendQuickBooksInvoiceEmailMock).toHaveBeenCalledWith("123", "qbo-inv-1", "billing@acme.com");
   });
 
   it("logs MissingQboPaymentUrl with admin-sync origin when sync results in missing payment URL", async () => {
@@ -234,6 +244,40 @@ describe("lib/quickbooks-sync", () => {
     expect(updateInvoiceStatusByQuickBooksInvoiceIdMock).toHaveBeenCalledWith(expect.objectContaining({
       allowPaymentUrlClear: true,
     }));
+  });
+
+  it("triggers QuickBooks email when manually linking an invoice by DocNumber", async () => {
+    const clientId = "client-1";
+    const qboDocNumber = "INV-100";
+    getQuickBooksConnectionMock.mockResolvedValue({ realm_id: "123" });
+    getClientQuickBooksProfileMock.mockResolvedValue({
+      id: clientId,
+      email: "client@example.com",
+      qbo_customer_id: "qbo-cust-1",
+    });
+    findQuickBooksInvoiceByDocNumberMock.mockResolvedValue({
+      Id: "qbo-inv-100",
+      DocNumber: qboDocNumber,
+      DueDate: "2026-07-01",
+      TxnDate: "2026-06-01",
+      TotalAmt: 200,
+    });
+    extractQuickBooksInvoiceStateMock.mockReturnValue({
+      qboInvoiceId: "qbo-inv-100",
+      qboDocNumber: qboDocNumber,
+      qboSyncStatus: "sent",
+      amountPaid: 0,
+      paidAt: null,
+      paymentUrl: "https://pay.example/100",
+      invoiceDate: "2026-06-01",
+      invoiceTotal: 200,
+    });
+    checkDuplicateByQboInvoiceIdMock.mockResolvedValue(false);
+    createInvoiceMock.mockResolvedValue({ id: "local-inv-100" });
+
+    await linkInvoiceByDocNumber({ clientId, qboDocNumber });
+
+    expect(sendQuickBooksInvoiceEmailMock).toHaveBeenCalledWith("123", "qbo-inv-100", "client@example.com");
   });
 
   it("does not log for qbo-webhook when qbo_payment_url is already null and remains null", async () => {
