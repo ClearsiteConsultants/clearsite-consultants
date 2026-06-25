@@ -1,6 +1,6 @@
 'use client';
 
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
@@ -419,8 +419,7 @@ function AccountSettingsContent() {
             <button
               type="button"
               onClick={() => {
-                // Sign out and redirect to login, then back to change-password
-                signOut({ callbackUrl: "/login?callbackUrl=/change-password" });
+                router.push("/change-password");
               }}
               className="rounded-xl bg-red-600 px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-red-700"
             >

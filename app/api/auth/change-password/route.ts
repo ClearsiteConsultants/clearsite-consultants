@@ -74,9 +74,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { currentPassword, newPassword, confirmPassword, sec_token } = body;
 
-    // Users with a valid session bypass the current password requirement 
-    // because we force a re-authentication flow in the portal before they reach this page.
-    let bypassAuth = !!rawUserId;
+    // Users with a valid session must still provide their current password to reauthenticate
+    // unless they are using a valid security token (e.g. from a reset email).
+    let bypassAuth = false;
     let tokenUserId: string | null = null;
 
     if (sec_token) {
@@ -181,8 +181,8 @@ export async function POST(req: NextRequest) {
 
     const userEmail = session?.user?.email || (updated as { email?: string }).email;
 
-    // Send security notification email via Resend
-    if (resend && contactFromEmail && userEmail) {
+    // Send security notification email via Resend only when changing password from /account-settings (not using sec_token)
+    if (!sec_token && resend && contactFromEmail && userEmail) {
       try {
         const origin = req.nextUrl.origin;
         const secToken = encryptToken(JSON.stringify({ userId: rawUserId, timestamp: Date.now() }));

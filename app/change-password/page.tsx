@@ -14,9 +14,11 @@ function ChangePasswordContent() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState({ type: "", text: "" });
   const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -37,7 +39,7 @@ function ChangePasswordContent() {
     }
   }, [status, userType, router]);
 
-  const handlePasswordFieldChange = (field: "newPassword" | "confirmPassword", value: string) => {
+  const handlePasswordFieldChange = (field: "currentPassword" | "newPassword" | "confirmPassword", value: string) => {
     setPasswordForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -73,7 +75,7 @@ function ChangePasswordContent() {
       }
 
       setPasswordMessage({ type: "success", text: "Password updated successfully." });
-      setPasswordForm({ newPassword: "", confirmPassword: "" });
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
       
       if (secToken) {
         // If they used a sec_token (Security Alert), keep original behavior:
@@ -152,6 +154,34 @@ function ChangePasswordContent() {
           <p className="text-sm text-gray-600 mb-6">{PASSWORD_POLICY_MESSAGE}</p>
 
           <form onSubmit={handlePasswordChange} className="grid gap-6" autoComplete="off">
+            {!secToken && (
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Current Password</label>
+                <div className="relative">
+                  <input
+                    type={showCurrentPassword ? "text" : "password"}
+                    value={passwordForm.currentPassword}
+                    onChange={(event) => handlePasswordFieldChange("currentPassword", event.target.value)}
+                    className="w-full rounded-xl border border-gray-300 pl-4 pr-10 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all font-mono"
+                    autoComplete="current-password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+                    aria-label={showCurrentPassword ? "Hide password" : "Show password"}
+                  >
+                    {showCurrentPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">New Password</label>
               <div className="relative">

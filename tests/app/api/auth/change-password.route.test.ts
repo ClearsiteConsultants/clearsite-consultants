@@ -83,12 +83,13 @@ describe("/api/auth/change-password", () => {
   it("hashes and persists the new password after validating the current password", async () => {
     authMock.mockResolvedValueOnce({ user: { id: "client:123" } });
     
-    // bypassAuth is true because session is present.
-    // So verifyPassword should NOT be called for currentPassword check.
-    // It should only be called once for isSamePassword check.
-    // We mock ResolvedValue directly to ensure it doesn't return the default mocking.
+    // With our new behavior, session does NOT bypass current password requirement if no sec_token is provided.
+    // So verifyPassword should be called for currentPassword check (must be valid, i.e., true)
+    // and then called for isSamePassword check (must be invalid, i.e., false).
     verifyPasswordMock.mockReset();
-    verifyPasswordMock.mockResolvedValue({ valid: false, legacy: false }); 
+    verifyPasswordMock
+      .mockResolvedValueOnce({ valid: true, legacy: false })
+      .mockResolvedValueOnce({ valid: false, legacy: false }); 
     
     hashPasswordMock.mockResolvedValue("new-password-hash");
     updateClientPasswordByIdMock.mockResolvedValue({ id: "123" });
