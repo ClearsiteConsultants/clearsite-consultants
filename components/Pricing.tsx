@@ -1,6 +1,7 @@
 'use client';
 
 import { CheckCircle, Star } from "lucide-react";
+import Link from "next/link";
 
 const prices = {
   basicWebsite: {
@@ -155,8 +156,8 @@ export default function Pricing() {
               </div>
 
               <div className="px-8 pb-8">
-                <a
-                  href="#contact"
+                <Link
+                  href="/#contact"
                   className={`block w-full text-center py-3 px-6 rounded-xl font-semibold transition-all duration-200 ${
                     tier.highlighted
                       ? "bg-primary text-white hover:bg-primary/90 shadow-sm"
@@ -164,7 +165,7 @@ export default function Pricing() {
                   }`}
                 >
                   Get a Free Quote
-                </a>
+                </Link>
               </div>
             </div>
           ))}
@@ -188,9 +189,9 @@ export default function Pricing() {
                 </div>
                 <p className="text-xs text-gray-400 uppercase tracking-wide mb-4">{service.note}</p>
                 <p className="text-gray-600 leading-relaxed">{service.description}</p>
-                <a href="#contact" className="inline-block mt-6 text-primary font-semibold text-sm hover:underline">
+                <Link href="/#contact" className="inline-block mt-6 text-primary font-semibold text-sm hover:underline">
                   Book a free consult →
-                </a>
+                </Link>
               </div>
             ))}
           </div>

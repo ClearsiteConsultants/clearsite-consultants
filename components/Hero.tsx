@@ -2,6 +2,7 @@
 
 import { Globe } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default function Hero() {
@@ -40,12 +41,12 @@ export default function Hero() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 animate-fade-in">
-              <a href="#contact">
-                <Button variant="hero">Book a Free Consult</Button>
-              </a>
-              <a href="#pricing">
-                <Button variant="heroOutline">View Pricing</Button>
-              </a>
+              <Button variant="hero" asChild>
+                <Link href="/#contact">Book a Free Consult</Link>
+              </Button>
+              <Button variant="heroOutline" asChild>
+                <Link href="/#pricing">View Pricing</Link>
+              </Button>
             </div>
 
             <p className="mt-4 text-sm uppercase tracking-wider text-gray-500">

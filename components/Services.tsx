@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowRight, Bot, Code, Smartphone } from "lucide-react";
+import Link from "next/link";
 
 const services = [
   {
@@ -48,9 +49,9 @@ export default function Services() {
                 </div>
                 <h3 className="font-display text-2xl text-gray-900 mb-3">{service.title}</h3>
                 <p className="text-gray-600 leading-relaxed mb-6">{service.description}</p>
-                <a href="#contact" className="inline-flex items-center gap-2 text-primary font-semibold hover:text-primary/80 transition-colors">
+                <Link href="/#contact" className="inline-flex items-center gap-2 text-primary font-semibold hover:text-primary/80 transition-colors">
                   Learn More <ArrowRight className="w-4 h-4" />
-                </a>
+                </Link>
               </div>
             );
           })}

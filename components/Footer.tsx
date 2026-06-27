@@ -14,18 +14,18 @@ export default function Footer() {
 
           {/* Links */}
           <nav className="flex items-center gap-6">
-            <a href="#services" className="text-sm text-gray-600 hover:text-primary transition-colors">
+            <Link href="/#services" className="text-sm text-gray-600 hover:text-primary transition-colors">
               Services
-            </a>
-            <a href="#why-us" className="text-sm text-gray-600 hover:text-primary transition-colors">
+            </Link>
+            <Link href="/#why-us" className="text-sm text-gray-600 hover:text-primary transition-colors">
               Why Us
-            </a>
-            <a href="#pricing" className="text-sm text-gray-600 hover:text-primary transition-colors">
+            </Link>
+            <Link href="/#pricing" className="text-sm text-gray-600 hover:text-primary transition-colors">
               Pricing
-            </a>
-            <a href="#contact" className="text-sm text-gray-600 hover:text-primary transition-colors">
+            </Link>
+            <Link href="/#contact" className="text-sm text-gray-600 hover:text-primary transition-colors">
               Contact
-            </a>
+            </Link>
           </nav>
 
           {/* Copyright & Legal */}

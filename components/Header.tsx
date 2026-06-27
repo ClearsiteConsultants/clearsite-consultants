@@ -230,18 +230,18 @@ export default function Header({ showNavigation = true }: HeaderProps) {
               {/* Desktop Navigation */}
               <div className="hidden min-[900px]:flex items-center gap-8">
                 <nav className="flex items-center gap-8">
-                  <a href="#services" onClick={handleNavLinkClick} className="text-gray-600 hover:text-primary transition-colors font-medium">
+                  <Link href="/#services" onClick={handleNavLinkClick} className="text-gray-600 hover:text-primary transition-colors font-medium">
                     Services
-                  </a>
-                  <a href="#why-us" onClick={handleNavLinkClick} className="text-gray-600 hover:text-primary transition-colors font-medium">
+                  </Link>
+                  <Link href="/#why-us" onClick={handleNavLinkClick} className="text-gray-600 hover:text-primary transition-colors font-medium">
                     Why Us
-                  </a>
-                  <a href="#pricing" onClick={handleNavLinkClick} className="text-gray-600 hover:text-primary transition-colors font-medium">
+                  </Link>
+                  <Link href="/#pricing" onClick={handleNavLinkClick} className="text-gray-600 hover:text-primary transition-colors font-medium">
                     Pricing
-                  </a>
-                  <a href="#contact" onClick={handleNavLinkClick} className="text-gray-600 hover:text-primary transition-colors font-medium">
+                  </Link>
+                  <Link href="/#contact" onClick={handleNavLinkClick} className="text-gray-600 hover:text-primary transition-colors font-medium">
                     Contact
-                  </a>
+                  </Link>
                 </nav>
 
                 {isAuthenticated ? (
@@ -269,18 +269,18 @@ export default function Header({ showNavigation = true }: HeaderProps) {
         {/* Mobile Navigation */}
         {showFullNavigation && isMenuOpen && (
           <nav className="min-[900px]:hidden pt-6 pb-4 flex flex-col gap-4 animate-fade-in">
-            <a href="#services" onClick={handleNavLinkClick} className="text-gray-600 hover:text-primary transition-colors font-medium py-2">
+            <Link href="/#services" onClick={handleNavLinkClick} className="text-gray-600 hover:text-primary transition-colors font-medium py-2">
               Services
-            </a>
-            <a href="#why-us" onClick={handleNavLinkClick} className="text-gray-600 hover:text-primary transition-colors font-medium py-2">
+            </Link>
+            <Link href="/#why-us" onClick={handleNavLinkClick} className="text-gray-600 hover:text-primary transition-colors font-medium py-2">
               Why Us
-            </a>
-            <a href="#pricing" onClick={handleNavLinkClick} className="text-gray-600 hover:text-primary transition-colors font-medium py-2">
+            </Link>
+            <Link href="/#pricing" onClick={handleNavLinkClick} className="text-gray-600 hover:text-primary transition-colors font-medium py-2">
               Pricing
-            </a>
-            <a href="#contact" onClick={handleNavLinkClick} className="text-gray-600 hover:text-primary transition-colors font-medium py-2">
+            </Link>
+            <Link href="/#contact" onClick={handleNavLinkClick} className="text-gray-600 hover:text-primary transition-colors font-medium py-2">
               Contact
-            </a>
+            </Link>
 
             {isAuthenticated ? (
               <>
