@@ -35,3 +35,26 @@ export function currencyDigitsToNumber(digits: string): number {
   if (!digits) return 0;
   return parseInt(digits, 10) / 100;
 }
+
+/**
+ * Handles smooth scrolling to an anchor on the homepage,
+ * ensuring it works even if the hash is already in the URL.
+ */
+export function handleAnchorClick(
+  e: React.MouseEvent<HTMLElement>,
+  targetId: string,
+  pathname: string,
+  onComplete?: () => void
+) {
+  if (pathname === "/" || pathname === "") {
+    const id = targetId.replace("/#", "").replace("#", "");
+    const element = document.getElementById(id);
+    if (element) {
+      e.preventDefault();
+      element.scrollIntoView({ behavior: "smooth" });
+      // Update the URL without a full page reload or scroll jump
+      window.history.pushState(null, "", `/#${id}`);
+      if (onComplete) onComplete();
+    }
+  }
+}

@@ -1,12 +1,29 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { handleAnchorClick } from "@/lib/utils";
 
 export default function Footer() {
+  const pathname = usePathname();
   return (
     <footer className="py-12 bg-gray-50 border-t border-gray-200">
       <div className="container mx-auto px-6">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
+          <Link
+            href="/"
+            className="flex items-center gap-2 group"
+            onClick={(e) => {
+              if (pathname === "/") {
+                e.preventDefault();
+                window.scrollTo({ top: 0, behavior: "smooth" });
+                if (window.location.hash) {
+                  window.history.replaceState(null, "", "/");
+                }
+              }
+            }}
+          >
             <span className="font-display text-lg text-gray-900 tracking-wide">
               CLEARSITE <span className="text-primary">CONSULTANTS</span>
             </span>
@@ -14,18 +31,34 @@ export default function Footer() {
 
           {/* Links */}
           <nav className="flex items-center gap-6">
-            <a href="#services" className="text-sm text-gray-600 hover:text-primary transition-colors">
+            <Link
+              href="/#services"
+              onClick={(e) => handleAnchorClick(e, "services", pathname)}
+              className="text-sm text-gray-600 hover:text-primary transition-colors"
+            >
               Services
-            </a>
-            <a href="#why-us" className="text-sm text-gray-600 hover:text-primary transition-colors">
+            </Link>
+            <Link
+              href="/#why-us"
+              onClick={(e) => handleAnchorClick(e, "why-us", pathname)}
+              className="text-sm text-gray-600 hover:text-primary transition-colors"
+            >
               Why Us
-            </a>
-            <a href="#pricing" className="text-sm text-gray-600 hover:text-primary transition-colors">
+            </Link>
+            <Link
+              href="/#pricing"
+              onClick={(e) => handleAnchorClick(e, "pricing", pathname)}
+              className="text-sm text-gray-600 hover:text-primary transition-colors"
+            >
               Pricing
-            </a>
-            <a href="#contact" className="text-sm text-gray-600 hover:text-primary transition-colors">
+            </Link>
+            <Link
+              href="/#contact"
+              onClick={(e) => handleAnchorClick(e, "contact", pathname)}
+              className="text-sm text-gray-600 hover:text-primary transition-colors"
+            >
               Contact
-            </a>
+            </Link>
           </nav>
 
           {/* Copyright & Legal */}
