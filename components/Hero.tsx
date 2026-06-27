@@ -3,9 +3,12 @@
 import { Globe } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { handleAnchorClick } from "@/lib/utils";
 
 export default function Hero() {
+  const pathname = usePathname();
   return (
     <section className="relative bg-tech overflow-hidden py-[60px] max-[1049px]:py-[30px]">
       <div className="container mx-auto px-6 relative z-10">
@@ -42,10 +45,14 @@ export default function Hero() {
 
             <div className="flex flex-col sm:flex-row gap-4 animate-fade-in">
               <Button variant="hero" asChild>
-                <Link href="/#contact">Book a Free Consult</Link>
+                <Link href="/#contact" onClick={(e) => handleAnchorClick(e, "contact", pathname)}>
+                  Book a Free Consult
+                </Link>
               </Button>
               <Button variant="heroOutline" asChild>
-                <Link href="/#pricing">View Pricing</Link>
+                <Link href="/#pricing" onClick={(e) => handleAnchorClick(e, "pricing", pathname)}>
+                  View Pricing
+                </Link>
               </Button>
             </div>
 

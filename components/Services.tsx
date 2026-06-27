@@ -2,6 +2,8 @@
 
 import { ArrowRight, Bot, Code, Smartphone } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { handleAnchorClick } from "@/lib/utils";
 
 const services = [
   {
@@ -22,6 +24,7 @@ const services = [
 ];
 
 export default function Services() {
+  const pathname = usePathname();
   return (
     <section id="services" className="py-24 bg-tech">
       <div className="container mx-auto px-6">
@@ -49,7 +52,11 @@ export default function Services() {
                 </div>
                 <h3 className="font-display text-2xl text-gray-900 mb-3">{service.title}</h3>
                 <p className="text-gray-600 leading-relaxed mb-6">{service.description}</p>
-                <Link href="/#contact" className="inline-flex items-center gap-2 text-primary font-semibold hover:text-primary/80 transition-colors">
+                <Link
+                  href="/#contact"
+                  onClick={(e) => handleAnchorClick(e, "contact", pathname)}
+                  className="inline-flex items-center gap-2 text-primary font-semibold hover:text-primary/80 transition-colors"
+                >
                   Learn More <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
