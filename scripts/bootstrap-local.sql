@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS clients (
   service_status VARCHAR(50) DEFAULT 'Active',
   maintenance_fee_frequency VARCHAR(50) DEFAULT 'Monthly',
   next_invoice_due DATE,
+  client_status VARCHAR(50) DEFAULT 'Active',
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );

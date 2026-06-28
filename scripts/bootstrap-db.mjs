@@ -95,6 +95,11 @@ async function run() {
       ADD COLUMN IF NOT EXISTS billing_postal_code VARCHAR(50)
     `;
 
+    await tx`
+      ALTER TABLE clients
+      ADD COLUMN IF NOT EXISTS client_status VARCHAR(50) DEFAULT 'Active'
+    `;
+
     // await tx`
     //   ALTER TABLE clients
     //   // billing_country removed: US only

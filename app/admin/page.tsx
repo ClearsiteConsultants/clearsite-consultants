@@ -21,6 +21,7 @@ interface ClientUser {
   company_name: string;
   plan: string | null;
   service_status: string;
+  client_status: string;
   maintenance_fee_frequency: string;
   next_invoice_due: string | null;
   first_name: string;
@@ -33,6 +34,7 @@ interface EditingClient {
   id: string;
   plan: string | null;
   service_status: string;
+  client_status: string;
   maintenance_fee_frequency: string;
 }
 
@@ -120,6 +122,7 @@ export default function AdminDashboard() {
       id: client.id,
       plan: client.plan,
       service_status: client.service_status,
+      client_status: client.client_status || "Active",
       maintenance_fee_frequency: client.maintenance_fee_frequency || "Monthly",
     });
     setShowEditModal(true);
@@ -475,6 +478,20 @@ export default function AdminDashboard() {
                 >
                   Cancel Plan
                 </button>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Client Status</label>
+                <select
+                  value={editingClient.client_status}
+                  onChange={(e) =>
+                    setEditingClient({ ...editingClient, client_status: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded-md"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
               </div>
 
               <div>
