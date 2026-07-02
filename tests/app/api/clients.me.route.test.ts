@@ -88,7 +88,10 @@ describe("/api/clients/me", () => {
     sqlMock
       // Initial SELECT fails due to missing billing column
       .mockRejectedValueOnce(new Error('column "billing_address_line1" does not exist'))
-      // ensureClientProfileColumns: 9 ALTER TABLE calls, all resolve with empty rows
+      // ensureClientProfileColumns: 12 ALTER TABLE calls, all resolve with empty rows
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })

@@ -31,9 +31,10 @@ async function run() {
         phone VARCHAR(50),
         domain_name VARCHAR(255),
         plan VARCHAR(100) DEFAULT NULL,
-        service_status VARCHAR(50) DEFAULT 'Active',
+        service_status VARCHAR(50) DEFAULT 'Inactive',
         maintenance_fee_frequency VARCHAR(50) DEFAULT 'Monthly',
         next_invoice_due DATE,
+        client_status VARCHAR(50) DEFAULT 'Active',
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )
@@ -57,6 +58,16 @@ async function run() {
     await tx`
       ALTER TABLE clients
       ALTER COLUMN plan DROP DEFAULT
+    `;
+
+    await tx`
+      ALTER TABLE clients
+      ALTER COLUMN service_status SET DEFAULT 'Inactive'
+    `;
+
+    await tx`
+      ALTER TABLE clients
+      ALTER COLUMN client_status SET DEFAULT 'Active'
     `;
 
     // Migration: add first_name / last_name for existing databases that still have contact_name.

@@ -93,7 +93,11 @@ async function ensureClientProfileColumns() {
   `;
   await sql`
     ALTER TABLE clients
-    ADD COLUMN IF NOT EXISTS service_status VARCHAR(50) DEFAULT 'Active'
+    ADD COLUMN IF NOT EXISTS service_status VARCHAR(50) DEFAULT 'Inactive'
+  `;
+  await sql`
+    ALTER TABLE clients
+    ALTER COLUMN service_status SET DEFAULT 'Inactive'
   `;
   await sql`
     ALTER TABLE clients
@@ -102,6 +106,14 @@ async function ensureClientProfileColumns() {
   await sql`
     ALTER TABLE clients
     ADD COLUMN IF NOT EXISTS next_invoice_due DATE
+  `;
+  await sql`
+    ALTER TABLE clients
+    ADD COLUMN IF NOT EXISTS client_status VARCHAR(50) DEFAULT 'Active'
+  `;
+  await sql`
+    ALTER TABLE clients
+    ALTER COLUMN client_status SET DEFAULT 'Active'
   `;
   await sql`
     ALTER TABLE clients

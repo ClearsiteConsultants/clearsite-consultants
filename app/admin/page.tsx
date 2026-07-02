@@ -474,7 +474,7 @@ export default function AdminDashboard() {
                   }
                   className="w-full px-3 py-2 border rounded-md"
                 >
-                  <option value="">No active plan</option>
+                  <option value="">Not enrolled</option>
                   <option value="Starter">Starter</option>
                   <option value="Feature-Rich">Feature-Rich</option>
                 </select>
