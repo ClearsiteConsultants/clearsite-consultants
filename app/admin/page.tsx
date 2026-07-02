@@ -313,16 +313,17 @@ export default function AdminDashboard() {
                     <th className="px-6 py-3 text-left text-sm font-semibold">Company</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Email</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Contact</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold">Client Status</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Plan</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold">Service Status</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Next Invoice Due</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Status</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {clients.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                      <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                         No clients found
                       </td>
                     </tr>
@@ -345,19 +346,32 @@ export default function AdminDashboard() {
                         </td>
                         <td className="px-6 py-4 text-sm">{client.email}</td>
                         <td className="px-6 py-4 text-sm">{[client.first_name, client.last_name].filter(Boolean).join(" ") || "—"}</td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`px-3 py-1 text-sm rounded-full ${
+                              client.client_status === "Active"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {client.client_status}
+                          </span>
+                        </td>
                         <td className="px-6 py-4 text-sm">{client.plan || "—"}</td>
-                        <td className="px-6 py-4 text-sm">{formatCalendarDate(client.next_invoice_due)}</td>
                         <td className="px-6 py-4">
                           <span
                             className={`px-3 py-1 text-sm rounded-full ${
                               client.service_status === "Active"
                                 ? "bg-green-100 text-green-800"
+                                : client.service_status === "Paused"
+                                ? "bg-yellow-100 text-yellow-800"
                                 : "bg-red-100 text-red-800"
                             }`}
                           >
                             {client.service_status}
                           </span>
                         </td>
+                        <td className="px-6 py-4 text-sm">{formatCalendarDate(client.next_invoice_due)}</td>
                         <td className="px-6 py-4">
                           <Button
                             variant="outline"
@@ -398,13 +412,13 @@ export default function AdminDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Settings className="h-5 w-5" />
-                Account Setting
+                Account Settings
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-gray-600 mb-4">Review and update your account settings.</p>
               <a href="/account-settings" className="text-blue-600 hover:underline font-medium">
-                Open Account Setting
+                Open Account Settings
               </a>
             </CardContent>
           </Card>
@@ -438,6 +452,20 @@ export default function AdminDashboard() {
             </div>
             <div className="px-6 py-4 space-y-4">
               <div>
+                <label className="block text-sm font-medium mb-1">Client Status</label>
+                <select
+                  value={editingClient.client_status}
+                  onChange={(e) =>
+                    setEditingClient({ ...editingClient, client_status: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded-md"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+              
+              <div>
                 <label className="block text-sm font-medium mb-1">Plan</label>
                 <select
                   value={editingClient.plan || ""}
@@ -464,34 +492,6 @@ export default function AdminDashboard() {
                   <option value="Monthly">Monthly</option>
                   <option value="Yearly">Yearly</option>
                 </select>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const confirmed = window.confirm(
-                      "Canceling this plan will remove the client from an active plan. Are you sure you want to proceed?"
-                    );
-                    if (confirmed) {
-                      setEditingClient({ ...editingClient, plan: null });
-                    }
-                  }}
-                  className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
-                >
-                  Cancel Plan
-                </button>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Client Status</label>
-                <select
-                  value={editingClient.client_status}
-                  onChange={(e) =>
-                    setEditingClient({ ...editingClient, client_status: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border rounded-md"
-                >
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
               </div>
 
               <div>
@@ -507,6 +507,20 @@ export default function AdminDashboard() {
                   <option value="Paused">Paused</option>
                   <option value="Canceled">Canceled</option>
                 </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const confirmed = window.confirm(
+                      "Canceling this plan will remove the client from an active plan. Are you sure you want to proceed?"
+                    );
+                    if (confirmed) {
+                      setEditingClient({ ...editingClient, plan: null });
+                    }
+                  }}
+                  className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+                >
+                  Cancel Plan
+                </button>
               </div>
 
             </div>
