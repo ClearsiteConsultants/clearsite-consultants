@@ -40,6 +40,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
 # Squad: ignore runtime state (logs, inbox, sessions)
 .squad/orchestration-log/
 .squad/log/
@@ -48,7 +49,11 @@ next-env.d.ts
 .squad/.scratch/
 # Squad: SubSquad activation file (local to this machine)
 .squad-workstream
-
 # Squad and Copilot local workspace artifacts
 .squad/
 .copilot/
+# Agents and Skills local workspace artifacts
+.agents/
+docs/agents
+AGENTS.md
+skills-lock.json
