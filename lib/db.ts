@@ -185,8 +185,30 @@ export async function createClient(data: {
   domain_name?: string;
 }) {
   const result = await sql`
-    INSERT INTO clients (email, password_hash, company_name, first_name, last_name, phone, domain_name)
-    VALUES (${data.email}, ${data.password_hash}, ${data.company_name}, ${data.first_name}, ${data.last_name}, ${data.phone || null}, ${data.domain_name || null})
+    INSERT INTO clients (
+      email, 
+      password_hash, 
+      company_name, 
+      first_name, 
+      last_name, 
+      phone, 
+      domain_name,
+      service_status,
+      client_status,
+      plan
+    )
+    VALUES (
+      ${data.email}, 
+      ${data.password_hash}, 
+      ${data.company_name}, 
+      ${data.first_name}, 
+      ${data.last_name}, 
+      ${data.phone || null}, 
+      ${data.domain_name || null},
+      'Inactive',
+      'Active',
+      NULL
+    )
     RETURNING *
   `;
   return result.rows[0];

@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS clients (
   phone VARCHAR(50),
   domain_name VARCHAR(255),
   plan VARCHAR(100) DEFAULT NULL,
-  service_status VARCHAR(50) DEFAULT 'Active',
+  service_status VARCHAR(50) DEFAULT 'Inactive',
   maintenance_fee_frequency VARCHAR(50) DEFAULT 'Monthly',
   next_invoice_due DATE,
   client_status VARCHAR(50) DEFAULT 'Active',
@@ -32,6 +32,12 @@ ADD COLUMN IF NOT EXISTS maintenance_fee_frequency VARCHAR(50) DEFAULT 'Monthly'
 
 ALTER TABLE clients
 ALTER COLUMN plan DROP DEFAULT;
+
+ALTER TABLE clients
+ALTER COLUMN service_status SET DEFAULT 'Inactive';
+
+ALTER TABLE clients
+ALTER COLUMN client_status SET DEFAULT 'Active';
 
 -- Migration: add first_name / last_name for existing databases that still have contact_name.
 ALTER TABLE clients
