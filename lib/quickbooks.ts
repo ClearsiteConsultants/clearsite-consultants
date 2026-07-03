@@ -514,15 +514,17 @@ export async function createQuickBooksInvoice(realmId: string, data: {
   description: string;
   itemId?: string;
   email?: string;
+  termName?: string;
 }) {
   const defaultItemId = data.itemId || process.env.QUICKBOOKS_DEFAULT_ITEM_ID;
   if (!defaultItemId) {
     throw new Error("QUICKBOOKS_DEFAULT_ITEM_ID is required to create invoices in QuickBooks");
   }
 
-  const net30Term = await findQuickBooksTermByName(realmId, "Net 30");
-  if (!net30Term) {
-    throw new Error('QuickBooks term "Net 30" is required to create invoices in QuickBooks');
+  const termNameToUse = data.termName || "Net 30";
+  const term = await findQuickBooksTermByName(realmId, termNameToUse);
+  if (!term) {
+    throw new Error(`QuickBooks term "${termNameToUse}" is required to create invoices in QuickBooks`);
   }
 
   const payload = {
@@ -530,7 +532,7 @@ export async function createQuickBooksInvoice(realmId: string, data: {
     ...(data.invoiceNumber ? { DocNumber: data.invoiceNumber } : { AutoDocNumber: true }),
     ...(data.invoiceDate ? { TxnDate: data.invoiceDate } : {}),
     DueDate: data.dueDate,
-    SalesTermRef: { value: net30Term.Id, name: net30Term.Name },
+    SalesTermRef: { value: term.Id, name: term.Name },
     BillEmail: data.email ? { Address: data.email } : undefined,
     EmailStatus: "NeedToSend",
     PrivateNote: data.description,
@@ -558,6 +560,52 @@ export async function createQuickBooksInvoice(realmId: string, data: {
   }
 
   return await getQuickBooksInvoice(realmId, createdInvoiceId);
+}
+
+export async function updateQuickBooksInvoiceLineItem(realmId: string, data: {
+  qboInvoiceId: string;
+  itemId: string;
+  amountDue: number;
+  description: string;
+}) {
+  const currentInvoice = await getQuickBooksInvoice(realmId, data.qboInvoiceId);
+  if (!currentInvoice) {
+    throw new Error(`QuickBooks invoice ${data.qboInvoiceId} not found`);
+  }
+
+  const syncToken = currentInvoice.SyncToken;
+  const oldLine = Array.isArray(currentInvoice.Line) ? (currentInvoice.Line as Record<string, unknown>[]) : [];
+  
+  const updatedLine = oldLine.map((line: Record<string, unknown>) => {
+    if (line.DetailType === "SalesItemLineDetail") {
+      const salesItemLineDetail = (line.SalesItemLineDetail as Record<string, unknown>) || {};
+      return {
+        ...line,
+        Amount: data.amountDue,
+        Description: data.description,
+        SalesItemLineDetail: {
+          ...salesItemLineDetail,
+          ItemRef: { value: data.itemId }
+        }
+      };
+    }
+    return line;
+  });
+
+  const payload = {
+    ...currentInvoice,
+    sparse: true,
+    SyncToken: syncToken,
+    Line: updatedLine,
+  };
+
+  const result = await quickBooksApiRequest<{ Invoice: Record<string, unknown> }>({
+    method: "POST",
+    path: `/v3/company/${realmId}/invoice?minorversion=75`,
+    body: payload,
+  });
+
+  return result.Invoice;
 }
 
 export async function sendQuickBooksInvoiceEmail(realmId: string, qboInvoiceId: string, emailAddr?: string) {

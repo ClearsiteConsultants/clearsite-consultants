@@ -17,6 +17,7 @@ interface Client {
   service_status: string;
   maintenance_fee_frequency: string | null;
   next_invoice_due: string | null;
+  service_start_date: string | null;
   billing_address_line1: string | null;
   billing_city: string | null;
   billing_state: string | null;
@@ -169,7 +170,7 @@ export default function Portal() {
         </div>
 
         {/* Account Info */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Current Plan</h3>
             <div className="flex flex-col">
@@ -194,6 +195,11 @@ export default function Portal() {
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Next Invoice Due</h3>
             <p className="text-2xl font-bold text-gray-900">{formatDate(client?.next_invoice_due)}</p>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Service Started</h3>
+            <p className="text-2xl font-bold text-gray-900">{formatDate(client?.service_start_date)}</p>
           </div>
         </div>
 

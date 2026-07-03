@@ -33,7 +33,7 @@ function toWebsiteUri(value?: string | null) {
   return `https://${value}`;
 }
 
-async function ensureQuickBooksCustomer(clientId: string) {
+export async function ensureQuickBooksCustomer(clientId: string) {
   const client = await getClientQuickBooksProfile(clientId);
   if (!client) {
     throw new Error("Client not found");

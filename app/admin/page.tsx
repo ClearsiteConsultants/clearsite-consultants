@@ -24,6 +24,7 @@ interface ClientUser {
   client_status: string;
   maintenance_fee_frequency: string;
   next_invoice_due: string | null;
+  service_start_date: string | null;
   first_name: string;
   last_name: string;
   phone?: string;
@@ -36,6 +37,7 @@ interface EditingClient {
   service_status: string;
   client_status: string;
   maintenance_fee_frequency: string;
+  service_start_date: string | null;
 }
 
 interface ActionNeededIssue {
@@ -124,6 +126,7 @@ export default function AdminDashboard() {
       service_status: client.service_status,
       client_status: client.client_status || "Active",
       maintenance_fee_frequency: client.maintenance_fee_frequency || "Monthly",
+      service_start_date: client.service_start_date ? client.service_start_date.slice(0, 10) : null,
     });
     setShowEditModal(true);
   };
@@ -317,13 +320,14 @@ export default function AdminDashboard() {
                     <th className="px-6 py-3 text-left text-sm font-semibold">Plan</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Service Status</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Next Invoice Due</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold">Service Start Date</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {clients.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                      <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
                         No clients found
                       </td>
                     </tr>
@@ -372,6 +376,7 @@ export default function AdminDashboard() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm">{formatCalendarDate(client.next_invoice_due)}</td>
+                        <td className="px-6 py-4 text-sm">{formatCalendarDate(client.service_start_date)}</td>
                         <td className="px-6 py-4">
                           <Button
                             variant="outline"
@@ -521,6 +526,21 @@ export default function AdminDashboard() {
                 >
                   Cancel Plan
                 </button>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Service Start Date</label>
+                <input
+                  type="date"
+                  value={editingClient.service_start_date || ""}
+                  onChange={(e) =>
+                    setEditingClient({ ...editingClient, service_start_date: e.target.value || null })
+                  }
+                  className="w-full px-3 py-2 border rounded-md"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Store date standard: YYYY-MM-DD. Auto-assigned when status becomes Active.
+                </p>
               </div>
 
             </div>

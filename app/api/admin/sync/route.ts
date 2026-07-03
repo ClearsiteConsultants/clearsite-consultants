@@ -4,6 +4,7 @@ import { getAllClients, getQuickBooksConnection, sql } from "@/lib/db";
 import { persistApiError } from "@/lib/error-logger";
 import { getQuickBooksCustomers, getQuickBooksItems, isQuickBooksReconnectRequiredError } from "@/lib/quickbooks";
 import { syncClientInvoicesFromQuickBooks } from "@/lib/quickbooks-sync";
+import { processAllMaintenanceInvoices } from "@/lib/maintenance-invoicing";
 
 type SyncErrorSummary = {
   scope: "invoices" | "items" | "customers" | "developer-logs";
@@ -95,6 +96,16 @@ export async function POST() {
       errors.push({
         scope: "customers",
         message: error instanceof Error ? error.message : "Failed to refresh QuickBooks customers",
+      });
+    }
+
+    try {
+      await processAllMaintenanceInvoices();
+    } catch (error) {
+      console.error("Maintenance invoicing failed:", error);
+      errors.push({
+        scope: "invoices",
+        message: error instanceof Error ? error.message : "Maintenance invoicing failed",
       });
     }
 
