@@ -205,7 +205,7 @@ export async function createClient(data: {
       ${data.last_name}, 
       ${data.phone || null}, 
       ${data.domain_name || null},
-      'Inactive',
+      NULL,
       'Active',
       NULL
     )

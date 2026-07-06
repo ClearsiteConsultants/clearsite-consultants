@@ -31,7 +31,7 @@ async function run() {
         phone VARCHAR(50),
         domain_name VARCHAR(255),
         plan VARCHAR(100) DEFAULT NULL,
-        service_status VARCHAR(50) DEFAULT 'Inactive',
+        service_status VARCHAR(50) DEFAULT NULL,
         maintenance_fee_frequency VARCHAR(50) DEFAULT 'Monthly',
         next_invoice_due DATE,
         client_status VARCHAR(50) DEFAULT 'Active',
@@ -62,7 +62,7 @@ async function run() {
 
     await tx`
       ALTER TABLE clients
-      ALTER COLUMN service_status SET DEFAULT 'Inactive'
+      ALTER COLUMN service_status SET DEFAULT NULL
     `;
 
     await tx`

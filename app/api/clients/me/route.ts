@@ -93,11 +93,11 @@ async function ensureClientProfileColumns() {
   `;
   await sql`
     ALTER TABLE clients
-    ADD COLUMN IF NOT EXISTS service_status VARCHAR(50) DEFAULT 'Inactive'
+    ADD COLUMN IF NOT EXISTS service_status VARCHAR(50) DEFAULT NULL
   `;
   await sql`
     ALTER TABLE clients
-    ALTER COLUMN service_status SET DEFAULT 'Inactive'
+    ALTER COLUMN service_status SET DEFAULT NULL
   `;
   await sql`
     ALTER TABLE clients

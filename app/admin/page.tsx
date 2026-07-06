@@ -20,7 +20,7 @@ interface ClientUser {
   email: string;
   company_name: string;
   plan: string | null;
-  service_status: string;
+  service_status: string | null;
   client_status: string;
   maintenance_fee_frequency: string;
   next_invoice_due: string | null;
@@ -34,7 +34,7 @@ interface ClientUser {
 interface EditingClient {
   id: string;
   plan: string | null;
-  service_status: string;
+  service_status: string | null;
   client_status: string;
   maintenance_fee_frequency: string;
   service_start_date: string | null;
@@ -361,19 +361,25 @@ export default function AdminDashboard() {
                             {client.client_status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-sm">{client.plan || "—"}</td>
+                        <td className={`px-6 py-4 text-sm ${!client.plan ? "text-center" : ""}`}>
+                          {client.plan || "—"}
+                        </td>
                         <td className="px-6 py-4">
-                          <span
-                            className={`px-3 py-1 text-sm rounded-full ${
-                              client.service_status === "Active"
-                                ? "bg-green-100 text-green-800"
-                                : client.service_status === "Paused"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : "bg-red-100 text-red-800"
-                            }`}
-                          >
-                            {client.service_status}
-                          </span>
+                          {client.service_status ? (
+                            <span
+                              className={`px-3 py-1 text-sm rounded-full ${
+                                client.service_status === "Active"
+                                  ? "bg-green-100 text-green-800"
+                                  : client.service_status === "Paused"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}
+                            >
+                              {client.service_status}
+                            </span>
+                          ) : (
+                            <div className="text-sm text-center">—</div>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-sm">{formatCalendarDate(client.next_invoice_due)}</td>
                         <td className="px-6 py-4 text-sm">{formatCalendarDate(client.service_start_date)}</td>
@@ -479,7 +485,7 @@ export default function AdminDashboard() {
                   }
                   className="w-full px-3 py-2 border rounded-md"
                 >
-                  <option value="">Not enrolled</option>
+                  <option value="">Not Enrolled</option>
                   <option value="Starter">Starter</option>
                   <option value="Feature-Rich">Feature-Rich</option>
                 </select>
@@ -502,12 +508,13 @@ export default function AdminDashboard() {
               <div>
                 <label className="block text-sm font-medium mb-1">Service Status</label>
                 <select
-                  value={editingClient.service_status}
+                  value={editingClient.service_status || ""}
                   onChange={(e) =>
-                    setEditingClient({ ...editingClient, service_status: e.target.value })
+                    setEditingClient({ ...editingClient, service_status: e.target.value || null })
                   }
                   className="w-full px-3 py-2 border rounded-md"
                 >
+                  <option value="">Not Enrolled</option>
                   <option value="Active">Active</option>
                   <option value="Paused">Paused</option>
                   <option value="Canceled">Canceled</option>
@@ -539,7 +546,7 @@ export default function AdminDashboard() {
                   className="w-full px-3 py-2 border rounded-md"
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  Store date standard: YYYY-MM-DD. Auto-assigned when status becomes Active.
+                  Store date standard: YYYY-MM-DD. Auto-assigned when Service Status becomes Active.
                 </p>
               </div>
 
