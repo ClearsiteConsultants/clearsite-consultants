@@ -509,10 +509,16 @@ export default function AdminDashboard() {
                 <label className="block text-sm font-medium mb-1">Service Status</label>
                 <select
                   value={editingClient.service_status || ""}
-                  onChange={(e) =>
-                    setEditingClient({ ...editingClient, service_status: e.target.value || null })
-                  }
-                  className="w-full px-3 py-2 border rounded-md"
+                  onChange={(e) => {
+                    const newStatus = e.target.value || null;
+                    const updates: Partial<EditingClient> = { service_status: newStatus };
+                    if (newStatus === "Active" && !editingClient.service_start_date) {
+                      updates.service_start_date = new Date().toISOString().slice(0, 10);
+                    }
+                    setEditingClient({ ...editingClient, ...updates });
+                  }}
+                  disabled={editingClient.client_status !== "Active" || !editingClient.plan}
+                  className="w-full px-3 py-2 border rounded-md disabled:bg-gray-100 disabled:cursor-not-allowed"
                 >
                   <option value="">Not Enrolled</option>
                   <option value="Active">Active</option>
@@ -529,7 +535,8 @@ export default function AdminDashboard() {
                       setEditingClient({ ...editingClient, plan: null });
                     }
                   }}
-                  className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+                  disabled={editingClient.client_status !== "Active" || !editingClient.plan}
+                  className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel Plan
                 </button>

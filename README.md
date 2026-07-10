@@ -56,7 +56,7 @@ The system automates recurring maintenance fee invoice generation, ensuring stri
 
 ### Invoice Timing, Dates and Posting Schedule
 1. **Initial Charge**: The first maintenance fee, whether monthly or yearly, is paid manually out-of-band by the client beforehand.
-2. **First Automated Invoice**: Posted as soon as `service_start_date` becomes active.
+2. **First Automated Invoice**: Posted as soon as `service_status` becomes active and sets `service_start_date`.
 3. **Monthly Frequency**:
    - The first automated invoice is dated on `service_start_date` with `due_date` being the 15th of the following month (Net 15 terms).
    - Subsequent invoices are dated on the 16th of each month, due on the 15th of the subsequent month (e.g., posted August 16th, due September 15th).
