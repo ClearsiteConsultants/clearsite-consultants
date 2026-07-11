@@ -146,8 +146,12 @@ export async function generateMaintenanceInvoicesForClient(clientId: string): Pr
   }
 
   const todayStr = new Date().toISOString().slice(0, 10);
+  const startDateStr = client.service_start_date instanceof Date 
+    ? formatISODate(client.service_start_date)
+    : String(client.service_start_date).slice(0, 10);
+
   const candidates = getCandidateMaintenanceInvoices(
-    String(client.service_start_date).slice(0, 10),
+    startDateStr,
     client.plan,
     client.maintenance_fee_frequency,
     todayStr

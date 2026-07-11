@@ -98,7 +98,7 @@ export async function PUT(req: NextRequest) {
     const hasMaintenanceFeeFrequency = Object.prototype.hasOwnProperty.call(body, "maintenance_fee_frequency");
     const hasServiceStartDate = Object.prototype.hasOwnProperty.call(body, "service_start_date");
     const normalizedPlan = typeof plan === "string" ? plan.trim() : plan;
-    const normalizedServiceStatus = typeof service_status === "string" ? (service_status.trim() || null) : service_status;
+    const normalizedServiceStatus = typeof service_status === "string" ? service_status.trim() : service_status;
     const normalizedClientStatus = typeof client_status === "string" ? client_status.trim() : client_status;
     const normalizedFrequency = typeof maintenance_fee_frequency === "string" ? maintenance_fee_frequency.trim() : maintenance_fee_frequency;
     const normalizedServiceStartDate = typeof service_start_date === "string" ? service_start_date.trim() : service_start_date;
