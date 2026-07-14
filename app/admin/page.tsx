@@ -513,7 +513,11 @@ export default function AdminDashboard() {
                     const newStatus = e.target.value || null;
                     const updates: Partial<EditingClient> = { service_status: newStatus };
                     if (newStatus === "Active" && !editingClient.service_start_date) {
-                      updates.service_start_date = new Date().toISOString().slice(0, 10);
+                      const d = new Date();
+                      const year = d.getFullYear();
+                      const month = String(d.getMonth() + 1).padStart(2, "0");
+                      const day = String(d.getDate()).padStart(2, "0");
+                      updates.service_start_date = `${year}-${month}-${day}`;
                     }
                     setEditingClient({ ...editingClient, ...updates });
                   }}

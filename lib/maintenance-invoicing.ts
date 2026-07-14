@@ -65,6 +65,9 @@ export function getCandidateMaintenanceInvoices(
 ): { invoiceDate: string; dueDate: string }[] {
   const start = parseISODate(startDateStr);
   const todayUTC = parseISODate(todayStr);
+  const tomorrowUTC = new Date(todayUTC);
+  tomorrowUTC.setUTCDate(tomorrowUTC.getUTCDate() + 1);
+
   const candidates: { invoiceDate: string; dueDate: string }[] = [];
 
   if (frequency === "Monthly") {
@@ -82,7 +85,7 @@ export function getCandidateMaintenanceInvoices(
       }
       
       const postDate = parseISODate(postDateStr);
-      if (postDate > todayUTC) {
+      if (postDate > tomorrowUTC) {
         break;
       }
 
@@ -106,8 +109,7 @@ export function getCandidateMaintenanceInvoices(
       const postDateOfK = new Date(Date.UTC(dueYear, dueMonth - 2, 16));
       const postDateStr = formatISODate(postDateOfK);
       const postDate = parseISODate(postDateStr);
-      
-      if (postDate > todayUTC) {
+      if (postDate > tomorrowUTC) {
         break;
       }
 
