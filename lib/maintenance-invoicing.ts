@@ -252,7 +252,7 @@ export async function updateUnpaidMaintenanceInvoices(
   finalFrequency: string
 ): Promise<void> {
   const clientResult = await sql`
-    SELECT id, plan, maintenance_fee_frequency
+    SELECT id, plan, maintenance_fee_frequency, email
     FROM clients
     WHERE id = ${clientId}
   `;
@@ -307,6 +307,14 @@ export async function updateUnpaidMaintenanceInvoices(
             last_synced_at = NOW()
         WHERE id = ${inv.id}
       `;
+
+      if (client.email) {
+        try {
+          await sendQuickBooksInvoiceEmail(connection.realm_id, inv.qbo_invoice_id, client.email);
+        } catch (emailError) {
+          console.error(`Failed to resend updated QBO invoice ${inv.qbo_invoice_id} to ${client.email}:`, emailError);
+        }
+      }
     } catch (error) {
       if (isQuickBooksReconnectRequiredError(error)) {
         throw error;

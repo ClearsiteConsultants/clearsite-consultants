@@ -5,13 +5,15 @@ const {
   getQuickBooksConnectionMock, 
   createQuickBooksInvoiceMock, 
   ensureQuickBooksCustomerMock,
-  updateQuickBooksInvoiceLineItemMock
+  updateQuickBooksInvoiceLineItemMock,
+  sendQuickBooksInvoiceEmailMock
 } = vi.hoisted(() => ({
   sqlMock: vi.fn(),
   getQuickBooksConnectionMock: vi.fn(),
   createQuickBooksInvoiceMock: vi.fn(),
   ensureQuickBooksCustomerMock: vi.fn(),
   updateQuickBooksInvoiceLineItemMock: vi.fn(),
+  sendQuickBooksInvoiceEmailMock: vi.fn().mockResolvedValue({}),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -36,7 +38,7 @@ vi.mock("@/lib/quickbooks", () => ({
     qboDocNumber: "123",
     qboSyncStatus: "Sent",
   }),
-  sendQuickBooksInvoiceEmail: vi.fn().mockResolvedValue({}),
+  sendQuickBooksInvoiceEmail: sendQuickBooksInvoiceEmailMock,
 }));
 
 vi.mock("@/lib/quickbooks-sync", () => ({
@@ -105,7 +107,7 @@ describe("Maintenance Invoicing Integration Tests", () => {
       const query = strings.join("");
       if (query.includes("FROM clients")) {
         return Promise.resolve({
-          rows: [{ id: "client-1", plan: "Starter", maintenance_fee_frequency: "Yearly" }],
+          rows: [{ id: "client-1", email: "test@client.com", plan: "Starter", maintenance_fee_frequency: "Yearly" }],
         });
       }
       if (query.includes("FROM invoices")) {
@@ -122,10 +124,11 @@ describe("Maintenance Invoicing Integration Tests", () => {
 
     getQuickBooksConnectionMock.mockResolvedValue({ realm_id: "123" });
 
-    // Starter/Yearly -> Pro/Monthly is a change
-    await updateUnpaidMaintenanceInvoices("client-1", "Pro", "Monthly");
+    // Starter/Yearly -> Feature-Rich/Monthly is a change
+    await updateUnpaidMaintenanceInvoices("client-1", "Feature-Rich", "Monthly");
 
     expect(sqlMock).toHaveBeenCalled();
+    expect(sendQuickBooksInvoiceEmailMock).toHaveBeenCalledWith("123", "QBO-OLD", "test@client.com");
   });
 
   it("Manual Test (Sync): processes all active clients", async () => {
