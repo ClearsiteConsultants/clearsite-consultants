@@ -260,19 +260,6 @@ export async function POST(req: NextRequest) {
       // { key: "billing_country", label: "country" },
     ];
 
-    const missingBillingFields = requiredBillingFields
-      .filter(({ key }) => !String(selectedClient[key] ?? "").trim())
-      .map(({ label }) => label);
-
-    if (missingBillingFields.length > 0) {
-      return NextResponse.json(
-        {
-          error: `Billing address is incomplete. Missing required fields: ${missingBillingFields.join(", ")}.`,
-        },
-        { status: 400 }
-      );
-    }
-
     const overLimitFields = requiredBillingFields
       .filter(({ key }) => {
         if (key === "billing_state") return false;

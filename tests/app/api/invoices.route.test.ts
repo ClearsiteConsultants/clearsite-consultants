@@ -193,7 +193,7 @@ describe("/api/invoices reconnect-required responses", () => {
     expect(persistApiErrorMock).toHaveBeenCalled();
   });
 
-  it("blocks invoice creation when required billing address fields are missing", async () => {
+  it("allows invoice creation when required billing address fields are missing", async () => {
     getClientBillingAddressMock.mockResolvedValue({
       id: "1",
       billing_address_line1: null,
@@ -203,12 +203,14 @@ describe("/api/invoices reconnect-required responses", () => {
       billing_country: "US",
     });
 
+    createInvoiceMock.mockResolvedValue({ id: "inv-2", client_id: "1" });
+
     const req = new NextRequest("http://localhost:3000/api/invoices", {
       method: "POST",
       body: JSON.stringify({
         client_id: "1",
         invoice_total: 100,
-        due_date: "2026-07-01",
+        due_date: futureDueDate(),
       }),
       headers: { "content-type": "application/json" },
     });
@@ -216,9 +218,9 @@ describe("/api/invoices reconnect-required responses", () => {
     const res = await POST(req);
     const payload = await res.json();
 
-    expect(res.status).toBe(400);
-    expect(payload.error).toContain("Billing address is incomplete");
-    expect(createInvoiceMock).not.toHaveBeenCalled();
+    expect(res.status).toBe(201);
+    expect(payload.id).toBe("inv-2");
+    expect(createInvoiceMock).toHaveBeenCalled();
   });
 
   it("blocks invoice creation when billing address fields exceed limits", async () => {
