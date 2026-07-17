@@ -205,7 +205,7 @@ export async function createClient(data: {
       ${data.last_name}, 
       ${data.phone || null}, 
       ${data.domain_name || null},
-      'Inactive',
+      NULL,
       'Active',
       NULL
     )
@@ -937,6 +937,7 @@ export async function updateClientAccountInfo(
       plan,
       service_status,
       next_invoice_due,
+      service_start_date,
       qbo_customer_id,
       billing_address_line1,
       billing_address_line2,
@@ -980,6 +981,7 @@ export async function updateClientBillingAddress(
       plan,
       service_status,
       next_invoice_due,
+      service_start_date,
       qbo_customer_id,
       billing_address_line1,
       billing_address_line2,

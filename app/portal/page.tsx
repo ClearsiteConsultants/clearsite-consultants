@@ -14,9 +14,10 @@ interface Client {
   company_name: string;
   domain_name: string;
   plan: string | null;
-  service_status: string;
+  service_status: string | null;
   maintenance_fee_frequency: string | null;
   next_invoice_due: string | null;
+  service_start_date: string | null;
   billing_address_line1: string | null;
   billing_city: string | null;
   billing_state: string | null;
@@ -169,11 +170,11 @@ export default function Portal() {
         </div>
 
         {/* Account Info */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Current Plan</h3>
             <div className="flex flex-col">
-              <p className="text-2xl font-bold text-gray-900">{client?.plan || "Not enrolled"}</p>
+              <p className="text-2xl font-bold text-gray-900">{client?.plan || "Not Enrolled"}</p>
               {client?.plan && client?.maintenance_fee_frequency && (
                 <p className="text-sm font-medium text-gray-500 mt-1">
                   {getMaintenanceFee(client.plan, client.maintenance_fee_frequency)
@@ -186,14 +187,23 @@ export default function Portal() {
 
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Service Status</h3>
-            <p className={`text-2xl font-bold ${client?.service_status === "Active" ? "text-emerald-600" : "text-red-600"}`}>
-              {client?.service_status || "N/A"}
+            <p className={`text-2xl font-bold ${
+              client?.service_status === "Active" 
+                ? "text-emerald-600" 
+                : "text-gray-400"
+            }`}>
+              {client?.service_status === "Active" ? "Active" : "Inactive"}
             </p>
           </div>
 
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Next Invoice Due</h3>
             <p className="text-2xl font-bold text-gray-900">{formatDate(client?.next_invoice_due)}</p>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Service Started</h3>
+            <p className="text-2xl font-bold text-gray-900">{formatDate(client?.service_start_date)}</p>
           </div>
         </div>
 

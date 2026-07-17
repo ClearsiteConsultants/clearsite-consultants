@@ -13,10 +13,11 @@ CREATE TABLE IF NOT EXISTS clients (
   phone VARCHAR(50),
   domain_name VARCHAR(255),
   plan VARCHAR(100) DEFAULT NULL,
-  service_status VARCHAR(50) DEFAULT 'Inactive',
+  service_status VARCHAR(50) DEFAULT NULL,
   maintenance_fee_frequency VARCHAR(50) DEFAULT 'Monthly',
   next_invoice_due DATE,
   client_status VARCHAR(50) DEFAULT 'Active',
+  service_start_date DATE DEFAULT NULL,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -31,10 +32,13 @@ ALTER TABLE clients
 ADD COLUMN IF NOT EXISTS maintenance_fee_frequency VARCHAR(50) DEFAULT 'Monthly';
 
 ALTER TABLE clients
+ADD COLUMN IF NOT EXISTS service_start_date DATE DEFAULT NULL;
+
+ALTER TABLE clients
 ALTER COLUMN plan DROP DEFAULT;
 
 ALTER TABLE clients
-ALTER COLUMN service_status SET DEFAULT 'Inactive';
+ALTER COLUMN service_status SET DEFAULT NULL;
 
 ALTER TABLE clients
 ALTER COLUMN client_status SET DEFAULT 'Active';

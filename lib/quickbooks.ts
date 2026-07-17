@@ -5,6 +5,7 @@ import {
   upsertQuickBooksConnection,
   QuickBooksConnectionRow,
 } from "@/lib/db";
+import { persistApiError } from "@/lib/error-logger";
 
 type QuickBooksTokenResponse = {
   access_token: string;
@@ -29,8 +30,10 @@ type CachedEndpoints = {
 // Alias the DB row type so internal callers have a stable name.
 type QuickBooksConnection = QuickBooksConnectionRow;
 
-// Module-level cache for discovery document endpoints
+// Module-level caches
 let cachedEndpoints: CachedEndpoints | null = null;
+const termCache: Record<string, { Id: string; Name: string }> = {};
+
 const DISCOVERY_CACHE_TTL_MS = (parseInt(process.env.DISCOVERY_CACHE_TTL_MINUTES || "30", 10) * 60 * 1000);
 
 export type QuickBooksReconnectReason = "missing_connection" | "invalid_grant" | "api_unauthorized";
@@ -49,7 +52,30 @@ export class QuickBooksReconnectRequiredError extends Error {
 }
 
 export function isQuickBooksReconnectRequiredError(error: unknown): error is QuickBooksReconnectRequiredError {
-  return error instanceof QuickBooksReconnectRequiredError;
+  if (error instanceof QuickBooksReconnectRequiredError) {
+    return true;
+  }
+  if (error && typeof error === "object") {
+    const errorRecord = error as Record<string, unknown>;
+    if ("reconnectRequired" in errorRecord && errorRecord.reconnectRequired === true) {
+      return true;
+    }
+    if ("name" in errorRecord && errorRecord.name === "QuickBooksReconnectRequiredError") {
+      return true;
+    }
+    if (error instanceof Error) {
+      const msg = error.message.toLowerCase();
+      if (
+        msg.includes("reconnect") ||
+        msg.includes("token exchange failed") ||
+        msg.includes("authorization is no longer valid") ||
+        msg.includes("api_unauthorized")
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -361,6 +387,12 @@ async function throwQuickBooksApiError(connection: QuickBooksConnection, respons
       reasonCode
     );
   }
+  
+  // Log the specific fault for debugging
+  if (payloadRecord?.Fault) {
+    console.error("[QuickBooks API Error Detail]:", JSON.stringify(payloadRecord.Fault, null, 2));
+  }
+  
   throw new Error("QuickBooks API request failed");
 }
 
@@ -446,6 +478,10 @@ function escapeQuickBooksQueryValue(value: string) {
   return String(value).replace(/'/g, "''");
 }
 
+function slugifyTermName(name: string) {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 export async function findQuickBooksCustomerByDisplayName(realmId: string, displayName: string) {
   const query = `select * from Customer where DisplayName = '${escapeQuickBooksQueryValue(displayName)}' maxresults 1`;
   const connection = await getFreshQuickBooksConnection();
@@ -513,16 +549,34 @@ export async function createQuickBooksInvoice(realmId: string, data: {
   dueDate: string;
   description: string;
   itemId?: string;
+  itemName?: string;
   email?: string;
-}) {
-  const defaultItemId = data.itemId || process.env.QUICKBOOKS_DEFAULT_ITEM_ID;
-  if (!defaultItemId) {
-    throw new Error("QUICKBOOKS_DEFAULT_ITEM_ID is required to create invoices in QuickBooks");
+  termName?: string;
+}, isRetry = false): Promise<Record<string, unknown>> {
+  let finalItemId = data.itemId;
+  
+  if (data.itemName) {
+    const resolvedItem = await findQuickBooksItemByName(realmId, data.itemName);
+    if (resolvedItem) {
+      finalItemId = resolvedItem.Id;
+    }
   }
 
-  const net30Term = await findQuickBooksTermByName(realmId, "Net 30");
-  if (!net30Term) {
-    throw new Error('QuickBooks term "Net 30" is required to create invoices in QuickBooks');
+  const defaultItemId = finalItemId || process.env.QUICKBOOKS_DEFAULT_ITEM_ID;
+  if (!defaultItemId) {
+    throw new Error("QuickBooks Item ID or Name is required to create invoices");
+  }
+
+  const termNameToUse = data.termName || "Net 15";
+  let term = await findQuickBooksTermByName(realmId, termNameToUse);
+  
+  // Fallback to "Due on receipt" if Net 15 is missing
+  if (!term && termNameToUse !== "Due on receipt") {
+    term = await findQuickBooksTermByName(realmId, "Due on receipt");
+  }
+
+  if (!term) {
+    throw new Error(`QuickBooks terms "${termNameToUse}" and "Due on receipt" are both missing. Cannot create invoice.`);
   }
 
   const payload = {
@@ -530,7 +584,7 @@ export async function createQuickBooksInvoice(realmId: string, data: {
     ...(data.invoiceNumber ? { DocNumber: data.invoiceNumber } : { AutoDocNumber: true }),
     ...(data.invoiceDate ? { TxnDate: data.invoiceDate } : {}),
     DueDate: data.dueDate,
-    SalesTermRef: { value: net30Term.Id, name: net30Term.Name },
+    SalesTermRef: { value: term.Id, name: term.Name },
     BillEmail: data.email ? { Address: data.email } : undefined,
     EmailStatus: "NeedToSend",
     PrivateNote: data.description,
@@ -541,23 +595,98 @@ export async function createQuickBooksInvoice(realmId: string, data: {
         Description: data.description,
         SalesItemLineDetail: {
           ItemRef: { value: defaultItemId },
+          Qty: 1,
+          UnitPrice: data.amountDue,
         },
       },
     ],
   };
 
+  try {
+    const result = await quickBooksApiRequest<{ Invoice: Record<string, unknown> }>({
+      method: "POST",
+      path: `/v3/company/${realmId}/invoice?include=allowonlinelink&minorversion=75`,
+      body: payload,
+    });
+
+    const createdInvoiceId = typeof result.Invoice?.Id === "string" ? result.Invoice.Id : null;
+    if (!createdInvoiceId) {
+      return result.Invoice || {};
+    }
+
+    return (await getQuickBooksInvoice(realmId, createdInvoiceId)) || {};
+  } catch (error) {
+    // Handle Duplicate Document Number (6000)
+    const isDuplicate = error instanceof Error && error.message.includes("6000");
+    if (isDuplicate && !isRetry) {
+      console.warn(`[QuickBooks] Duplicate DocNumber detected for customer ${data.customerId}. Retrying with unique number.`);
+      return await createQuickBooksInvoice(realmId, {
+        ...data,
+        invoiceNumber: `M-${Date.now()}`,
+      }, true);
+    }
+    throw error;
+  }
+}
+
+export async function updateQuickBooksInvoiceLineItem(realmId: string, data: {
+  qboInvoiceId: string;
+  itemId?: string;
+  itemName?: string;
+  amountDue: number;
+  description: string;
+}) {
+  let finalItemId = data.itemId;
+  if (data.itemName) {
+    const resolvedItem = await findQuickBooksItemByName(realmId, data.itemName);
+    if (resolvedItem) {
+      finalItemId = resolvedItem.Id;
+    }
+  }
+
+  if (!finalItemId) {
+    throw new Error("QuickBooks Item ID or Name is required to update invoice line item");
+  }
+
+  const currentInvoice = await getQuickBooksInvoice(realmId, data.qboInvoiceId);
+  if (!currentInvoice) {
+    throw new Error(`QuickBooks invoice ${data.qboInvoiceId} not found`);
+  }
+
+  const oldLine = Array.isArray(currentInvoice.Line) ? (currentInvoice.Line as Record<string, unknown>[]) : [];
+  
+  const updatedLine = oldLine.map((line: Record<string, unknown>) => {
+    if (line.DetailType === "SalesItemLineDetail") {
+      const salesItemLineDetail = (line.SalesItemLineDetail as Record<string, unknown>) || {};
+      return {
+        ...line,
+        Amount: data.amountDue,
+        Description: data.description,
+        SalesItemLineDetail: {
+          ...salesItemLineDetail,
+          ItemRef: { value: finalItemId },
+          Qty: 1,
+          UnitPrice: data.amountDue,
+        }
+      };
+    }
+    return line;
+  });
+
+  const payload = {
+    ...currentInvoice,
+    sparse: true,
+    SyncToken: currentInvoice.SyncToken,
+    Line: updatedLine,
+  };
+
   const result = await quickBooksApiRequest<{ Invoice: Record<string, unknown> }>({
     method: "POST",
-    path: `/v3/company/${realmId}/invoice?include=allowonlinelink&minorversion=75`,
+    path: `/v3/company/${realmId}/invoice?minorversion=75`,
     body: payload,
   });
 
-  const createdInvoiceId = typeof result.Invoice?.Id === "string" ? result.Invoice.Id : null;
-  if (!createdInvoiceId) {
-    return result.Invoice;
-  }
-
-  return await getQuickBooksInvoice(realmId, createdInvoiceId);
+  return result.Invoice;
 }
 
 export async function sendQuickBooksInvoiceEmail(realmId: string, qboInvoiceId: string, emailAddr?: string) {
@@ -723,7 +852,12 @@ export async function getQuickBooksItems(realmId: string): Promise<QuickBooksIte
 }
 
 async function findQuickBooksTermByName(realmId: string, termName: string): Promise<{ Id: string; Name: string } | null> {
-  const query = `SELECT Id, Name FROM Term WHERE Name = '${escapeQuickBooksQueryValue(termName)}' MAXRESULTS 5`;
+  const cacheKey = `${realmId}:${slugifyTermName(termName)}`;
+  if (termCache[cacheKey]) {
+    return termCache[cacheKey];
+  }
+
+  const query = "SELECT Id, Name FROM Term MAXRESULTS 100";
   const connection = await getFreshQuickBooksConnection();
   const url = `${getApiBaseUrl()}/v3/company/${realmId}/query?query=${encodeURIComponent(query)}&minorversion=75`;
   const response = await fetch(url, {
@@ -733,19 +867,43 @@ async function findQuickBooksTermByName(realmId: string, termName: string): Prom
       Accept: "application/json",
     },
   });
-  const result = await parseJsonResponse(response) as { QueryResponse?: { Term?: Array<Record<string, unknown>> } };
+  const result = (await parseJsonResponse(response)) as {
+    QueryResponse?: { Term?: Array<Record<string, unknown>> };
+  };
   if (!response.ok) {
     await throwQuickBooksApiError(connection, response, result);
   }
+
   const terms = result.QueryResponse?.Term || [];
-  const match = terms.find((term) => String(term.Name || "") === termName);
+  const targetSlug = slugifyTermName(termName);
+  const match = terms.find((term) => slugifyTermName(String(term.Name || "")) === targetSlug);
+
   if (!match?.Id) {
     return null;
   }
-  return {
+
+  const termData = {
     Id: String(match.Id),
     Name: String(match.Name || termName),
   };
+  termCache[cacheKey] = termData;
+  return termData;
+}
+
+export async function findQuickBooksItemByName(realmId: string, itemName: string): Promise<QuickBooksItem | null> {
+  const items = await getQuickBooksItems(realmId);
+  const match = items.find((i) => i.Name === itemName);
+  if (!match) {
+    await persistApiError({
+      route: "lib/quickbooks",
+      method: "findItem",
+      statusCode: 404,
+      error: `QuickBooks product/service name mismatch: "${itemName}" not found in QBO. This will break automated maintenance invoices.`,
+      metadata: { itemName, realmId },
+    });
+    return null;
+  }
+  return match;
 }
 
 export async function findQuickBooksInvoiceByDocNumber(

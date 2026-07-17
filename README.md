@@ -45,6 +45,41 @@ Clients see the QuickBooks-generated doc number, **Invoice Date**, **Due Date**,
 - For unpaid invoices where `qbo_payment_url` is missing, Pay Now is disabled and the portal shows a Contact Support call-to-action with a deep link that prefills contact context.
 - Admin users are blocked from downloading client invoice PDFs from this endpoint and are instructed to use QuickBooks Online directly.
 
+## Automated Maintenance Invoicing
+
+The system automates recurring maintenance fee invoice generation, ensuring strict validation and synchronization with QuickBooks Online.
+
+### Core Architecture & Validation Rules
+- **Status Validation**: Selecting a plan automatically sets the client's service status to `"Active"`. Removing a plan sets the service status to `"Inactive"`. Service Status is strictly binary ("Active" or "Inactive").
+- **Service Start Date**: When a plan is assigned for the first time (transitioning from no plan), `service_start_date` is initialized to today's local date. Changing between active plans does not alter the historical start date, and deactivating a plan preserves this date for historical reference.
+- **Terms Mapping**: Automated maintenance fee invoices are created with **Net 15** payment terms (distinct from standard "Net 30" manual invoices). If Net 15 is missing in QuickBooks, the system safely falls back to "Due on receipt".
+
+### Invoice Timing, Dates and Posting Schedule
+1. **Initial Charge**: The first maintenance fee, whether monthly or yearly, is paid manually out-of-band by the client beforehand.
+2. **First Automated Invoice**: Posted as soon as `service_status` becomes active and sets `service_start_date`.
+3. **Monthly Frequency**:
+   - The first automated invoice is dated on `service_start_date` with `due_date` being the 15th of the following month (Net 15 terms).
+   - Subsequent invoices are dated on the 16th of each month, due on the 15th of the subsequent month (e.g., posted August 16th, due September 15th).
+4. **Yearly Frequency**:
+   - First year of maintenance is manual.
+   - Subsequent invoice is dated 10 months after `service_start_date` (on the 16th) and due in month 12 (on the 15th) — giving clients exactly 2 extra months to review the larger amount. (e.g. `service_start_date = 2026-07-03`, next posted on `2027-05-16`, due `2027-07-15`).
+
+### Plan and Frequency Adjustments
+- **Monthly - Plan Changes**: Changing plan from Starter to Feature-Rich immediately updates any unpaid maintenance invoices in QuickBooks and local DB to the new plan service details.
+- **Monthly to Yearly Changes**: Changes next posted invoice to the yearly equivalent service and updates any unpaid maintenance invoices to the new annual service details.
+- **Yearly to Monthly Changes**: Does not take effect until the current year they already paid for is completed and their next maintenance renewal date is reached.
+
+### QuickBooks Name-Based Item Mapping
+
+| Plan | Frequency | QuickBooks Service/Product Name | Fallback Amount |
+|---|---|---|---|
+| Starter | Monthly | `Maintenance Fee - Starter Plan (Monthly)` | $10.00 |
+| Starter | Yearly | `Maintenance Fee - Starter Plan (Yearly)` | $100.00 |
+| Feature-Rich | Monthly | `Maintenance Fee - Feature-Rich Plan (Monthly)` | $20.00 |
+| Feature-Rich | Yearly | `Maintenance Fee - Feature-Rich Plan (Yearly)` | $200.00 |
+
+*Note: The system resolves pricing dynamically by looking up the Unit Price defined inside QuickBooks for these item names, utilizing the fallback amount only if the item cannot be resolved or is set to $0.00.*
+
 ## Getting Started
 
 ### 1. Install dependencies

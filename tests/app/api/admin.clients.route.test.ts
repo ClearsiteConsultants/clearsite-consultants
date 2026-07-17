@@ -33,6 +33,18 @@ describe("/api/admin/clients", () => {
     expect(payload.client.plan).toBeNull();
   });
 
+  it("returns 400 when setting service_status to an invalid value", async () => {
+    const response = await PUT(new NextRequest("http://localhost:3000/api/admin/clients", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: "1", service_status: "Paused" }),
+    }));
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload.error).toContain("Only 'Active' or 'Inactive' are allowed");
+  });
+
   it("returns action_needed for clients missing payment links on unpaid invoices", async () => {
     sqlMock.mockResolvedValue({
       rows: [
