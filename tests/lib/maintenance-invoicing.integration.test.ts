@@ -27,6 +27,7 @@ vi.mock("@/lib/quickbooks", () => ({
   updateQuickBooksInvoiceLineItem: updateQuickBooksInvoiceLineItemMock,
   resolveItemAmount: vi.fn().mockImplementation((_, __, amount) => Promise.resolve(amount)),
   getQuickBooksItems: vi.fn().mockResolvedValue([]),
+  findQuickBooksItemByName: vi.fn().mockResolvedValue({ Id: "4", Name: "Mock Product", UnitPrice: 100 }),
   extractQuickBooksInvoiceState: vi.fn().mockReturnValue({
     invoiceTotal: 100,
     invoiceDate: "2026-07-16",

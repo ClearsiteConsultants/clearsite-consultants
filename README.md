@@ -50,8 +50,8 @@ Clients see the QuickBooks-generated doc number, **Invoice Date**, **Due Date**,
 The system automates recurring maintenance fee invoice generation, ensuring strict validation and synchronization with QuickBooks Online.
 
 ### Core Architecture & Validation Rules
-- **Status Validation**: Setting `service_status = "Active"` is blocked unless `client_status` is `"Active"`, `plan` is a valid value (either `"Starter"` or `"Feature-Rich"`), and `maintenance_fee_frequency` is not null.
-- **Service Start Date**: When `service_status` becomes `"Active"`, the database records the UTC date as `service_start_date` standard format. Both client and admin screens adapt display strings using their local display timezones.
+- **Status Validation**: Setting `service_status = "Active"` is blocked unless `client_status` is `"Active"`, `plan` is a valid value (either `"Starter"` or `"Feature-Rich"`), and `maintenance_fee_frequency` is not null. Setting a plan automatically transitions the service status to `Active`. Removing a plan transitions it to `Inactive`. Manual adjustments via the dropdown are disabled.
+- **Service Start Date**: When `service_status` becomes `"Active"`, the database records the date as `service_start_date` standard format. If transitioning from no plan to a plan, the start date is set to today's date.
 - **Terms Mapping**: Automated maintenance fee invoices are created with **Net 15** payment terms (distinct from standard "Net 30" manual invoices), bypassing net-30 terms calculations.
 
 ### Invoice Timing, Dates and Posting Schedule
@@ -65,18 +65,20 @@ The system automates recurring maintenance fee invoice generation, ensuring stri
    - Subsequent invoice is dated 10 months after `service_start_date` (on the 16th) and due in month 12 (on the 15th) — giving clients exactly 2 extra months to review the larger amount. (e.g. `service_start_date = 2026-07-03`, next posted on `2027-05-16`, due `2027-07-15`).
 
 ### Plan and Frequency Adjustments
-- **Monthly - Plan Changes**: Changing plan from Starter to Feature-Rich immediately updates any unpaid maintenance invoices in QuickBooks and local DB to item ID `4`.
-- **Monthly to Yearly Changes**: Changes next posted invoice to item ID `10` ($200) and updates any unpaid maintenance invoices to the new annual itemId.
+- **Monthly - Plan Changes**: Changing plan from Starter to Feature-Rich immediately updates any unpaid maintenance invoices in QuickBooks and local DB to the new plan service details.
+- **Monthly to Yearly Changes**: Changes next posted invoice to the yearly equivalent service and updates any unpaid maintenance invoices to the new annual service details.
 - **Yearly to Monthly Changes**: Does not take effect until the current year they already paid for is completed and their next maintenance renewal date is reached.
 
-### QuickBooks Item Mapping
+### QuickBooks Name-Based Item Mapping
 
-| Plan | Frequency | QuickBooks Item ID | Amount |
+| Plan | Frequency | QuickBooks Service/Product Name | Fallback Amount |
 |---|---|---|---|
-| Starter | Monthly | `5` | $10.00 |
-| Starter | Yearly | `9` | $100.00 |
-| Feature-Rich | Monthly | `4` | $20.00 |
-| Feature-Rich | Yearly | `10` | $200.00 |
+| Starter | Monthly | `Maintenance Fee - Starter Plan (Monthly)` | $10.00 |
+| Starter | Yearly | `Maintenance Fee - Starter Plan (Yearly)` | $100.00 |
+| Feature-Rich | Monthly | `Maintenance Fee - Feature-Rich Plan (Monthly)` | $20.00 |
+| Feature-Rich | Yearly | `Maintenance Fee - Feature-Rich Plan (Yearly)` | $200.00 |
+
+*Note: The system resolves pricing dynamically by looking up the Unit Price defined inside QuickBooks for these item names, utilizing the fallback amount only if the item cannot be resolved or is set to $0.00.*
 
 ## Getting Started
 
