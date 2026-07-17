@@ -10,9 +10,11 @@ import {
   extractQuickBooksInvoiceState,
   sendQuickBooksInvoiceEmail,
   getQuickBooksItems,
-  findQuickBooksItemByName
+  findQuickBooksItemByName,
+  isQuickBooksReconnectRequiredError
 } from "@/lib/quickbooks";
 import { ensureQuickBooksCustomer } from "@/lib/quickbooks-sync";
+import { persistApiError } from "@/lib/error-logger";
 
 function parseISODate(dateStr: string): Date {
   const [year, month, day] = dateStr.split("-").map(Number);
@@ -54,6 +56,9 @@ export async function resolveItemAmount(realmId: string, itemName: string, fallb
       return item.UnitPrice;
     }
   } catch (error) {
+    if (isQuickBooksReconnectRequiredError(error)) {
+      throw error;
+    }
     console.error(`Failed to resolve dynamic rate for QBO Item "${itemName}", using fallback ${fallbackAmount}:`, error);
   }
   
@@ -304,7 +309,22 @@ export async function updateUnpaidMaintenanceInvoices(
         WHERE id = ${inv.id}
       `;
     } catch (error) {
+      if (isQuickBooksReconnectRequiredError(error)) {
+        throw error;
+      }
       console.error(`Failed to update unpaid QBO invoice ${inv.qbo_invoice_id}:`, error);
+      await persistApiError({
+        route: "lib/maintenance-invoicing",
+        method: "updateUnpaid",
+        statusCode: 500,
+        error: error instanceof Error ? error.message : String(error),
+        metadata: {
+          clientId,
+          qboInvoiceId: inv.qbo_invoice_id,
+          itemName: details.itemName,
+          dynamicAmount,
+        },
+      });
     }
   }
 

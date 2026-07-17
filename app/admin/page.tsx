@@ -143,13 +143,24 @@ export default function AdminDashboard() {
         body: JSON.stringify(editingClient),
       });
 
+      const payload = await res.json().catch(() => null);
+
       if (res.ok) {
         setMessage({ type: "success", text: "Client updated successfully" });
         setShowEditModal(false);
         loadClients();
       } else {
-        const error = await res.json();
-        setMessage({ type: "error", text: error.error || "Failed to update client" });
+        if (payload?.reconnectRequired) {
+          setMessage({ 
+            type: "error", 
+            text: "Your QuickBooks session has expired. Redirecting you to reconnect..." 
+          });
+          setTimeout(() => {
+            router.push(QUICKBOOKS_CONNECT_PATH);
+          }, 1500);
+          return;
+        }
+        setMessage({ type: "error", text: payload?.error || "Failed to update client" });
       }
     } catch (error) {
       console.error("Failed to save client", error);

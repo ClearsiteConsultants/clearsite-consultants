@@ -873,7 +873,7 @@ export async function findQuickBooksItemByName(realmId: string, itemName: string
   if (!match) {
     await persistApiError({
       route: "lib/quickbooks",
-      method: "findQuickBooksItemByName",
+      method: "findItem",
       statusCode: 404,
       error: `QuickBooks product/service name mismatch: "${itemName}" not found in QBO. This will break automated maintenance invoices.`,
       metadata: { itemName, realmId },

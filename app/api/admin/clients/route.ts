@@ -6,6 +6,7 @@ import {
   generateMaintenanceInvoicesForClient, 
   updateUnpaidMaintenanceInvoices 
 } from "@/lib/maintenance-invoicing";
+import { isQuickBooksReconnectRequiredError } from "@/lib/quickbooks";
 
 // GET all client users (for admin)
 // PUT update client details (plan, service_status, next_invoice_due)
@@ -175,12 +176,18 @@ export async function PUT(req: NextRequest) {
         await generateMaintenanceInvoicesForClient(String(id));
       } catch (error) {
         console.error("Failed to trigger initial maintenance fee:", error);
+        if (isQuickBooksReconnectRequiredError(error)) {
+          throw error;
+        }
       }
     } else if (planChanged && finalServiceStatus === "Active") {
       try {
         await updateUnpaidMaintenanceInvoices(String(id), finalPlan, finalFrequency);
       } catch (error) {
         console.error("Failed to update unpaid maintenance fees:", error);
+        if (isQuickBooksReconnectRequiredError(error)) {
+          throw error;
+        }
       }
     }
 
@@ -221,9 +228,17 @@ export async function PUT(req: NextRequest) {
     await persistApiError({
       route: "/api/admin/clients",
       method: "PUT",
-      statusCode: 500,
+      statusCode: isQuickBooksReconnectRequiredError(error) ? 503 : 500,
       error,
     });
+    
+    if (isQuickBooksReconnectRequiredError(error)) {
+      return NextResponse.json(
+        { error: "QuickBooks reconnect required", reconnectRequired: true },
+        { status: 503 }
+      );
+    }
+    
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
