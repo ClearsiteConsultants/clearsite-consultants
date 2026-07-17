@@ -190,13 +190,9 @@ export default function Portal() {
             <p className={`text-2xl font-bold ${
               client?.service_status === "Active" 
                 ? "text-emerald-600" 
-                : client?.service_status === "Paused"
-                ? "text-amber-600"
-                : client?.service_status === "Canceled"
-                ? "text-red-600"
                 : "text-gray-400"
             }`}>
-              {client?.service_status || "Not Enrolled"}
+              {client?.service_status === "Active" ? "Active" : "Inactive"}
             </p>
           </div>
 

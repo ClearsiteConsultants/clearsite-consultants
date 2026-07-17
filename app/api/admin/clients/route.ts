@@ -125,6 +125,13 @@ export async function PUT(req: NextRequest) {
     const finalFrequency = hasMaintenanceFeeFrequency ? normalizedFrequency : currentClient.maintenance_fee_frequency;
     const finalServiceStatus = hasServiceStatus ? normalizedServiceStatus : currentClient.service_status;
 
+    if (hasServiceStatus && normalizedServiceStatus && normalizedServiceStatus !== "Active" && normalizedServiceStatus !== "Inactive") {
+      return NextResponse.json(
+        { error: "Only 'Active' or 'Inactive' are allowed as values for service_status" },
+        { status: 400 }
+      );
+    }
+
     if (hasServiceStatus && normalizedServiceStatus === "Active" && currentClient.service_status !== "Active") {
       if (finalClientStatus !== "Active") {
         return NextResponse.json({ error: "Cannot set service to Active when client status is Inactive" }, { status: 400 });

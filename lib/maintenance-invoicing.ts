@@ -9,7 +9,6 @@ import {
   updateQuickBooksInvoiceLineItem,
   extractQuickBooksInvoiceState,
   sendQuickBooksInvoiceEmail,
-  getQuickBooksItems,
   findQuickBooksItemByName,
   isQuickBooksReconnectRequiredError
 } from "@/lib/quickbooks";

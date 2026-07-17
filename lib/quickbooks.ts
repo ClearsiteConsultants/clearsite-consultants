@@ -52,7 +52,30 @@ export class QuickBooksReconnectRequiredError extends Error {
 }
 
 export function isQuickBooksReconnectRequiredError(error: unknown): error is QuickBooksReconnectRequiredError {
-  return error instanceof QuickBooksReconnectRequiredError;
+  if (error instanceof QuickBooksReconnectRequiredError) {
+    return true;
+  }
+  if (error && typeof error === "object") {
+    const errorRecord = error as Record<string, unknown>;
+    if ("reconnectRequired" in errorRecord && errorRecord.reconnectRequired === true) {
+      return true;
+    }
+    if ("name" in errorRecord && errorRecord.name === "QuickBooksReconnectRequiredError") {
+      return true;
+    }
+    if (error instanceof Error) {
+      const msg = error.message.toLowerCase();
+      if (
+        msg.includes("reconnect") ||
+        msg.includes("token exchange failed") ||
+        msg.includes("authorization is no longer valid") ||
+        msg.includes("api_unauthorized")
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

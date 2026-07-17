@@ -50,9 +50,9 @@ Clients see the QuickBooks-generated doc number, **Invoice Date**, **Due Date**,
 The system automates recurring maintenance fee invoice generation, ensuring strict validation and synchronization with QuickBooks Online.
 
 ### Core Architecture & Validation Rules
-- **Status Validation**: Setting `service_status = "Active"` is blocked unless `client_status` is `"Active"`, `plan` is a valid value (either `"Starter"` or `"Feature-Rich"`), and `maintenance_fee_frequency` is not null. Setting a plan automatically transitions the service status to `Active`. Removing a plan transitions it to `Inactive`. Manual adjustments via the dropdown are disabled.
-- **Service Start Date**: When `service_status` becomes `"Active"`, the database records the date as `service_start_date` standard format. If transitioning from no plan to a plan, the start date is set to today's date.
-- **Terms Mapping**: Automated maintenance fee invoices are created with **Net 15** payment terms (distinct from standard "Net 30" manual invoices), bypassing net-30 terms calculations.
+- **Status Validation**: Selecting a plan automatically sets the client's service status to `"Active"`. Removing a plan sets the service status to `"Inactive"`. Service Status is strictly binary ("Active" or "Inactive").
+- **Service Start Date**: When a plan is assigned for the first time (transitioning from no plan), `service_start_date` is initialized to today's local date. Changing between active plans does not alter the historical start date, and deactivating a plan preserves this date for historical reference.
+- **Terms Mapping**: Automated maintenance fee invoices are created with **Net 15** payment terms (distinct from standard "Net 30" manual invoices). If Net 15 is missing in QuickBooks, the system safely falls back to "Due on receipt".
 
 ### Invoice Timing, Dates and Posting Schedule
 1. **Initial Charge**: The first maintenance fee, whether monthly or yearly, is paid manually out-of-band by the client beforehand.
