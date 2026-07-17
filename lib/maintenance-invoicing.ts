@@ -9,7 +9,8 @@ import {
   updateQuickBooksInvoiceLineItem,
   extractQuickBooksInvoiceState,
   sendQuickBooksInvoiceEmail,
-  getQuickBooksItems
+  getQuickBooksItems,
+  findQuickBooksItemByName
 } from "@/lib/quickbooks";
 import { ensureQuickBooksCustomer } from "@/lib/quickbooks-sync";
 
@@ -28,32 +29,35 @@ function formatISODate(date: Date): string {
 export function getMaintenanceFeeDetails(plan: string | null, frequency: string | null) {
   if (plan === "Starter") {
     if (frequency === "Monthly") {
-      return { itemId: "5", amount: 10, description: "Maintenance Fee - Starter Plan (Monthly)" };
+      return { itemName: "Maintenance Fee - Starter Plan (Monthly)", amount: 10, description: "Maintenance Fee - Starter Plan (Monthly)" };
     }
     if (frequency === "Yearly") {
-      return { itemId: "9", amount: 100, description: "Maintenance Fee - Starter Plan (Yearly)" };
+      return { itemName: "Maintenance Fee - Starter Plan (Yearly)", amount: 100, description: "Maintenance Fee - Starter Plan (Yearly)" };
     }
   } else if (plan === "Feature-Rich") {
     if (frequency === "Monthly") {
-      return { itemId: "4", amount: 20, description: "Maintenance Fee - Feature-Rich Plan (Monthly)" };
+      return { itemName: "Maintenance Fee - Feature-Rich Plan (Monthly)", amount: 20, description: "Maintenance Fee - Feature-Rich Plan (Monthly)" };
     }
     if (frequency === "Yearly") {
-      return { itemId: "10", amount: 200, description: "Maintenance Fee - Feature-Rich Plan (Yearly)" };
+      return { itemName: "Maintenance Fee - Feature-Rich Plan (Yearly)", amount: 200, description: "Maintenance Fee - Feature-Rich Plan (Yearly)" };
     }
   }
   return null;
 }
 
-export async function resolveItemAmount(realmId: string, itemId: string, fallbackAmount: number): Promise<number> {
+export async function resolveItemAmount(realmId: string, itemName: string, fallbackAmount: number): Promise<number> {
   try {
-    const items = await getQuickBooksItems(realmId);
-    const item = items.find((i) => String(i.Id) === String(itemId));
-    if (item && typeof item.UnitPrice === "number") {
+    const item = await findQuickBooksItemByName(realmId, itemName);
+    
+    // If the item exists in QBO and has a price > 0, prioritize the QBO price.
+    if (item && typeof item.UnitPrice === "number" && item.UnitPrice > 0) {
       return item.UnitPrice;
     }
   } catch (error) {
-    console.error(`Failed to resolve dynamic rate for QBO Item ${itemId}, using fallback ${fallbackAmount}:`, error);
+    console.error(`Failed to resolve dynamic rate for QBO Item "${itemName}", using fallback ${fallbackAmount}:`, error);
   }
+  
+  // Use the hardcoded value ONLY as a fallback if the QBO item is missing or has a 0 price.
   return fallbackAmount;
 }
 
@@ -85,8 +89,16 @@ export function getCandidateMaintenanceInvoices(
       }
       
       const postDate = parseISODate(postDateStr);
+      
+      // "Same-Day Activation" Buffer.
+      // Allow a 2-day "drift window" to account for 
+      // UTC rollover between user's local time and server time.
+      const diffInDays = (postDate.getTime() - todayUTC.getTime()) / (1000 * 60 * 60 * 24);
+
       if (postDate > tomorrowUTC) {
-        break;
+        if (diffInDays > 2) {
+          break;
+        }
       }
 
       candidates.push({
@@ -182,7 +194,7 @@ export async function generateMaintenanceInvoicesForClient(clientId: string): Pr
     const details = getMaintenanceFeeDetails(client.plan, client.maintenance_fee_frequency);
     if (!details) continue;
 
-    const dynamicAmount = await resolveItemAmount(connection.realm_id, details.itemId, details.amount);
+    const dynamicAmount = await resolveItemAmount(connection.realm_id, details.itemName, details.amount);
 
     const qboInvoice = await createQuickBooksInvoice(connection.realm_id, {
       customerId,
@@ -190,7 +202,7 @@ export async function generateMaintenanceInvoicesForClient(clientId: string): Pr
       invoiceDate: candidate.invoiceDate,
       dueDate: candidate.dueDate,
       description: details.description,
-      itemId: details.itemId,
+      itemName: details.itemName,
       email: client.email || undefined,
       termName: "Net 15",
     });
@@ -273,13 +285,13 @@ export async function updateUnpaidMaintenanceInvoices(
     return;
   }
 
-  const dynamicAmount = await resolveItemAmount(connection.realm_id, details.itemId, details.amount);
+  const dynamicAmount = await resolveItemAmount(connection.realm_id, details.itemName, details.amount);
 
   for (const inv of unpaidMaintenance) {
     try {
       await updateQuickBooksInvoiceLineItem(connection.realm_id, {
         qboInvoiceId: inv.qbo_invoice_id,
-        itemId: details.itemId,
+        itemName: details.itemName,
         amountDue: dynamicAmount,
         description: details.description,
       });

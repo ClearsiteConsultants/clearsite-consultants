@@ -81,6 +81,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [editingClient, setEditingClient] = useState<EditingClient | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showActionNeededModal, setShowActionNeededModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [actionNeededClientName, setActionNeededClientName] = useState("");
@@ -365,20 +366,14 @@ export default function AdminDashboard() {
                           {client.plan || "—"}
                         </td>
                         <td className="px-6 py-4">
-                          {client.service_status ? (
-                            <span
-                              className={`px-3 py-1 text-sm rounded-full ${
-                                client.service_status === "Active"
-                                  ? "bg-green-100 text-green-800"
-                                  : client.service_status === "Paused"
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-red-100 text-red-800"
-                              }`}
-                            >
-                              {client.service_status}
+                          {client.service_status === "Active" ? (
+                            <span className="px-3 py-1 text-sm rounded-full bg-green-100 text-green-800">
+                              Active
                             </span>
                           ) : (
-                            <div className="text-sm text-center">—</div>
+                            <span className="px-3 py-1 text-sm rounded-full bg-gray-100 text-gray-800">
+                              Inactive
+                            </span>
                           )}
                         </td>
                         <td className="px-6 py-4 text-sm">{formatCalendarDate(client.next_invoice_due)}</td>
@@ -480,9 +475,25 @@ export default function AdminDashboard() {
                 <label className="block text-sm font-medium mb-1">Plan</label>
                 <select
                   value={editingClient.plan || ""}
-                  onChange={(e) =>
-                    setEditingClient({ ...editingClient, plan: e.target.value || null })
-                  }
+                  onChange={(e) => {
+                    const newPlan = e.target.value || null;
+                    const updates: Partial<EditingClient> = { plan: newPlan };
+                    
+                    if (newPlan) {
+                      updates.service_status = "Active";
+                      // Update service_start_date only when activating (i.e. moving from no plan to a plan)
+                      if (!editingClient.plan) {
+                        const d = new Date();
+                        const year = d.getFullYear();
+                        const month = String(d.getMonth() + 1).padStart(2, "0");
+                        const day = String(d.getDate()).padStart(2, "0");
+                        updates.service_start_date = `${year}-${month}-${day}`;
+                      }
+                    } else {
+                      updates.service_status = "Inactive";
+                    }
+                    setEditingClient({ ...editingClient, ...updates });
+                  }}
                   className="w-full px-3 py-2 border rounded-md"
                 >
                   <option value="">Not Enrolled</option>
@@ -507,43 +518,23 @@ export default function AdminDashboard() {
 
               <div>
                 <label className="block text-sm font-medium mb-1">Service Status</label>
-                <select
-                  value={editingClient.service_status || ""}
-                  onChange={(e) => {
-                    const newStatus = e.target.value || null;
-                    const updates: Partial<EditingClient> = { service_status: newStatus };
-                    if (newStatus === "Active" && !editingClient.service_start_date) {
-                      const d = new Date();
-                      const year = d.getFullYear();
-                      const month = String(d.getMonth() + 1).padStart(2, "0");
-                      const day = String(d.getDate()).padStart(2, "0");
-                      updates.service_start_date = `${year}-${month}-${day}`;
-                    }
-                    setEditingClient({ ...editingClient, ...updates });
-                  }}
-                  disabled={editingClient.client_status !== "Active" || !editingClient.plan}
-                  className="w-full px-3 py-2 border rounded-md disabled:bg-gray-100 disabled:cursor-not-allowed"
-                >
-                  <option value="">Not Enrolled</option>
-                  <option value="Active">Active</option>
-                  <option value="Paused">Paused</option>
-                  <option value="Canceled">Canceled</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const confirmed = window.confirm(
-                      "Canceling this plan will remove the client from an active plan. Are you sure you want to proceed?"
-                    );
-                    if (confirmed) {
-                      setEditingClient({ ...editingClient, plan: null });
-                    }
-                  }}
-                  disabled={editingClient.client_status !== "Active" || !editingClient.plan}
-                  className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Cancel Plan
-                </button>
+                <div className="px-3 py-2 border rounded-md bg-gray-50 text-sm">
+                  {editingClient.service_status === "Active" ? (
+                    <span className="text-green-700 font-medium">Active</span>
+                  ) : (
+                    <span className="text-gray-600 font-medium">Inactive</span>
+                  )}
+                </div>
+                {editingClient.plan && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCancelConfirm(true)}
+                    disabled={editingClient.client_status !== "Active"}
+                    className="mt-3 w-full rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Deactivate Plan
+                  </button>
+                )}
               </div>
 
               <div>
@@ -573,6 +564,45 @@ export default function AdminDashboard() {
               </Button>
               <Button onClick={handleSaveClient} disabled={saving}>
                 {saving ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {showCancelConfirm && editingClient && (
+        <div className="fixed inset-0 bg-gray-500/40 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+          <div className="bg-white rounded-lg max-w-sm w-full shadow-lg border" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b">
+              <h3 className="text-lg font-semibold text-gray-900">Confirm Deactivation</h3>
+            </div>
+            <div className="px-6 py-4">
+              <p className="text-sm text-gray-600">
+                Deactivating this plan will remove the client from their active billing schedule. Are you sure you want to proceed?
+              </p>
+            </div>
+            <div className="px-6 py-4 border-t bg-gray-50 flex justify-end space-x-3 rounded-b-lg">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCancelConfirm(false)}
+              >
+                No, Keep
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  setEditingClient({ 
+                    ...editingClient, 
+                    plan: null,
+                    service_status: "Inactive" 
+                  });
+                  setShowCancelConfirm(false);
+                }}
+              >
+                Yes, Deactivate
               </Button>
             </div>
           </div>
