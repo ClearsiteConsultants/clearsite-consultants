@@ -117,13 +117,6 @@ export default function Portal() {
     loadClient();
   }, [status, userType]);
 
-  const hasBillingAddress = Boolean(
-    client?.billing_address_line1?.trim() &&
-      client?.billing_city?.trim() &&
-      client?.billing_state?.trim() &&
-      client?.billing_postal_code?.trim()
-  );
-
   const firstMissingPaymentUrlInvoice = invoices.find((invoice) => {
     const status = (invoice.qbo_sync_status || "pending").toLowerCase();
     const isUnpaid = status !== "paid";
@@ -240,15 +233,6 @@ export default function Portal() {
               </div>
             )}
           </div>
-          {!hasBillingAddress && (
-            <p className="mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
-              Billing address required to receive services. Go to{" "}
-              <a href="/account-settings" className="font-semibold underline">
-                account settings
-              </a>{" "}
-              to add one.
-            </p>
-          )}
           {invoices.length === 0 ? (
             <p className="text-gray-600">No invoices yet.</p>
           ) : (
