@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Edit2, Settings, Upload, Bug, RefreshCw } from "lucide-react";
+import { Edit2, Settings, Upload, Bug, RefreshCw, ReceiptText } from "lucide-react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -390,15 +390,26 @@ export default function AdminDashboard() {
                         <td className="px-6 py-4 text-sm">{formatCalendarDate(client.next_invoice_due)}</td>
                         <td className="px-6 py-4 text-sm">{formatCalendarDate(client.service_start_date)}</td>
                         <td className="px-6 py-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEditClient(client)}
-                            className="flex items-center gap-2"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                            Edit
-                          </Button>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => router.push(`/admin/clients/${client.id}/billing`)}
+                              className="flex items-center gap-2"
+                            >
+                              <ReceiptText className="h-4 w-4" />
+                              View Billing
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditClient(client)}
+                              className="flex items-center gap-2"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                              Edit
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))
