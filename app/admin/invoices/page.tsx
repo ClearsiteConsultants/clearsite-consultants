@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { CheckCircle2, Link2, PlusCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Link2, PlusCircle } from "lucide-react";
 import Header from "@/components/Header";
 import {
   currencyDigitsToNumber,
@@ -478,6 +478,14 @@ export default function AdminInvoices() {
     <div className="min-h-screen bg-tech">
       <Header />
       <div className="max-w-3xl mx-auto px-6 py-12">
+        <button
+          type="button"
+          onClick={() => router.push("/admin")}
+          className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Admin Home
+        </button>
         <h1 className="font-display text-5xl text-gray-900 mb-8">Create Client Invoice</h1>
 
         {/* QuickBooks Connection Status */}
