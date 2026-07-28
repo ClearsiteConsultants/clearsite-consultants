@@ -14,6 +14,7 @@ const {
   createQuickBooksInvoiceMock,
   findQuickBooksCustomerByDisplayNameMock,
   getQuickBooksInvoiceMock,
+  getQuickBooksInvoicesByCustomerMock,
   getQuickBooksInvoicePdfMock,
   sendQuickBooksInvoiceEmailMock,
   extractQuickBooksInvoiceStateMock,
@@ -34,6 +35,7 @@ const {
   createQuickBooksInvoiceMock: vi.fn(),
   findQuickBooksCustomerByDisplayNameMock: vi.fn(),
   getQuickBooksInvoiceMock: vi.fn(),
+  getQuickBooksInvoicesByCustomerMock: vi.fn(),
   getQuickBooksInvoicePdfMock: vi.fn(),
   sendQuickBooksInvoiceEmailMock: vi.fn(),
   extractQuickBooksInvoiceStateMock: vi.fn(),
@@ -58,6 +60,7 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/quickbooks", () => ({
   getQuickBooksInvoice: getQuickBooksInvoiceMock,
+  getQuickBooksInvoicesByCustomer: getQuickBooksInvoicesByCustomerMock,
   extractQuickBooksInvoiceState: extractQuickBooksInvoiceStateMock,
   createQuickBooksCustomer: createQuickBooksCustomerMock,
   createQuickBooksInvoice: createQuickBooksInvoiceMock,
@@ -72,6 +75,8 @@ import { linkInvoiceByDocNumber, syncClientInvoicesFromQuickBooks, syncInvoiceBy
 describe("lib/quickbooks-sync", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getClientQuickBooksProfileMock.mockResolvedValue(null);
+    getQuickBooksInvoicesByCustomerMock.mockResolvedValue([]);
   });
 
   it("returns zero counts when no QuickBooks connection exists", async () => {
@@ -100,6 +105,55 @@ describe("lib/quickbooks-sync", () => {
     updateInvoiceStatusByQuickBooksInvoiceIdMock.mockResolvedValue({});
 
     await expect(syncClientInvoicesFromQuickBooks("client-1")).resolves.toEqual({ synced: 1, failed: 1 });
+  });
+
+  it("discovers and imports a paid QuickBooks invoice missing from the portal", async () => {
+    getQuickBooksConnectionMock.mockResolvedValue({ realm_id: "123" });
+    getClientQuickBooksProfileMock.mockResolvedValue({
+      id: "client-1",
+      qbo_customer_id: "10",
+    });
+    getClientQboInvoiceIdsMock.mockResolvedValue(["101"]);
+    getQuickBooksInvoicesByCustomerMock.mockResolvedValue([
+      {
+        Id: "95",
+        DocNumber: "1005",
+        TxnDate: "2026-06-09",
+        DueDate: "2026-07-09",
+        TotalAmt: 760,
+        Balance: 0,
+      },
+    ]);
+    extractQuickBooksInvoiceStateMock.mockImplementation((invoice: Record<string, unknown>) => ({
+      qboInvoiceId: String(invoice.Id),
+      qboDocNumber: String(invoice.DocNumber),
+      qboSyncStatus: "paid",
+      amountPaid: 760,
+      paidAt: "2026-06-09T12:00:00.000Z",
+      paymentUrl: null,
+      invoiceDate: "2026-06-09",
+      invoiceTotal: 760,
+    }));
+    getInvoiceByQuickBooksInvoiceIdMock.mockResolvedValue(null);
+    createInvoiceMock.mockResolvedValue({ id: "invoice-1005" });
+    getQuickBooksInvoiceMock.mockResolvedValue({ Id: "101", TotalAmt: 10, Balance: 10 });
+    updateInvoiceStatusByQuickBooksInvoiceIdMock.mockResolvedValue({});
+
+    await expect(syncClientInvoicesFromQuickBooks("client-1")).resolves.toEqual({ synced: 2, failed: 0 });
+
+    expect(getQuickBooksInvoicesByCustomerMock).toHaveBeenCalledWith("123", "10");
+    expect(createInvoiceMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        client_id: "client-1",
+        qbo_invoice_id: "95",
+        qbo_doc_number: "1005",
+        qbo_sync_status: "paid",
+        invoice_total: 760,
+        amount_paid: 760,
+        due_date: "2026-07-09",
+      })
+    );
+    expect(sendQuickBooksInvoiceEmailMock).not.toHaveBeenCalled();
   });
 
   it("uses canonical invoice_total and sends billing address when creating QBO customer", async () => {
