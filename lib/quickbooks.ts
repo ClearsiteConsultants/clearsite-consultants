@@ -493,7 +493,7 @@ export async function findQuickBooksCustomerByDisplayName(realmId: string, displ
       Accept: "application/json",
     },
   });
-  const result = await parseJsonResponse(response) as { QueryResponse?: { Customer?: Array<{ Id: string }> } };
+  const result = await parseJsonResponse(response) as { QueryResponse?: { Customer?: QuickBooksCustomerDetail[] } };
   if (!response.ok) {
     await throwQuickBooksApiError(connection, response, result);
   }

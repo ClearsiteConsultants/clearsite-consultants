@@ -34,6 +34,34 @@ function toWebsiteUri(value?: string | null) {
   return `https://${value}`;
 }
 
+function normalizeEmail(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+async function linkMatchingQuickBooksCustomer(
+  client: NonNullable<Awaited<ReturnType<typeof getClientQuickBooksProfile>>>,
+  realmId: string
+) {
+  if (client.qbo_customer_id) {
+    return String(client.qbo_customer_id);
+  }
+
+  const localEmail = normalizeEmail(client.email);
+  if (!client.company_name || !localEmail) {
+    return null;
+  }
+
+  const customer = await findQuickBooksCustomerByDisplayName(realmId, client.company_name);
+  const quickBooksEmail = normalizeEmail(customer?.PrimaryEmailAddr?.Address);
+  if (!customer?.Id || !quickBooksEmail || quickBooksEmail !== localEmail) {
+    return null;
+  }
+
+  const customerId = String(customer.Id);
+  await setClientQuickBooksCustomerId(String(client.id), customerId);
+  return customerId;
+}
+
 export async function ensureQuickBooksCustomer(clientId: string) {
   const client = await getClientQuickBooksProfile(clientId);
   if (!client) {
@@ -512,8 +540,11 @@ export async function syncClientInvoicesFromQuickBooks(clientId: string, context
   const client = await getClientQuickBooksProfile(clientId);
   const localQboInvoiceIds = await getClientQboInvoiceIds(clientId);
   const localIdSet = new Set(localQboInvoiceIds);
-  const discoveredInvoices = client?.qbo_customer_id
-    ? await getQuickBooksInvoicesByCustomer(connection.realm_id, String(client.qbo_customer_id))
+  const customerId = client
+    ? await linkMatchingQuickBooksCustomer(client, connection.realm_id)
+    : null;
+  const discoveredInvoices = customerId
+    ? await getQuickBooksInvoicesByCustomer(connection.realm_id, customerId)
     : [];
   let synced = 0;
   let failed = 0;

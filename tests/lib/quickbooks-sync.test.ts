@@ -156,6 +156,49 @@ describe("lib/quickbooks-sync", () => {
     expect(sendQuickBooksInvoiceEmailMock).not.toHaveBeenCalled();
   });
 
+  it("links an unlinked client when company name and normalized email match", async () => {
+    getQuickBooksConnectionMock.mockResolvedValue({ realm_id: "123" });
+    getClientQuickBooksProfileMock.mockResolvedValue({
+      id: "client-1",
+      company_name: "Jenny Acosta-Chef Services",
+      email: " ChefJennyAcosta@gmail.com ",
+      qbo_customer_id: null,
+    });
+    getClientQboInvoiceIdsMock.mockResolvedValue([]);
+    findQuickBooksCustomerByDisplayNameMock.mockResolvedValue({
+      Id: "qbo-jenny",
+      DisplayName: "Jenny Acosta-Chef Services",
+      PrimaryEmailAddr: { Address: "chefjennyacosta@GMAIL.COM" },
+    });
+    setClientQuickBooksCustomerIdMock.mockResolvedValue({});
+
+    await expect(syncClientInvoicesFromQuickBooks("client-1")).resolves.toEqual({ synced: 0, failed: 0 });
+
+    expect(setClientQuickBooksCustomerIdMock).toHaveBeenCalledWith("client-1", "qbo-jenny");
+    expect(getQuickBooksInvoicesByCustomerMock).toHaveBeenCalledWith("123", "qbo-jenny");
+  });
+
+  it("does not link an unlinked client when the QuickBooks email differs", async () => {
+    getQuickBooksConnectionMock.mockResolvedValue({ realm_id: "123" });
+    getClientQuickBooksProfileMock.mockResolvedValue({
+      id: "client-1",
+      company_name: "Jenny Acosta-Chef Services",
+      email: "chefjennyacosta@gmail.com",
+      qbo_customer_id: null,
+    });
+    getClientQboInvoiceIdsMock.mockResolvedValue([]);
+    findQuickBooksCustomerByDisplayNameMock.mockResolvedValue({
+      Id: "qbo-jenny",
+      DisplayName: "Jenny Acosta-Chef Services",
+      PrimaryEmailAddr: { Address: "someone-else@example.com" },
+    });
+
+    await expect(syncClientInvoicesFromQuickBooks("client-1")).resolves.toEqual({ synced: 0, failed: 0 });
+
+    expect(setClientQuickBooksCustomerIdMock).not.toHaveBeenCalled();
+    expect(getQuickBooksInvoicesByCustomerMock).not.toHaveBeenCalled();
+  });
+
   it("uses canonical invoice_total and sends billing address when creating QBO customer", async () => {
     getQuickBooksConnectionMock.mockResolvedValue({ realm_id: "123" });
     getInvoiceByIdMock.mockResolvedValue({
