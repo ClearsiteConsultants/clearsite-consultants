@@ -331,9 +331,9 @@ export async function updateClientPlan(clientId: string, newPlan: string) {
   return result.rows[0];
 }
 
-export async function cancelClientService(clientId: string) {
+export async function deactivatePlan(clientId: string) {
   const result = await sql`
-    UPDATE clients SET service_status = 'Canceled', updated_at = NOW() WHERE id = ${clientId}
+    UPDATE clients SET service_status = 'Inactive', updated_at = NOW() WHERE id = ${clientId}
     RETURNING *
   `;
   return result.rows[0];

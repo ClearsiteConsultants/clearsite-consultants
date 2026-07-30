@@ -41,7 +41,7 @@ vi.mock("@/app/api/auth/[...nextauth]/route", () => ({ auth: authMock }));
 
 vi.mock("@/lib/db", () => ({
   updateClientPlan: vi.fn(),
-  cancelClientService: vi.fn(),
+  deactivatePlan: vi.fn(),
   createInvoice: createInvoiceMock,
   getClientBillingAddress: getClientBillingAddressMock,
   getAllClients: vi.fn(),
