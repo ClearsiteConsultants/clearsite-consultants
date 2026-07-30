@@ -509,7 +509,7 @@ export async function findQuickBooksCustomerByDisplayName(realmId: string, displ
       Accept: "application/json",
     },
   });
-  const result = await parseJsonResponse(response) as { QueryResponse?: { Customer?: Array<{ Id: string }> } };
+  const result = await parseJsonResponse(response) as { QueryResponse?: { Customer?: QuickBooksCustomerDetail[] } };
   if (!response.ok) {
     await throwQuickBooksApiError(connection, response, result);
   }
@@ -955,6 +955,44 @@ export async function findQuickBooksInvoiceByDocNumber(
   }
 
   return invoices[0];
+}
+
+export async function getQuickBooksInvoicesByCustomer(
+  realmId: string,
+  customerId: string
+): Promise<Array<Record<string, unknown>>> {
+  const pageSize = 1000;
+  const invoices: Array<Record<string, unknown>> = [];
+  const safeCustomerId = escapeQuickBooksQueryValue(customerId);
+  const connection = await getFreshQuickBooksConnection();
+
+  for (let startPosition = 1; ; startPosition += pageSize) {
+    const query =
+      `SELECT * FROM Invoice WHERE CustomerRef = '${safeCustomerId}' ` +
+      `STARTPOSITION ${startPosition} MAXRESULTS ${pageSize}`;
+    const url =
+      `${getApiBaseUrl()}/v3/company/${realmId}/query?query=${encodeURIComponent(query)}` +
+      "&include=allowonlinelink&minorversion=75";
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${connection.access_token}`,
+        Accept: "application/json",
+      },
+    });
+    const result = await parseJsonResponse(response) as {
+      QueryResponse?: { Invoice?: Array<Record<string, unknown>> };
+    };
+    if (!response.ok) {
+      await throwQuickBooksApiError(connection, response, result);
+    }
+
+    const page = result.QueryResponse?.Invoice || [];
+    invoices.push(...page);
+    if (page.length < pageSize) break;
+  }
+
+  return invoices;
 }
 
 export async function getQuickBooksInvoicePdf(realmId: string, qboInvoiceId: string): Promise<{

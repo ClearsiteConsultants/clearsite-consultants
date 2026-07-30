@@ -20,6 +20,7 @@ import {
   findQuickBooksCustomerByDisplayName,
   findQuickBooksInvoiceByDocNumber,
   getQuickBooksInvoice,
+  getQuickBooksInvoicesByCustomer,
   sendQuickBooksInvoiceEmail,
   isQuickBooksNotFoundError,
 } from "@/lib/quickbooks";
@@ -33,6 +34,34 @@ function toWebsiteUri(value?: string | null) {
   if (!value) return undefined;
   if (/^https?:\/\//i.test(value)) return value;
   return `https://${value}`;
+}
+
+function normalizeEmail(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+async function linkMatchingQuickBooksCustomer(
+  client: NonNullable<Awaited<ReturnType<typeof getClientQuickBooksProfile>>>,
+  realmId: string
+) {
+  if (client.qbo_customer_id) {
+    return String(client.qbo_customer_id);
+  }
+
+  const localEmail = normalizeEmail(client.email);
+  if (!client.company_name || !localEmail) {
+    return null;
+  }
+
+  const customer = await findQuickBooksCustomerByDisplayName(realmId, client.company_name);
+  const quickBooksEmail = normalizeEmail(customer?.PrimaryEmailAddr?.Address);
+  if (!customer?.Id || !quickBooksEmail || quickBooksEmail !== localEmail) {
+    return null;
+  }
+
+  const customerId = String(customer.Id);
+  await setClientQuickBooksCustomerId(String(client.id), customerId);
+  return customerId;
 }
 
 export async function ensureQuickBooksCustomer(clientId: string) {
@@ -524,11 +553,55 @@ export async function syncClientInvoicesFromQuickBooks(clientId: string, context
     return { synced: 0, failed: 0 };
   }
 
-  const qboInvoiceIds = await getClientQboInvoiceIds(clientId);
+  const client = await getClientQuickBooksProfile(clientId);
+  const localQboInvoiceIds = await getClientQboInvoiceIds(clientId);
+  const localIdSet = new Set(localQboInvoiceIds);
+  const customerId = client
+    ? await linkMatchingQuickBooksCustomer(client, connection.realm_id)
+    : null;
+  const discoveredInvoices = customerId
+    ? await getQuickBooksInvoicesByCustomer(connection.realm_id, customerId)
+    : [];
   let synced = 0;
   let failed = 0;
 
-  for (const qboInvoiceId of qboInvoiceIds) {
+  for (const qboInvoice of discoveredInvoices) {
+    const qboState = extractQuickBooksInvoiceState(qboInvoice);
+    if (!qboState.qboInvoiceId || localIdSet.has(qboState.qboInvoiceId)) continue;
+
+    try {
+      const existingInvoice = await getInvoiceByQuickBooksInvoiceId(qboState.qboInvoiceId);
+      if (existingInvoice) {
+        localIdSet.add(qboState.qboInvoiceId);
+        continue;
+      }
+
+      const dueDate =
+        typeof qboInvoice.DueDate === "string" && qboInvoice.DueDate
+          ? qboInvoice.DueDate.slice(0, 10)
+          : qboState.invoiceDate || new Date().toISOString().slice(0, 10);
+
+      await createInvoice({
+        client_id: clientId,
+        invoice_total: qboState.invoiceTotal,
+        invoice_date: qboState.invoiceDate,
+        due_date: dueDate,
+        qbo_invoice_id: qboState.qboInvoiceId,
+        qbo_doc_number: qboState.qboDocNumber,
+        qbo_payment_url: qboState.paymentUrl,
+        qbo_sync_status: qboState.qboSyncStatus,
+        amount_paid: qboState.amountPaid,
+        paid_at: qboState.paidAt,
+        is_manual_link: true,
+      });
+      localIdSet.add(qboState.qboInvoiceId);
+      synced += 1;
+    } catch {
+      failed += 1;
+    }
+  }
+
+  for (const qboInvoiceId of localQboInvoiceIds) {
     try {
       await syncInvoiceByQuickBooksInvoiceId(qboInvoiceId, syncContext);
       synced += 1;
