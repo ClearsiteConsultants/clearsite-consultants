@@ -51,6 +51,22 @@ export class QuickBooksReconnectRequiredError extends Error {
   }
 }
 
+export class QuickBooksApiError extends Error {
+  status: number;
+  payload: unknown;
+
+  constructor(status: number, message: string, payload?: unknown) {
+    super(message);
+    this.name = "QuickBooksApiError";
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
+export function isQuickBooksNotFoundError(error: unknown): boolean {
+  return error instanceof QuickBooksApiError && (error.status === 404 || error.status === 410);
+}
+
 export function isQuickBooksReconnectRequiredError(error: unknown): error is QuickBooksReconnectRequiredError {
   if (error instanceof QuickBooksReconnectRequiredError) {
     return true;
@@ -393,7 +409,7 @@ async function throwQuickBooksApiError(connection: QuickBooksConnection, respons
     console.error("[QuickBooks API Error Detail]:", JSON.stringify(payloadRecord.Fault, null, 2));
   }
   
-  throw new Error("QuickBooks API request failed");
+  throw new QuickBooksApiError(response.status, "QuickBooks API request failed", payload);
 }
 
 export async function getFreshQuickBooksConnection(): Promise<QuickBooksConnection> {
@@ -999,6 +1015,10 @@ export function extractQuickBooksInvoiceState(invoice: Record<string, unknown>) 
     ? invoice.TxnDate.slice(0, 10)
     : null;
 
+  const dueDate = typeof invoice.DueDate === "string" && invoice.DueDate
+    ? invoice.DueDate.slice(0, 10)
+    : null;
+
   return {
     qboInvoiceId: String(invoice.Id || ""),
     qboDocNumber,
@@ -1009,6 +1029,7 @@ export function extractQuickBooksInvoiceState(invoice: Record<string, unknown>) 
       : null,
     paymentUrl,
     invoiceDate,
+    dueDate,
     invoiceTotal: total,
   };
 }

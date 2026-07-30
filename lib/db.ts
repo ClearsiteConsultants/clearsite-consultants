@@ -448,6 +448,7 @@ export async function updateInvoiceQuickBooksData(data: {
   amountPaid?: number;
   paidAt?: string | Date | null;
   invoiceDate?: string | null;
+  dueDate?: string | null;
   invoiceTotal?: number | null;
 }) {
   const result = await sql`
@@ -462,6 +463,7 @@ export async function updateInvoiceQuickBooksData(data: {
       amount_paid = COALESCE(${data.amountPaid ?? null}, amount_paid),
       paid_at = COALESCE(${data.paidAt || null}, paid_at),
       invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
+      due_date = COALESCE(${data.dueDate ?? null}, due_date),
       invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
       last_synced_at = NOW()
     WHERE id = ${data.invoiceId}
@@ -484,6 +486,7 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
   qboPaymentUrl?: string | null;
   qboDocNumber?: string | null;
   invoiceDate?: string | null;
+  dueDate?: string | null;
   invoiceTotal?: number | null;
   allowPaymentUrlClear?: boolean;
 }) {
@@ -500,6 +503,7 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
           qbo_payment_url = COALESCE(NULLIF(BTRIM(${data.qboPaymentUrl ?? null}), ''), qbo_payment_url),
           qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
           invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
+          due_date = COALESCE(${data.dueDate ?? null}, due_date),
           invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
           last_synced_at = NOW()
         WHERE qbo_invoice_id = ${data.qboInvoiceId}
@@ -514,6 +518,7 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
           qbo_payment_url = COALESCE(NULLIF(BTRIM(${data.qboPaymentUrl ?? null}), ''), qbo_payment_url),
           qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
           invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
+          due_date = COALESCE(${data.dueDate ?? null}, due_date),
           invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
           last_synced_at = NOW()
         WHERE qbo_invoice_id = ${data.qboInvoiceId}
@@ -530,6 +535,7 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
           qbo_payment_url = COALESCE(NULLIF(BTRIM(${data.qboPaymentUrl ?? null}), ''), qbo_payment_url),
           qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
           invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
+          due_date = COALESCE(${data.dueDate ?? null}, due_date),
           invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
           last_synced_at = NOW()
         WHERE qbo_invoice_id = ${data.qboInvoiceId}
@@ -544,6 +550,7 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
           qbo_payment_url = COALESCE(NULLIF(BTRIM(${data.qboPaymentUrl ?? null}), ''), qbo_payment_url),
           qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
           invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
+          due_date = COALESCE(${data.dueDate ?? null}, due_date),
           invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
           last_synced_at = NOW()
         WHERE qbo_invoice_id = ${data.qboInvoiceId}
@@ -559,6 +566,7 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
           qbo_payment_url = COALESCE(NULLIF(BTRIM(${data.qboPaymentUrl ?? null}), ''), qbo_payment_url),
           qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
           invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
+          due_date = COALESCE(${data.dueDate ?? null}, due_date),
           invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
           last_synced_at = NOW()
         WHERE qbo_invoice_id = ${data.qboInvoiceId}
@@ -573,6 +581,7 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
           qbo_payment_url = COALESCE(NULLIF(BTRIM(${data.qboPaymentUrl ?? null}), ''), qbo_payment_url),
           qbo_doc_number = COALESCE(${data.qboDocNumber ?? null}, qbo_doc_number),
           invoice_date = COALESCE(${data.invoiceDate ?? null}, invoice_date),
+          due_date = COALESCE(${data.dueDate ?? null}, due_date),
           invoice_total = COALESCE(${data.invoiceTotal ?? null}, invoice_total),
           last_synced_at = NOW()
         WHERE qbo_invoice_id = ${data.qboInvoiceId}
@@ -585,6 +594,25 @@ export async function updateInvoiceStatusByQuickBooksInvoiceId(data: {
   }
 
   return invoice;
+}
+
+export async function deleteInvoiceByQuickBooksInvoiceId(qboInvoiceId: string) {
+  const existingResult = await sql`
+    SELECT id, client_id FROM invoices WHERE qbo_invoice_id = ${qboInvoiceId}
+  `;
+  const existing = existingResult.rows[0];
+  if (!existing) return null;
+
+  await sql`
+    DELETE FROM invoices
+    WHERE qbo_invoice_id = ${qboInvoiceId}
+  `;
+
+  if (existing.client_id) {
+    await refreshClientNextInvoiceDue(String(existing.client_id));
+  }
+
+  return existing;
 }
 
 export type MissingPaymentUrlLogOrigin =

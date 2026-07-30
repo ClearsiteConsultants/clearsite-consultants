@@ -11,6 +11,7 @@ import {
   updateInvoiceStatusByQuickBooksInvoiceId,
   createInvoice,
   checkDuplicateByQboInvoiceId,
+  deleteInvoiceByQuickBooksInvoiceId,
 } from "@/lib/db";
 import {
   createQuickBooksCustomer,
@@ -20,6 +21,7 @@ import {
   findQuickBooksInvoiceByDocNumber,
   getQuickBooksInvoice,
   sendQuickBooksInvoiceEmail,
+  isQuickBooksNotFoundError,
 } from "@/lib/quickbooks";
 
 function toNumber(value: unknown) {
@@ -215,6 +217,7 @@ export async function syncInvoiceToQuickBooks(
       amountPaid: qboState.amountPaid,
       paidAt: qboState.paidAt,
       invoiceDate: qboState.invoiceDate,
+      dueDate: qboState.dueDate,
       invoiceTotal: qboState.invoiceTotal,
     });
 
@@ -247,6 +250,7 @@ export async function syncInvoiceToQuickBooks(
     paidAt: qboState.paidAt,
     qboPaymentUrl: qboState.paymentUrl,
     invoiceDate: qboState.invoiceDate,
+    dueDate: qboState.dueDate,
     invoiceTotal: qboState.invoiceTotal,
     allowPaymentUrlClear: syncContext.origin === "qbo-webhook",
   });
@@ -268,7 +272,18 @@ export async function syncInvoiceByQuickBooksInvoiceId(qboInvoiceId: string, con
     return null;
   }
 
-  const qboInvoice = await getQuickBooksInvoice(connection.realm_id, qboInvoiceId);
+  let qboInvoice;
+  try {
+    qboInvoice = await getQuickBooksInvoice(connection.realm_id, qboInvoiceId);
+  } catch (error) {
+    if (isQuickBooksNotFoundError(error)) {
+      console.warn(`[QuickBooks Sync] Invoice ${qboInvoiceId} not found in QBO. Deleting local record.`);
+      await deleteInvoiceByQuickBooksInvoiceId(qboInvoiceId);
+      return null;
+    }
+    throw error;
+  }
+
   const qboState = extractQuickBooksInvoiceState(qboInvoice);
 
   const previousInvoice = await getInvoiceByQuickBooksInvoiceId(qboState.qboInvoiceId);
@@ -283,6 +298,7 @@ export async function syncInvoiceByQuickBooksInvoiceId(qboInvoiceId: string, con
     paidAt: qboState.paidAt,
     qboPaymentUrl: qboState.paymentUrl,
     invoiceDate: qboState.invoiceDate,
+    dueDate: qboState.dueDate,
     invoiceTotal: qboState.invoiceTotal,
     allowPaymentUrlClear: syncContext.origin === "qbo-webhook",
   });
