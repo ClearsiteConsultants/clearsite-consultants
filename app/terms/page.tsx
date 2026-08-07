@@ -50,7 +50,7 @@ export default function TermsOfUse() {
               <li>Keeping your password confidential</li>
               <li>All activity that occurs under your account</li>
               <li>Notifying us immediately at{" "}
-                <a href="mailto:hello@clearsiteconsultants.com" className="text-primary underline hover:opacity-80">hello@clearsiteconsultants.com</a>{" "}
+                <a href="mailto:developersclearsite@gmail.com" className="text-primary underline hover:opacity-80">developersclearsite@gmail.com</a>{" "}
                 if you suspect unauthorized access to your account</li>
             </ul>
             <p className="text-gray-700 leading-relaxed mt-3">
@@ -141,8 +141,8 @@ export default function TermsOfUse() {
             <div className="mt-3 text-gray-700">
               <p className="font-medium">Clearsite Consultants</p>
               <p>
-                <a href="mailto:hello@clearsiteconsultants.com" className="text-primary underline hover:opacity-80">
-                  hello@clearsiteconsultants.com
+                <a href="mailto:developersclearsite@gmail.com" className="text-primary underline hover:opacity-80">
+                  developersclearsite@gmail.com
                 </a>
               </p>
             </div>

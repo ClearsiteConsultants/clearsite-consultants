@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
         await resend.emails.send({
           from: contactFromEmail,
           to: updated.email,
-          replyTo: process.env.CONTACT_TO_EMAIL || "hello@clearsiteconsultants.com",
+          replyTo: process.env.CONTACT_TO_EMAIL || "developersclearsite@gmail.com",
           subject: "Security Alert: Password Changed",
           text: `Security Alert: Your password was recently changed by an administrator. If you did not request this, please visit the following link to choose a new password immediately: ${changePasswordUrl}`,
           html: `
