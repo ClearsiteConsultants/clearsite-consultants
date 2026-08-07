@@ -30,8 +30,8 @@ const contactInfo = [
   {
     icon: Mail,
     label: "Email",
-    value: "hello@clearsiteconsultants.com",
-    href: "mailto:hello@clearsiteconsultants.com"
+    value: "developersclearsite@gmail.com",
+    href: "mailto:developersclearsite@gmail.com"
   },
   {
     icon: Clock,
@@ -250,7 +250,7 @@ export default function Contact() {
               {contactInfo.map((item) => (
                 <div key={item.label} className="flex min-w-0 items-start gap-4">
                   <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                    <item.icon className="w-6 h-6 text-primary" />
+                    <item.icon className="w-6 h-6 text-blue-600" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm text-gray-600 mb-1">{item.label}</p>

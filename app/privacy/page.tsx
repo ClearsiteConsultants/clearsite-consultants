@@ -100,7 +100,7 @@ export default function PrivacyPolicy() {
             </ul>
             <p className="text-gray-700 leading-relaxed mt-3">
               To exercise any of these rights, contact us at{" "}
-              <a href="mailto:hello@clearsiteconsultants.com" className="text-primary underline hover:opacity-80">hello@clearsiteconsultants.com</a>.
+              <a href="mailto:developersclearsite@gmail.com" className="text-primary underline hover:opacity-80">developersclearsite@gmail.com</a>.
             </p>
           </section>
 
@@ -133,8 +133,8 @@ export default function PrivacyPolicy() {
             <div className="mt-3 text-gray-700">
               <p className="font-medium">Clearsite Consultants</p>
               <p>
-                <a href="mailto:hello@clearsiteconsultants.com" className="text-primary underline hover:opacity-80">
-                  hello@clearsiteconsultants.com
+                <a href="mailto:developersclearsite@gmail.com" className="text-primary underline hover:opacity-80">
+                  developersclearsite@gmail.com
                 </a>
               </p>
             </div>

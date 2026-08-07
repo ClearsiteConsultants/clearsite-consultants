@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Mail, Phone } from "lucide-react";
 import { handleAnchorClick } from "@/lib/utils";
 
 export default function Footer() {
@@ -76,6 +77,23 @@ export default function Footer() {
               </Link>
             </div>
           </div>
+        </div>
+
+        <div className="mt-6 flex flex-col items-center justify-center gap-3 border-t border-gray-200 pt-6 sm:flex-row sm:gap-6">
+          <a
+            href="tel:+18017091872"
+            className="flex items-center gap-2 text-sm text-gray-600 transition-colors hover:text-blue-600"
+          >
+            <Phone className="h-4 w-4 text-blue-600" aria-hidden="true" />
+            <span>801-709-1872</span>
+          </a>
+          <a
+            href="mailto:developersclearsite@gmail.com"
+            className="flex items-center gap-2 text-sm text-gray-600 transition-colors hover:text-blue-600"
+          >
+            <Mail className="h-4 w-4 text-blue-600" aria-hidden="true" />
+            <span>developersclearsite@gmail.com</span>
+          </a>
         </div>
       </div>
     </footer>
