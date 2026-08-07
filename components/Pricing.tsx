@@ -33,7 +33,6 @@ const mainTiers = [
     annual: prices.basicWebsite.annual,
     features: [
       "Professional, mobile-friendly website",
-      "Optimized for Google search (SEO)",
       "Up to 5 pages",
       "Contact form included",
       "Hosting & domain guidance",
